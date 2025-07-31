@@ -1,105 +1,371 @@
-<a href="https://demo-nextjs-with-supabase.vercel.app/">
-  <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
-  <h1 align="center">Next.js and Supabase Starter Kit</h1>
-</a>
+<div align="center">
+  <img alt="VetStore Management System - Hệ thống quản lý bán lẻ thú y" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
+  <h1 align="center">VetStore Management System</h1>
+  <h2 align="center">Thú Y Thùy Trang</h2>
+</div>
 
 <p align="center">
- The fastest way to build apps with Next.js and Supabase
+ Hệ thống quản lý bán lẻ thú y chuyên nghiệp - Phát triển bởi <strong>Gia Kiệm Số</strong>
 </p>
 
 <p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#demo"><strong>Demo</strong></a> ·
-  <a href="#deploy-to-vercel"><strong>Deploy to Vercel</strong></a> ·
-  <a href="#clone-and-run-locally"><strong>Clone and run locally</strong></a> ·
-  <a href="#feedback-and-issues"><strong>Feedback and issues</strong></a>
-  <a href="#more-supabase-examples"><strong>More Examples</strong></a>
+  <a href="#overview"><strong>Tổng quan</strong></a> ·
+  <a href="#features"><strong>Tính năng</strong></a> ·
+  <a href="#tech-stack"><strong>Công nghệ</strong></a> ·
+  <a href="#project-status"><strong>Trạng thái</strong></a> ·
+  <a href="#business-modules"><strong>Modules nghiệp vụ</strong></a> ·
+  <a href="#getting-started"><strong>Bắt đầu</strong></a>
 </p>
 <br/>
 
-## Features
+## 📋 Tổng quan Project {#overview}
 
-- Works across the entire [Next.js](https://nextjs.org) stack
-  - App Router
-  - Pages Router
-  - Middleware
-  - Client
-  - Server
-  - It just works!
-- supabase-ssr. A package to configure Supabase Auth to use cookies
-- Password-based authentication block installed via the [Supabase UI Library](https://supabase.com/ui/docs/nextjs/password-based-auth)
-- Styling with [Tailwind CSS](https://tailwindcss.com)
-- Components with [shadcn/ui](https://ui.shadcn.com/)
-- Optional deployment with [Supabase Vercel Integration and Vercel deploy](#deploy-your-own)
-  - Environment variables automatically assigned to Vercel project
+### 🏢 **Thông tin Doanh nghiệp**
+- **Tên:** Thú Y Thùy Trang
+- **Ngành:** Kinh doanh thiết bị, thuốc thú y và vật tư chăn nuôi
+- **Quy mô:** Doanh nghiệp vừa và nhỏ với nhiều chi nhánh
 
-## Demo
+### 👨‍💻 **Thông tin Developer**
+- **Công ty phát triển:** Gia Kiệm Số (giakiemso.com)
+- **Developer:** Thắng Phan
+- **Email:** ericphan28@gmail.com
+- **Zalo:** 0907136029
+- **Facebook:** https://www.facebook.com/thang.phan.334/
 
-You can view a fully working demo at [demo-nextjs-with-supabase.vercel.app](https://demo-nextjs-with-supabase.vercel.app/).
+### 📊 **Dữ liệu Nghiệp vụ Thực tế**
+Project được xây dựng dựa trên dữ liệu thực từ hệ thống KiotViet với:
+- **Tổng bản ghi:** 4,134 records từ 12 file Excel
+- **Sản phẩm:** 1,049 items (thuốc thú y, vật tư, thiết bị)
+- **Khách hàng:** 397 customers (trang trại, cá nhân)
+- **Hóa đơn bán hàng:** 739 invoices
+- **Chi tiết giao dịch:** 1,407+ transaction details
+- **Nhà cung cấp:** 10+ suppliers
+- **Giao dịch tài chính:** Đầy đủ dữ liệu thu chi
 
-## Deploy to Vercel
+## 🎯 Trạng thái Project hiện tại {#project-status}
 
-Vercel deployment will guide you through creating a Supabase account and project.
+### ✅ **Đã hoàn thành (Phase 1 - Foundation)**
 
-After installation of the Supabase integration, all relevant environment variables will be assigned to the project so the deployment is fully functioning.
+#### 🏗️ **Kiến trúc & Infrastructure**
+- [x] Next.js 15 App Router với TypeScript
+- [x] Supabase Authentication & Database
+- [x] PostgreSQL schema hoàn chỉnh (13 tables)
+- [x] shadcn/ui + Tailwind CSS + Framer Motion
+- [x] Responsive design (mobile-first)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&project-name=nextjs-with-supabase&repository-name=nextjs-with-supabase&demo-title=nextjs-with-supabase&demo-description=This+starter+configures+Supabase+Auth+to+use+cookies%2C+making+the+user%27s+session+available+throughout+the+entire+Next.js+app+-+Client+Components%2C+Server+Components%2C+Route+Handlers%2C+Server+Actions+and+Middleware.&demo-url=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2F&external-id=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&demo-image=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2Fopengraph-image.png)
+#### 🔐 **Authentication System**
+- [x] Login/Register với Supabase Auth
+- [x] Protected routes với AuthWrapper
+- [x] User session management
+- [x] Auto redirect sau login thành công
+- [x] Logout functionality
 
-The above will also clone the Starter kit to your GitHub, you can clone that locally and develop locally.
+#### 🎨 **UI/UX Layout**
+- [x] **Sidebar Navigation** - Collapsible với animation
+  - Menu items: Dashboard, Bán Hàng, Khách Hàng, Sản Phẩm, Kho Hàng, NCC, Tài Chính, Báo Cáo, Chi Nhánh, Cài Đặt
+  - Submenu cho các module phức tạp
+  - Badge notifications (ví dụ: 5 cảnh báo kho hàng)
+  - Mobile responsive với overlay
+- [x] **Header Component** - Professional header
+  - Search bar (desktop/mobile)
+  - Notification dropdown (3 notifications mẫu)
+  - Messages dropdown (2 messages mẫu)  
+  - Theme switcher (Sáng/Tối/Hệ thống)
+  - Real user info với avatar initials
+  - User dropdown menu với logout
+- [x] **Dashboard Layout** - Main layout wrapper
+  - Zustand state management cho sidebar
+  - Smooth animations với Framer Motion
+  - Dark/Light theme support
 
-If you wish to just develop locally and not deploy to Vercel, [follow the steps below](#clone-and-run-locally).
+#### 📱 **Landing Page**
+- [x] **Hero Section** với thông tin Thú Y Thùy Trang
+- [x] **Features showcase** (6 tính năng chính)
+- [x] **Benefits section** (5 lợi ích)
+- [x] **Developer info** với contact details
+- [x] **Call-to-action** buttons
+- [x] **Professional footer**
+- [x] **Responsive design** cho tất cả devices
 
-## Clone and run locally
+#### 📊 **Dashboard Page**
+- [x] **Quick stats cards** (4 KPIs với dữ liệu mẫu)
+- [x] **Recent orders table** (4 đơn hàng gần đây)
+- [x] **Low stock alerts** (4 sản phẩm sắp hết)
+- [x] **Status badges** và **progress indicators**
+- [x] **Interactive elements** và hover effects
 
-1. You'll first need a Supabase project which can be made [via the Supabase dashboard](https://database.new)
+### 🔄 **Đang phát triển (Phase 2 - Core Business)**
 
-2. Create a Next.js app using the Supabase Starter template npx command
+#### 📦 **Quản lý Sản phẩm** [In Progress]
+- [ ] Product listing với pagination
+- [ ] Product categories management
+- [ ] Units management  
+- [ ] Stock tracking
+- [ ] Product search & filters
 
-   ```bash
-   npx create-next-app --example with-supabase with-supabase-app
-   ```
+#### 👥 **Quản lý Khách hàng** [Planning]
+- [ ] Customer database
+- [ ] Customer types & classification
+- [ ] Purchase history
+- [ ] Debt tracking
+- [ ] Customer analytics
 
-   ```bash
-   yarn create next-app --example with-supabase with-supabase-app
-   ```
+#### 🛒 **Quản lý Bán hàng** [Planning]
+- [ ] Invoice creation
+- [ ] Order processing
+- [ ] Return handling
+- [ ] Payment tracking
 
-   ```bash
-   pnpm create next-app --example with-supabase with-supabase-app
-   ```
+#### 🏪 **Quản lý Kho hàng** [Planning]
+- [ ] Inventory management
+- [ ] Stock alerts system
+- [ ] Inbound/Outbound tracking
+- [ ] Stock counting
 
-3. Use `cd` to change into the app's directory
+### 📋 **Kế hoạch (Phase 3 - Advanced Features)**
+- [ ] Báo cáo & Analytics
+- [ ] Tài chính & Thu chi
+- [ ] Nhà cung cấp management
+- [ ] Multi-branch support
+- [ ] Export/Import functions
+- [ ] Backup & Restore
 
-   ```bash
-   cd with-supabase-app
-   ```
+## 🗃️ Database Schema {#database-schema}
 
-4. Rename `.env.example` to `.env.local` and update the following:
+### **13 Tables chính đã implement:**
 
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=[INSERT SUPABASE PROJECT API ANON KEY]
-   ```
+```sql
+-- Core Master Data
+1. branches (Chi nhánh)
+2. customer_types (Loại khách hàng) 
+3. customers (Khách hàng - với debt tracking)
+4. suppliers (Nhà cung cấp)
+5. product_categories (Danh mục sản phẩm)
+6. products (Sản phẩm - với inventory management)
+7. units (Đơn vị tính)
+8. product_units (Quy đổi đơn vị)
 
-   Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` can be found in [your Supabase project's API settings](https://supabase.com/dashboard/project/_?showConnect=true)
+-- Transaction Documents  
+9. invoices (Hóa đơn bán hàng)
+10. invoice_details (Chi tiết hóa đơn)
+11. purchase_orders (Đơn đặt hàng)
+12. financial_transactions (Giao dịch tài chính)
+13. sales_channels (Kênh bán hàng)
+```
 
-5. You can now run the Next.js local development server:
+### **Advanced Functions đã có:**
+- `get_financial_summary(date_from, date_to)` - Báo cáo tài chính tổng hợp
+- `get_inventory_alerts()` - Cảnh báo tồn kho thông minh
+- `dashboard_quick_stats` VIEW - Thống kê nhanh dashboard
 
-   ```bash
-   npm run dev
-   ```
+## ✨ Tính năng đã implement {#features}
 
-   The starter kit should now be running on [localhost:3000](http://localhost:3000/).
+### 🏪 **Dashboard & Navigation**
+- **Real-time dashboard** với live stats
+- **Sidebar navigation** với submenu động
+- **Header** với search, notifications, user profile
+- **Theme switching** (Light/Dark/System) bằng tiếng Việt
+- **Responsive design** hoạt động mượt mà trên mobile
 
-6. This template comes with the default shadcn/ui style initialized. If you instead want other ui.shadcn styles, delete `components.json` and [re-install shadcn/ui](https://ui.shadcn.com/docs/installation/next)
+### 🔐 **Authentication & Security**
+- **Supabase Auth** với email/password
+- **Protected routes** với AuthWrapper component
+- **Session persistence** across browser tabs
+- **Auto redirect** sau login/logout
+- **Real user info** hiển thị trong header
 
-> Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
+### 🎨 **UI/UX Excellence**
+- **Modern design** với glass morphism
+- **Smooth animations** với Framer Motion
+- **Professional color scheme** (Blue primary)
+- **Consistent typography** (Inter font family)
+- **Hover effects** và micro-interactions
+- **Loading states** và skeleton screens
 
-## Feedback and issues
+### 📊 **Data Visualization Ready**
+- **Chart components** structure
+- **KPI cards** với trend indicators
+- **Status badges** system
+- **Progress bars** và completion states
+- **Alert systems** với priority levels
 
-Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).
+## 🛠️ Tech Stack {#tech-stack}
 
-## More Supabase examples
+### **Frontend Framework**
+- **Next.js 15** - App Router với Server/Client Components
+- **TypeScript** - Type safety toàn bộ codebase
+- **React 19** - Latest features và performance
 
-- [Next.js Subscription Payments Starter](https://github.com/vercel/nextjs-subscription-payments)
-- [Cookie-based Auth and the Next.js 13 App Router (free course)](https://youtube.com/playlist?list=PL5S4mPUpp4OtMhpnp93EFSo42iQ40XjbF)
-- [Supabase Auth and the Next.js App Router](https://github.com/supabase/supabase/tree/master/examples/auth/nextjs)
+### **UI & Styling**  
+- **Tailwind CSS** - Utility-first styling
+- **shadcn/ui** - High-quality component library
+- **Radix UI** - Headless accessible components
+- **Framer Motion** - Advanced animations
+- **Lucide React** - Beautiful icon library
+
+### **Backend & Database**
+- **Supabase** - PostgreSQL + Auth + Real-time
+- **Row Level Security** - Database-level permissions
+- **Edge Functions** ready for advanced logic
+
+### **State Management**
+- **Zustand** - Lightweight state management
+- **React Hook Form** ready for complex forms
+- **Zod** ready for schema validation
+
+### **Development Tools**
+- **ESLint + Prettier** - Code quality
+- **TypeScript** strict mode
+- **Hot reload** development experience
+
+## 🏗️ Kiến trúc Project {#architecture}
+
+```
+thuyle06-fulldata/
+├── app/                    # Next.js App Router
+│   ├── auth/              # Authentication pages
+│   │   ├── login/         ✅ Login form với redirect
+│   │   ├── sign-up/       ✅ Registration form
+│   │   ├── confirm/       ✅ Email confirmation
+│   │   └── error/         ✅ Error handling
+│   ├── dashboard/         ✅ Main dashboard page
+│   ├── layout.tsx         ✅ Root layout
+│   └── page.tsx           ✅ Landing page (Thú Y Thùy Trang)
+├── components/            # Reusable components
+│   ├── ui/               ✅ shadcn/ui base components
+│   ├── layout/           ✅ Layout components
+│   │   ├── sidebar.tsx   ✅ Collapsible sidebar navigation
+│   │   ├── header.tsx    ✅ Professional header
+│   │   └── dashboard-layout.tsx ✅ Main layout wrapper
+│   ├── auth-wrapper.tsx  ✅ Route protection
+│   ├── client-auth-button.tsx ✅ Client-side auth
+│   └── theme-switcher.tsx ✅ Vietnamese theme names
+├── lib/                   # Utilities & configurations
+│   ├── supabase/         ✅ Supabase client/server setup
+│   ├── store.ts          ✅ Zustand sidebar state
+│   └── utils.ts          ✅ Utility functions
+├── json-output/          📊 Real business data from KiotViet
+│   ├── 01-master-data/   📊 Products, Customers, Suppliers
+│   ├── 02-documents/     📊 Invoices, Orders, Transactions
+│   └── 03-details/       📊 Transaction line items
+├── backup_thuyle_*.sql   📊 Complete PostgreSQL schema
+└── README.md             📚 This comprehensive documentation
+```
+
+## 🚀 Getting Started {#getting-started}
+
+### **Yêu cầu hệ thống:**
+- Node.js 18+ 
+- npm/yarn/pnpm
+- Supabase account
+
+### **Installation:**
+
+```bash
+# Clone repository
+git clone [repository-url]
+cd thuyle06-fulldata
+
+# Install dependencies  
+npm install
+
+# Setup environment
+cp .env.example .env.local
+# Cập nhật SUPABASE_URL và SUPABASE_ANON_KEY
+
+# Run development server
+npm run dev
+```
+
+### **Workflow sử dụng:**
+1. **Truy cập:** http://localhost:3000
+2. **Landing page:** Giới thiệu về Thú Y Thùy Trang
+3. **Đăng ký/Đăng nhập:** `/auth/sign-up` hoặc `/auth/login`
+4. **Dashboard:** Tự động redirect sau login thành công
+5. **Navigation:** Sử dụng sidebar để điều hướng modules
+
+## 📈 Roadmap Development
+
+### **Phase 2 - Core Business (Q1 2025)**
+- [ ] **Product Management** - CRUD sản phẩm với categories
+- [ ] **Customer Management** - Database khách hàng với history
+- [ ] **Basic Sales** - Tạo hóa đơn đơn giản
+- [ ] **Inventory Tracking** - Theo dõi tồn kho basic
+
+### **Phase 3 - Advanced Features (Q2 2025)**  
+- [ ] **Financial Reports** - Implement các function SQL có sẵn
+- [ ] **Purchase Orders** - Quản lý đặt hàng từ NCC
+- [ ] **Multi-branch** - Support nhiều chi nhánh
+- [ ] **Advanced Analytics** - Charts và insights
+
+### **Phase 4 - Enterprise Features (Q3 2025)**
+- [ ] **Mobile App** - React Native companion
+- [ ] **API Integration** - Tích hợp với accounting systems
+- [ ] **Backup/Restore** - Data management tools
+- [ ] **Multi-tenant** - Hỗ trợ nhiều doanh nghiệp
+
+## 💡 Key Implementation Notes
+
+### **Authentication Flow:**
+```typescript
+// Login success → redirect to /dashboard
+// Protected routes use AuthWrapper component
+// Real user info displayed in header
+// Logout → redirect to /auth/login
+```
+
+### **State Management:**
+```typescript
+// Zustand store for sidebar state (open/closed, mobile detection)
+// User state managed by Supabase auth context
+// Theme state managed by next-themes
+```
+
+### **Database Connection:**
+```typescript
+// Server Components: use createClient from @/lib/supabase/server  
+// Client Components: use createClient from @/lib/supabase/client
+// Real-time subscriptions ready for live updates
+```
+
+### **Responsive Design:**
+```css
+/* Mobile-first approach */
+/* Sidebar: full overlay on mobile, collapsible on desktop */
+/* Header: simplified on mobile, full features on desktop */
+/* Dashboard: stacked cards on mobile, grid on desktop */
+```
+
+## 🎯 Business Logic Implementation Ready
+
+### **Modules nghiệp vụ đã chuẩn bị:**
+1. **Bán hàng** - Invoice creation, order processing
+2. **Khách hàng** - CRM với debt tracking  
+3. **Sản phẩm** - Catalog với categories & units
+4. **Kho hàng** - Inventory với alerts system
+5. **Tài chính** - Financial tracking & reporting
+6. **Báo cáo** - Analytics với charts
+7. **Nhà cung cấp** - Supplier management
+8. **Chi nhánh** - Multi-location support
+
+### **SQL Functions sẵn sàng:**
+- Financial summary với profit calculation
+- Inventory alerts với thresholds  
+- Dashboard quick stats với real-time data
+- Customer analytics với purchase history
+
+---
+
+## 📞 Support & Contact
+
+**Developer:** Thắng Phan - Gia Kiệm Số  
+**Email:** ericphan28@gmail.com  
+**Zalo:** 0907136029  
+**Website:** giakiemso.com  
+**Facebook:** https://www.facebook.com/thang.phan.334/
+
+---
+
+<p align="center">
+  <strong>🏥 Được xây dựng đặc biệt cho ngành Thú Y với hiểu biết sâu sắc về quy trình kinh doanh 🐾</strong>
+</p>

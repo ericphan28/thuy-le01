@@ -1,0 +1,400 @@
+{
+  "metadata": {
+    "fileName": "DanhSachKiemKho_KV28072025-105927-215.xlsx",
+    "sheetName": "DanhSachKiemKho_KV28072025-1059",
+    "generatedAt": "2025-07-29T05:30:58.534Z",
+    "rowCount": 28,
+    "columnCount": 10,
+    "source": "KiotViet Export - DanhSachKiemKho_KV28072025-105927-215"
+  },
+  "schema": {
+    "Mã kiểm kho": {
+      "type": "string",
+      "nullable": false,
+      "description": "string - Mã định danh KiotViet"
+    },
+    "Thời gian": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Dữ liệu Thời gian"
+    },
+    "Ngày cân bằng": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Ngày giờ"
+    },
+    "SL thực tế": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Số lượng"
+    },
+    "Tổng thực tế": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Dữ liệu Tổng thực tế"
+    },
+    "Tổng chênh lệch": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Dữ liệu Tổng chênh lệch"
+    },
+    "SL lệch tăng": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Số lượng"
+    },
+    "SL lệch giảm": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Số lượng"
+    },
+    "Ghi chú": {
+      "type": "string",
+      "nullable": false,
+      "description": "string - Ghi chú/Mô tả"
+    },
+    "Trạng thái": {
+      "type": "string",
+      "nullable": false,
+      "description": "string - Trạng thái"
+    }
+  },
+  "data": [
+    {
+      "Mã kiểm kho": "KK000591",
+      "Thời gian": 45863.67080130787,
+      "Ngày cân bằng": 45863.67080119213,
+      "SL thực tế": 0,
+      "Tổng thực tế": 0,
+      "Tổng chênh lệch": -1,
+      "SL lệch tăng": 0,
+      "SL lệch giảm": -1,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi xóa hàng hóa: SP000159",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000590",
+      "Thời gian": 45863.670308252316,
+      "Ngày cân bằng": 45863.670308217595,
+      "SL thực tế": 17,
+      "Tổng thực tế": 0,
+      "Tổng chênh lệch": 20,
+      "SL lệch tăng": 20,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000679",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000589",
+      "Thời gian": 45863.67002986111,
+      "Ngày cân bằng": 45863.67002982639,
+      "SL thực tế": 0,
+      "Tổng thực tế": 0,
+      "Tổng chênh lệch": 4,
+      "SL lệch tăng": 4,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi xóa hàng hóa: SP000389",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000588",
+      "Thời gian": 45863.6698258912,
+      "Ngày cân bằng": 45863.66982581018,
+      "SL thực tế": 0,
+      "Tổng thực tế": 0,
+      "Tổng chênh lệch": 1,
+      "SL lệch tăng": 1,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi xóa hàng hóa: SP000420",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000587",
+      "Thời gian": 45863.6695278125,
+      "Ngày cân bằng": 45863.669527743055,
+      "SL thực tế": 0,
+      "Tổng thực tế": 0,
+      "Tổng chênh lệch": 1,
+      "SL lệch tăng": 1,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi xóa hàng hóa: SP000426",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000586",
+      "Thời gian": 45863.669376736114,
+      "Ngày cân bằng": 45863.669376655096,
+      "SL thực tế": 0,
+      "Tổng thực tế": 0,
+      "Tổng chênh lệch": 1,
+      "SL lệch tăng": 1,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi xóa hàng hóa: SP000616",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000585",
+      "Thời gian": 45863.669253506945,
+      "Ngày cân bằng": 45863.669253472224,
+      "SL thực tế": 0,
+      "Tổng thực tế": 0,
+      "Tổng chênh lệch": 1,
+      "SL lệch tăng": 1,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi xóa hàng hóa: SP000670",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000584",
+      "Thời gian": 45863.66907457176,
+      "Ngày cân bằng": 45863.66907445602,
+      "SL thực tế": 0,
+      "Tổng thực tế": 0,
+      "Tổng chênh lệch": 5,
+      "SL lệch tăng": 5,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi xóa hàng hóa: SP000016",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000583",
+      "Thời gian": 45863.6685834838,
+      "Ngày cân bằng": 45863.66858341435,
+      "SL thực tế": 19,
+      "Tổng thực tế": 8702000,
+      "Tổng chênh lệch": -1,
+      "SL lệch tăng": 0,
+      "SL lệch giảm": -1,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000484",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000582",
+      "Thời gian": 45863.50028920139,
+      "Ngày cân bằng": 45863.50028915509,
+      "SL thực tế": 7,
+      "Tổng thực tế": 269500,
+      "Tổng chênh lệch": -4,
+      "SL lệch tăng": 0,
+      "SL lệch giảm": -4,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000414",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000581",
+      "Thời gian": 45863.500002546294,
+      "Ngày cân bằng": 45863.500002465276,
+      "SL thực tế": 4,
+      "Tổng thực tế": 260000,
+      "Tổng chênh lệch": 4,
+      "SL lệch tăng": 4,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000303",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000580",
+      "Thời gian": 45863.49967943287,
+      "Ngày cân bằng": 45863.49967936343,
+      "SL thực tế": 0,
+      "Tổng thực tế": 0,
+      "Tổng chênh lệch": 7,
+      "SL lệch tăng": 7,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi xóa hàng hóa: SP000020",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000579",
+      "Thời gian": 45863.49825471065,
+      "Ngày cân bằng": 45863.49825459491,
+      "SL thực tế": 19,
+      "Tổng thực tế": 6935000,
+      "Tổng chênh lệch": 1,
+      "SL lệch tăng": 1,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000248",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000578",
+      "Thời gian": 45863.49754892361,
+      "Ngày cân bằng": 45863.49754887731,
+      "SL thực tế": 13,
+      "Tổng thực tế": 3900000,
+      "Tổng chênh lệch": -2,
+      "SL lệch tăng": 0,
+      "SL lệch giảm": -2,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000291",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000577",
+      "Thời gian": 45863.49717311343,
+      "Ngày cân bằng": 45863.49717306713,
+      "SL thực tế": 42,
+      "Tổng thực tế": 6318757,
+      "Tổng chênh lệch": -1,
+      "SL lệch tăng": 0,
+      "SL lệch giảm": -1,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000376",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000576",
+      "Thời gian": 45863.49696747685,
+      "Ngày cân bằng": 45863.49696736111,
+      "SL thực tế": 35,
+      "Tổng thực tế": 10080000,
+      "Tổng chênh lệch": 6,
+      "SL lệch tăng": 6,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP00006",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000575",
+      "Thời gian": 45863.49531975694,
+      "Ngày cân bằng": 45863.49531967592,
+      "SL thực tế": 7,
+      "Tổng thực tế": 5285000,
+      "Tổng chênh lệch": 2,
+      "SL lệch tăng": 2,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000318",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000574",
+      "Thời gian": 45863.4950621875,
+      "Ngày cân bằng": 45863.49506203704,
+      "SL thực tế": 162,
+      "Tổng thực tế": 5466000,
+      "Tổng chênh lệch": 1,
+      "SL lệch tăng": 1,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000189",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000573",
+      "Thời gian": 45863.49456342593,
+      "Ngày cân bằng": 45863.49456334491,
+      "SL thực tế": 48,
+      "Tổng thực tế": 16224000,
+      "Tổng chênh lệch": -3,
+      "SL lệch tăng": 0,
+      "SL lệch giảm": -3,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000637",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000572",
+      "Thời gian": 45863.49275686342,
+      "Ngày cân bằng": 45863.492756747684,
+      "SL thực tế": 85,
+      "Tổng thực tế": 13770000,
+      "Tổng chênh lệch": 2,
+      "SL lệch tăng": 2,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000049",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000571",
+      "Thời gian": 45863.49260949074,
+      "Ngày cân bằng": 45863.49260945602,
+      "SL thực tế": 9,
+      "Tổng thực tế": 1525500,
+      "Tổng chênh lệch": -1,
+      "SL lệch tăng": 0,
+      "SL lệch giảm": -1,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000221",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000570",
+      "Thời gian": 45863.490587962966,
+      "Ngày cân bằng": 45863.49058792824,
+      "SL thực tế": 33,
+      "Tổng thực tế": 17985000,
+      "Tổng chênh lệch": 3,
+      "SL lệch tăng": 3,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000195",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000569",
+      "Thời gian": 45863.48956623842,
+      "Ngày cân bằng": 45863.48956605324,
+      "SL thực tế": 4,
+      "Tổng thực tế": 940000,
+      "Tổng chênh lệch": 3,
+      "SL lệch tăng": 3,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000194",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000568",
+      "Thời gian": 45863.489255671295,
+      "Ngày cân bằng": 45863.48925520833,
+      "SL thực tế": 10,
+      "Tổng thực tế": 3400000,
+      "Tổng chênh lệch": -2,
+      "SL lệch tăng": 0,
+      "SL lệch giảm": -2,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000110",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000567",
+      "Thời gian": 45850.46211793982,
+      "Ngày cân bằng": 45850.46211770833,
+      "SL thực tế": 118,
+      "Tổng thực tế": 199324,
+      "Tổng chênh lệch": -11,
+      "SL lệch tăng": 0,
+      "SL lệch giảm": -11,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000422",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000566",
+      "Thời gian": 45850.46193827546,
+      "Ngày cân bằng": 45850.461938229164,
+      "SL thực tế": 0,
+      "Tổng thực tế": 0,
+      "Tổng chênh lệch": -9,
+      "SL lệch tăng": 0,
+      "SL lệch giảm": -9,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000134",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000565",
+      "Thời gian": 45850.46178391204,
+      "Ngày cân bằng": 45850.461783831015,
+      "SL thực tế": 79,
+      "Tổng thực tế": 67940000,
+      "Tổng chênh lệch": 2,
+      "SL lệch tăng": 2,
+      "SL lệch giảm": 0,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000223",
+      "Trạng thái": "Đã cân bằng kho"
+    },
+    {
+      "Mã kiểm kho": "KK000564",
+      "Thời gian": 45850.461594872686,
+      "Ngày cân bằng": 45850.46159479167,
+      "SL thực tế": 14,
+      "Tổng thực tế": 13580000,
+      "Tổng chênh lệch": -2,
+      "SL lệch tăng": 0,
+      "SL lệch giảm": -2,
+      "Ghi chú": "Phiếu kiểm kho được tạo tự động khi cập nhật Hàng hóa:SP000224",
+      "Trạng thái": "Đã cân bằng kho"
+    }
+  ]
+}

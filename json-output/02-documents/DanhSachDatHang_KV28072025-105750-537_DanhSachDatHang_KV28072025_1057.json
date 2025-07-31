@@ -1,0 +1,724 @@
+{
+  "metadata": {
+    "fileName": "DanhSachDatHang_KV28072025-105750-537.xlsx",
+    "sheetName": "DanhSachDatHang_KV28072025-1057",
+    "generatedAt": "2025-07-29T05:30:57.987Z",
+    "rowCount": 85,
+    "columnCount": 6,
+    "source": "KiotViet Export - DanhSachDatHang_KV28072025-105750-537"
+  },
+  "schema": {
+    "Mã đặt hàng": {
+      "type": "string",
+      "nullable": false,
+      "description": "string - Mã định danh KiotViet"
+    },
+    "Thời gian": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Dữ liệu Thời gian"
+    },
+    "Khách hàng": {
+      "type": "string",
+      "nullable": false,
+      "description": "string - Thông tin khách hàng"
+    },
+    "Khách cần trả": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Dữ liệu Khách cần trả"
+    },
+    "Khách đã trả": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Dữ liệu Khách đã trả"
+    },
+    "Trạng thái": {
+      "type": "string",
+      "nullable": false,
+      "description": "string - Trạng thái"
+    }
+  },
+  "data": [
+    {
+      "Mã đặt hàng": "DH000947",
+      "Thời gian": 45866.436429166664,
+      "Khách hàng": "CHỊ TRINH - VĨNH CỬU 4K",
+      "Khách cần trả": 5270000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Phiếu tạm"
+    },
+    {
+      "Mã đặt hàng": "DH000946",
+      "Thời gian": 45866.31520204861,
+      "Khách hàng": "CÔ TUYẾT THU - PHÚ CƯỜNG 11K",
+      "Khách cần trả": 14760000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000945",
+      "Thời gian": 45865.61466493055,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Khách cần trả": 180000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000944",
+      "Thời gian": 45865.383705671295,
+      "Khách hàng": "ANH PHONG - BÀU SẬY",
+      "Khách cần trả": 3600000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000943",
+      "Thời gian": 45865.33195891204,
+      "Khách hàng": "ANH CU - TAM HOÀNG HƯNG LỘC",
+      "Khách cần trả": 3840000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000942",
+      "Thời gian": 45865.33117005787,
+      "Khách hàng": "ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI",
+      "Khách cần trả": 4520000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000941",
+      "Thời gian": 45864.69985135417,
+      "Khách hàng": "ANH NGHĨA - SOKLU",
+      "Khách cần trả": 4260000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000940",
+      "Thời gian": 45864.69890818287,
+      "Khách hàng": "ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI",
+      "Khách cần trả": 6800000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000939",
+      "Thời gian": 45864.318758298614,
+      "Khách hàng": "ANH THỨC - TAM HOÀNG",
+      "Khách cần trả": 1600000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000938",
+      "Thời gian": 45864.28790859954,
+      "Khách hàng": "ĐINH QUỐC TUẤN",
+      "Khách cần trả": 500000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000937",
+      "Thời gian": 45864.27824424768,
+      "Khách hàng": "CHỊ QUY - BÌNH DƯƠNG",
+      "Khách cần trả": 9400000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000936",
+      "Thời gian": 45863.59555586806,
+      "Khách hàng": "CÔ LAN ( TUẤN) - TAM HOÀNG",
+      "Khách cần trả": 1980000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000935",
+      "Thời gian": 45861.46432326389,
+      "Khách hàng": "ANH KHÔI",
+      "Khách cần trả": 880000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000934",
+      "Thời gian": 45860.277283414354,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Khách cần trả": 6330000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000933",
+      "Thời gian": 45859.66574768518,
+      "Khách hàng": "CHÚ CẦN - GÀ ĐẺ - NINH PHÁT",
+      "Khách cần trả": 3600000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000932",
+      "Thời gian": 45859.3541619213,
+      "Khách hàng": "THÚ Y ĐÌNH HIỀN",
+      "Khách cần trả": 4900000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000930",
+      "Thời gian": 45857.641202893516,
+      "Khách hàng": "ANH HÙNG - BỘ - TAM HOÀNG",
+      "Khách cần trả": 2010000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000929",
+      "Thời gian": 45857.409743634256,
+      "Khách hàng": "ANH TÂM (CÔNG) LÔ MỚI",
+      "Khách cần trả": 4760000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000928",
+      "Thời gian": 45856.66204440972,
+      "Khách hàng": "ĐẠI LÝ TIÊN PHÚC",
+      "Khách cần trả": 11840000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000927",
+      "Thời gian": 45856.62842149306,
+      "Khách hàng": "CHÚ PHÁT - DỐC MƠ",
+      "Khách cần trả": 440000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000926",
+      "Thời gian": 45856.46644849537,
+      "Khách hàng": "CÔ LAN ( TUẤN) - TAM HOÀNG",
+      "Khách cần trả": 3640000,
+      "Khách đã trả": 3640000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000925",
+      "Thời gian": 45856.46459795139,
+      "Khách hàng": "CHỊ LOAN ( ĐỊNH)",
+      "Khách cần trả": 7800000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000924",
+      "Thời gian": 45856.460510219906,
+      "Khách hàng": "CHỊ THÚY - BƯU ĐIỆN",
+      "Khách cần trả": 0,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000923",
+      "Thời gian": 45856.459614085645,
+      "Khách hàng": "CHỊ THÚY - BƯU ĐIỆN",
+      "Khách cần trả": 9500000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000922",
+      "Thời gian": 45856.32770524306,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Khách cần trả": 3230000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000921",
+      "Thời gian": 45855.3764846875,
+      "Khách hàng": "NHUNG VIETVET",
+      "Khách cần trả": 6570000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000920",
+      "Thời gian": 45855.27202311342,
+      "Khách hàng": "EM SƠN - ECOVET",
+      "Khách cần trả": 2550000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000919",
+      "Thời gian": 45854.72491646991,
+      "Khách hàng": "ANH TÈO - VÔ NHIỄM",
+      "Khách cần trả": 3700000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000918",
+      "Thời gian": 45854.45583634259,
+      "Khách hàng": "CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI",
+      "Khách cần trả": 3050000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000917",
+      "Thời gian": 45854.45403533565,
+      "Khách hàng": "CÔ TUYẾT THU - PHÚ CƯỜNG 11K",
+      "Khách cần trả": 5630000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000916",
+      "Thời gian": 45854.44026079861,
+      "Khách hàng": "TRINH - HIPPRA",
+      "Khách cần trả": 7350000,
+      "Khách đã trả": 7350000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000915",
+      "Thời gian": 45854.40621797454,
+      "Khách hàng": "KHÁNH EMIVET",
+      "Khách cần trả": 2240000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000914",
+      "Thời gian": 45854.343201041665,
+      "Khách hàng": "ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI",
+      "Khách cần trả": 12920000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000913",
+      "Thời gian": 45854.29818888889,
+      "Khách hàng": "TRUNG - BƯU ĐIỆN - LÔ MỚI",
+      "Khách cần trả": 2520000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000912",
+      "Thời gian": 45853.71621917824,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Khách cần trả": 3405000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000911",
+      "Thời gian": 45853.65217623843,
+      "Khách hàng": "TÚ GÀ TA",
+      "Khách cần trả": 440000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000910",
+      "Thời gian": 45853.63239579861,
+      "Khách hàng": "CHỊ QUY - BÌNH DƯƠNG",
+      "Khách cần trả": 1400000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000909",
+      "Thời gian": 45853.44584637731,
+      "Khách hàng": "CHÚ HUỲNH - XÃ LỘ 25",
+      "Khách cần trả": 1200000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000908",
+      "Thời gian": 45853.39331431713,
+      "Khách hàng": "EM HOÀNG AGRIVIET",
+      "Khách cần trả": 8325000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000907",
+      "Thời gian": 45853.35601724537,
+      "Khách hàng": "ANH HIẾU - DÊ",
+      "Khách cần trả": 1600000,
+      "Khách đã trả": 1600000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000906",
+      "Thời gian": 45853.28208182871,
+      "Khách hàng": "ANH KHÔI",
+      "Khách cần trả": 7620000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000905",
+      "Thời gian": 45852.67253873843,
+      "Khách hàng": "TRẠI GÀ ĐẺ - LONG THÀNH",
+      "Khách cần trả": 1250000,
+      "Khách đã trả": 1250000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000904",
+      "Thời gian": 45852.598291979164,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Khách cần trả": 15600000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000903",
+      "Thời gian": 45852.59634753472,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Khách cần trả": 15200000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000902",
+      "Thời gian": 45850.71251736111,
+      "Khách hàng": "ĐẠI LÝ TUẤN PHÁT",
+      "Khách cần trả": 6480000,
+      "Khách đã trả": 6480000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000901",
+      "Thời gian": 45850.28847704861,
+      "Khách hàng": "CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI",
+      "Khách cần trả": 1200000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000900",
+      "Thời gian": 45849.35050084491,
+      "Khách hàng": "CÔ TUYẾT THU - PHÚ CƯỜNG 11K",
+      "Khách cần trả": 7150000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000899",
+      "Thời gian": 45849.34988194444,
+      "Khách hàng": "CÔ TUYẾT THU - ANH LỘC",
+      "Khách cần trả": 3650000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000898",
+      "Thời gian": 45848.60538703704,
+      "Khách hàng": "TÂM UNITEK",
+      "Khách cần trả": 12300000,
+      "Khách đã trả": 12300000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000897",
+      "Thời gian": 45848.596756597224,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Khách cần trả": 2360000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000895",
+      "Thời gian": 45847.43138133102,
+      "Khách hàng": "NHUNG VIETVET",
+      "Khách cần trả": 16200000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000894",
+      "Thời gian": 45846.64968368055,
+      "Khách hàng": "LONG - BIÊN HOÀ 2",
+      "Khách cần trả": 28200000,
+      "Khách đã trả": 28200000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000893",
+      "Thời gian": 45846.616396412035,
+      "Khách hàng": "CÔ BÌNH - AN LỘC",
+      "Khách cần trả": 6450000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000892",
+      "Thời gian": 45846.379816747685,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Khách cần trả": 1720000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000891",
+      "Thời gian": 45846.35176423611,
+      "Khách hàng": "CHỊ QUYÊN - VỊT",
+      "Khách cần trả": 1000000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000890",
+      "Thời gian": 45846.31916184028,
+      "Khách hàng": "CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K",
+      "Khách cần trả": 2640000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000889",
+      "Thời gian": 45846.28206322917,
+      "Khách hàng": "TÂM UNITEK",
+      "Khách cần trả": 7800000,
+      "Khách đã trả": 8100000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000888",
+      "Thời gian": 45845.70919768519,
+      "Khách hàng": "ĐẠI LÝ TUẤN PHÁT",
+      "Khách cần trả": 2750000,
+      "Khách đã trả": 2750000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000887",
+      "Thời gian": 45845.63298295139,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Khách cần trả": 2000000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000886",
+      "Thời gian": 45845.61087164352,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Khách cần trả": 490000,
+      "Khách đã trả": 490000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000885",
+      "Thời gian": 45845.44808209491,
+      "Khách hàng": "ANH CHÍNH - VÔ NHIỄM",
+      "Khách cần trả": 4100000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000884",
+      "Thời gian": 45845.294745914354,
+      "Khách hàng": "ANH HUY - GÀ - ĐỨC HUY",
+      "Khách cần trả": 3810000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000883",
+      "Thời gian": 45843.67949447917,
+      "Khách hàng": "ANH TRUYỀN  - TAM HOÀNG - GIA PHÁT 1",
+      "Khách cần trả": 2400000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000882",
+      "Thời gian": 45843.61474521991,
+      "Khách hàng": "CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI",
+      "Khách cần trả": 3250000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000881",
+      "Thời gian": 45843.61395204861,
+      "Khách hàng": "CÔ NGA VỊT - SUỐI NHO",
+      "Khách cần trả": 4100000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000880",
+      "Thời gian": 45843.37012291667,
+      "Khách hàng": "ANH HIẾU - DÊ",
+      "Khách cần trả": 550000,
+      "Khách đã trả": 550000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000879",
+      "Thời gian": 45843.33506230324,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Khách cần trả": 3500000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000878",
+      "Thời gian": 45842.731658530094,
+      "Khách hàng": "CHÚ CẦN - GÀ ĐẺ - NINH PHÁT",
+      "Khách cần trả": 1380000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000877",
+      "Thời gian": 45842.72855003472,
+      "Khách hàng": "CHỊ HƯƠNG-THÀNH AN",
+      "Khách cần trả": 1190000,
+      "Khách đã trả": 1190000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000876",
+      "Thời gian": 45842.45576600695,
+      "Khách hàng": "ANH HIẾU - DÊ",
+      "Khách cần trả": 2950000,
+      "Khách đã trả": 840000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000875",
+      "Thời gian": 45842.44694517361,
+      "Khách hàng": "XUÂN ( THUÊ NGÁT)",
+      "Khách cần trả": 3150000,
+      "Khách đã trả": 150000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000874",
+      "Thời gian": 45842.327225,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Khách cần trả": 1080000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000873",
+      "Thời gian": 45842.27133498843,
+      "Khách hàng": "ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2",
+      "Khách cần trả": 7750000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000872",
+      "Thời gian": 45841.74136704861,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA",
+      "Khách cần trả": 1080000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000871",
+      "Thời gian": 45841.6015128125,
+      "Khách hàng": "CÔ NGA VỊT - SUỐI NHO",
+      "Khách cần trả": 5500000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000870",
+      "Thời gian": 45841.41857202546,
+      "Khách hàng": "ANH HIẾU - DÊ",
+      "Khách cần trả": 1320000,
+      "Khách đã trả": 1320000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000869",
+      "Thời gian": 45841.33178190972,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Khách cần trả": 9170000,
+      "Khách đã trả": 9170000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000868",
+      "Thời gian": 45840.667875196756,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Khách cần trả": 900000,
+      "Khách đã trả": 900000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000867",
+      "Thời gian": 45840.615128935184,
+      "Khách hàng": "ANH HIẾU - DÊ",
+      "Khách cần trả": 1100000,
+      "Khách đã trả": 1100000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000866",
+      "Thời gian": 45840.4183628125,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Khách cần trả": 3450000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000865",
+      "Thời gian": 45840.37296327546,
+      "Khách hàng": "ANH HÙNG - BỘ - TAM HOÀNG",
+      "Khách cần trả": 1130000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000864",
+      "Thời gian": 45840.351384918984,
+      "Khách hàng": "XUÂN ( THUÊ NGÁT)",
+      "Khách cần trả": 0,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000863",
+      "Thời gian": 45840.35093530093,
+      "Khách hàng": "XUÂN ( THUÊ NGÁT)",
+      "Khách cần trả": 8000000,
+      "Khách đã trả": 8000000,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000862",
+      "Thời gian": 45840.30834822917,
+      "Khách hàng": "ANH THỨC - TAM HOÀNG",
+      "Khách cần trả": 3050000,
+      "Khách đã trả": 0,
+      "Trạng thái": "Hoàn thành"
+    },
+    {
+      "Mã đặt hàng": "DH000861",
+      "Thời gian": 45839.26762002315,
+      "Khách hàng": "QUÂN BIOFRAM",
+      "Khách cần trả": 600000,
+      "Khách đã trả": 600000,
+      "Trạng thái": "Hoàn thành"
+    }
+  ]
+}

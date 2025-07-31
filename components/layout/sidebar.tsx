@@ -1,0 +1,348 @@
+"use client"
+
+import { useSidebar } from "@/lib/store"
+import { cn } from "@/lib/utils"
+import { 
+  BarChart3, 
+  Users, 
+  Package, 
+  ShoppingCart, 
+  Truck,
+  DollarSign,
+  Settings,
+  Home,
+  Menu,
+  ChevronLeft,
+  Building2,
+  Receipt,
+  Warehouse,
+  TrendingUp
+} from "lucide-react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { motion, AnimatePresence } from "framer-motion"
+import { Button } from "@/components/ui/button"
+import { useEffect } from "react"
+
+const menuItems = [
+  {
+    title: "Dashboard",
+    icon: Home,
+    href: "/dashboard",
+    badge: null
+  },
+  {
+    title: "Bán Hàng",
+    icon: ShoppingCart,
+    href: "/sales",
+    badge: null,
+    children: [
+      { title: "Tạo Hóa Đơn", href: "/sales/invoice" },
+      { title: "Đơn Hàng", href: "/sales/orders" },
+      { title: "Trả Hàng", href: "/sales/returns" }
+    ]
+  },
+  {
+    title: "Khách Hàng",
+    icon: Users,
+    href: "/customers",
+    badge: null
+  },
+  {
+    title: "Sản Phẩm",
+    icon: Package,
+    href: "/products",
+    badge: null,
+    children: [
+      { title: "Danh Sách", href: "/products/list" },
+      { title: "Danh Mục", href: "/products/categories" },
+      { title: "Đơn Vị", href: "/products/units" }
+    ]
+  },
+  {
+    title: "Kho Hàng",
+    icon: Warehouse,
+    href: "/inventory",
+    badge: "5",
+    children: [
+      { title: "Tồn Kho", href: "/inventory/stock" },
+      { title: "Nhập Hàng", href: "/inventory/inbound" },
+      { title: "Kiểm Kho", href: "/inventory/count" }
+    ]
+  },
+  {
+    title: "Nhà Cung Cấp",
+    icon: Truck,
+    href: "/suppliers",
+    badge: null
+  },
+  {
+    title: "Tài Chính",
+    icon: DollarSign,
+    href: "/finance",
+    badge: null,
+    children: [
+      { title: "Sổ Quỹ", href: "/finance/cashbook" },
+      { title: "Công Nợ", href: "/finance/debts" },
+      { title: "Báo Cáo", href: "/finance/reports" }
+    ]
+  },
+  {
+    title: "Báo Cáo",
+    icon: BarChart3,
+    href: "/reports",
+    badge: null,
+    children: [
+      { title: "Doanh Thu", href: "/reports/revenue" },
+      { title: "Lợi Nhuận", href: "/reports/profit" },
+      { title: "Top Sản Phẩm", href: "/reports/products" }
+    ]
+  },
+  {
+    title: "Chi Nhánh",
+    icon: Building2,
+    href: "/branches",
+    badge: null
+  },
+  {
+    title: "Cài Đặt",
+    icon: Settings,
+    href: "/settings",
+    badge: null
+  }
+]
+
+export function Sidebar() {
+  const { isOpen, isMobile, setOpen, setMobile } = useSidebar()
+  const pathname = usePathname()
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768
+      setMobile(mobile)
+      if (mobile) {
+        setOpen(false)
+      }
+    }
+
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [setOpen, setMobile])
+
+  const sidebarVariants = {
+    open: {
+      width: isMobile ? "100%" : "280px",
+      transition: {
+        type: "spring" as const,
+        stiffness: 300,
+        damping: 30
+      }
+    },
+    closed: {
+      width: isMobile ? "0px" : "80px",
+      transition: {
+        type: "spring" as const,
+        stiffness: 300,
+        damping: 30
+      }
+    }
+  }
+
+  const contentVariants = {
+    open: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        delay: 0.1,
+        duration: 0.2
+      }
+    },
+    closed: {
+      opacity: 0,
+      x: -20,
+      transition: {
+        duration: 0.2
+      }
+    }
+  }
+
+  return (
+    <>
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {isMobile && isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            onClick={() => setOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar */}
+      <motion.aside
+        variants={sidebarVariants}
+        animate={isOpen ? "open" : "closed"}
+        className={cn(
+          "fixed left-0 top-0 z-50 h-full bg-white/95 backdrop-blur-xl border-r border-gray-200/50 shadow-xl",
+          "lg:relative lg:z-0 lg:shadow-none",
+          "dark:bg-gray-900/95 dark:border-gray-800/50"
+        )}
+      >
+        <div className="flex h-full flex-col">
+          {/* Header */}
+          <div className="flex h-16 items-center justify-between border-b border-gray-200/50 px-4 dark:border-gray-800/50">
+            <AnimatePresence mode="wait">
+              {isOpen && (
+                <motion.div
+                  variants={contentVariants}
+                  initial="closed"
+                  animate="open"
+                  exit="closed"
+                  className="flex items-center gap-3"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg">
+                    <Receipt className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                      VetStore
+                    </h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Management System
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setOpen(!isOpen)}
+              className="h-8 w-8 p-0"
+            >
+              {isOpen ? (
+                <ChevronLeft className="h-4 w-4" />
+              ) : (
+                <Menu className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+            {menuItems.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+              const Icon = item.icon
+
+              return (
+                <div key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200",
+                      "hover:bg-gray-100 dark:hover:bg-gray-800",
+                      isActive && "bg-blue-50 text-blue-700 border-r-2 border-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                    )}
+                    onClick={() => isMobile && setOpen(false)}
+                  >
+                    <Icon className={cn(
+                      "h-5 w-5 transition-colors",
+                      isActive 
+                        ? "text-blue-700 dark:text-blue-400" 
+                        : "text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300"
+                    )} />
+                    
+                    <AnimatePresence mode="wait">
+                      {isOpen && (
+                        <motion.div
+                          variants={contentVariants}
+                          initial="closed"
+                          animate="open"
+                          exit="closed"
+                          className="flex flex-1 items-center justify-between"
+                        >
+                          <span className={cn(
+                            "font-medium transition-colors",
+                            isActive 
+                              ? "text-blue-700 dark:text-blue-400" 
+                              : "text-gray-700 dark:text-gray-300"
+                          )}>
+                            {item.title}
+                          </span>
+                          {item.badge && (
+                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-xs font-medium text-red-800 dark:bg-red-900/20 dark:text-red-400">
+                              {item.badge}
+                            </span>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </Link>
+
+                  {/* Submenu */}
+                  {item.children && isOpen && isActive && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="ml-8 mt-1 space-y-1"
+                    >
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className={cn(
+                            "block rounded-md px-3 py-1.5 text-sm transition-colors",
+                            "hover:bg-gray-100 dark:hover:bg-gray-800",
+                            pathname === child.href 
+                              ? "text-blue-700 dark:text-blue-400 font-medium" 
+                              : "text-gray-600 dark:text-gray-400"
+                          )}
+                          onClick={() => isMobile && setOpen(false)}
+                        >
+                          {child.title}
+                        </Link>
+                      ))}
+                    </motion.div>
+                  )}
+                </div>
+              )
+            })}
+          </nav>
+
+          {/* Footer */}
+          <div className="border-t border-gray-200/50 p-4 dark:border-gray-800/50">
+            <AnimatePresence mode="wait">
+              {isOpen && (
+                <motion.div
+                  variants={contentVariants}
+                  initial="closed"
+                  animate="open"
+                  exit="closed"
+                  className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-3 dark:from-blue-900/10 dark:to-indigo-900/10"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
+                    <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      Doanh thu hôm nay
+                    </p>
+                    <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                      ₫2,456,000
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </motion.aside>
+    </>
+  )
+}

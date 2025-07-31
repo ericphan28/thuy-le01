@@ -1,0 +1,2034 @@
+{
+  "metadata": {
+    "fileName": "SoQuy_KV28072025-105641-473.xlsx",
+    "sheetName": "SoQuy_KV28072025-105641-473.xls",
+    "generatedAt": "2025-07-29T05:30:59.855Z",
+    "rowCount": 285,
+    "columnCount": 5,
+    "source": "KiotViet Export - SoQuy_KV28072025-105641-473"
+  },
+  "schema": {
+    "Mã phiếu": {
+      "type": "string",
+      "nullable": true,
+      "description": "string - Mã định danh KiotViet"
+    },
+    "Thời gian": {
+      "type": "number",
+      "nullable": true,
+      "description": "number - Dữ liệu Thời gian"
+    },
+    "Loại thu chi": {
+      "type": "string",
+      "nullable": true,
+      "description": "string - Dữ liệu Loại thu chi"
+    },
+    "Người nộp/nhận": {
+      "type": "string",
+      "nullable": true,
+      "description": "string - Dữ liệu Người nộp/nhận"
+    },
+    "Giá trị": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Giá tiền (VND)"
+    }
+  },
+  "data": [
+    {
+      "Mã phiếu": "TT001096",
+      "Thời gian": 45866.3375,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH KHẢI - SOKLU",
+      "Giá trị": 13700000
+    },
+    {
+      "Mã phiếu": "TT001095",
+      "Thời gian": 45866.33125,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH KHÁNH - VỊT - SOKLU",
+      "Giá trị": 1300000
+    },
+    {
+      "Mã phiếu": "TT001094",
+      "Thời gian": 45866.32152777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHÚ PHƯỚC VỊNH - NINH PHÁT",
+      "Giá trị": 2800000
+    },
+    {
+      "Mã phiếu": "TT001093",
+      "Thời gian": 45866.27847222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Giá trị": 1410000
+    },
+    {
+      "Mã phiếu": "TTHD005335",
+      "Thời gian": 45865.76597222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 230000
+    },
+    {
+      "Mã phiếu": "TT001092",
+      "Thời gian": 45865.614583333336,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "HẢI - TRẢNG BOM",
+      "Giá trị": 2000000
+    },
+    {
+      "Mã phiếu": "TT001091",
+      "Thời gian": 45865.40347222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔNG ARIVIET",
+      "Giá trị": 4000000
+    },
+    {
+      "Mã phiếu": "TT001090",
+      "Thời gian": 45864.69097222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH TIẾN -  VỊT - SOKLU",
+      "Giá trị": 1430000
+    },
+    {
+      "Mã phiếu": "TT001089",
+      "Thời gian": 45864.62291666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "SÁNG TẰNG HAID",
+      "Giá trị": 10505000
+    },
+    {
+      "Mã phiếu": "TT001088",
+      "Thời gian": 45864.407638888886,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH LÂM - TAM HOÀNG - NINH PHÁT",
+      "Giá trị": 2200000
+    },
+    {
+      "Mã phiếu": "TTHD005307",
+      "Thời gian": 45864.399305555555,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 150000
+    },
+    {
+      "Mã phiếu": "TTHD005302",
+      "Thời gian": 45864.33888888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHÚ THÀNH - GÀ TRE",
+      "Giá trị": 220000
+    },
+    {
+      "Mã phiếu": "TT001087",
+      "Thời gian": 45864.29652777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH KHÁNH - TAM HOÀNG - SOKLU",
+      "Giá trị": 39110000
+    },
+    {
+      "Mã phiếu": "TTHD005290",
+      "Thời gian": 45864.279861111114,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "Thắng bida (test)",
+      "Giá trị": 170000
+    },
+    {
+      "Mã phiếu": "PC000324",
+      "Thời gian": 45863.69268915509,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "NGUYÊN MSD",
+      "Giá trị": -35280000
+    },
+    {
+      "Mã phiếu": "PCPN000610",
+      "Thời gian": 45863.67997858796,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CƯỜNG THỊNH",
+      "Giá trị": -660000
+    },
+    {
+      "Mã phiếu": "PCPN000609",
+      "Thời gian": 45863.62766068287,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "KIM TƯƠI",
+      "Giá trị": -2352000
+    },
+    {
+      "Mã phiếu": "PCPN000605",
+      "Thời gian": 45863.622258599535,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG AGRIVIET",
+      "Giá trị": -4000000
+    },
+    {
+      "Mã phiếu": "TT001086",
+      "Thời gian": 45863.618055555555,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TÂM UNITEK",
+      "Giá trị": 11600000
+    },
+    {
+      "Mã phiếu": "TT001085",
+      "Thời gian": 45863.49236111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "HẢI - TRẢNG BOM",
+      "Giá trị": 7380000
+    },
+    {
+      "Mã phiếu": "TT001084",
+      "Thời gian": 45863.46597222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH TÂM ( ANH CÔNG)",
+      "Giá trị": 10000000
+    },
+    {
+      "Mã phiếu": "TT001083",
+      "Thời gian": 45863.464583333334,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH TÂM - MARTINO - VỊT (NHÀ)",
+      "Giá trị": 75875000
+    },
+    {
+      "Mã phiếu": "TT001082",
+      "Thời gian": 45863.4625,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH TÂM ( NHÀ) - LÔ 2",
+      "Giá trị": 59285000
+    },
+    {
+      "Mã phiếu": "PC000323",
+      "Thời gian": 45863.42925320602,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "TTY BẢO BẢO",
+      "Giá trị": -108800000
+    },
+    {
+      "Mã phiếu": "TTHD005269",
+      "Thời gian": 45863.39236111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 200000
+    },
+    {
+      "Mã phiếu": "TT001081",
+      "Thời gian": 45862.73263888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔNG ARIVIET",
+      "Giá trị": 14500000
+    },
+    {
+      "Mã phiếu": "TT001080",
+      "Thời gian": 45862.729166666664,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Giá trị": 2600000
+    },
+    {
+      "Mã phiếu": "TTHD005247",
+      "Thời gian": 45862.697222222225,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 100000
+    },
+    {
+      "Mã phiếu": "TTHD005244",
+      "Thời gian": 45862.63125,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TUẤN NGÔ - SOKLU",
+      "Giá trị": 1235000
+    },
+    {
+      "Mã phiếu": "TT001079",
+      "Thời gian": 45862.62777777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔ LAN ( TUẤN) - TAM HOÀNG",
+      "Giá trị": 44400000
+    },
+    {
+      "Mã phiếu": "TTHD005241.01",
+      "Thời gian": 45862.60555555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HIẾU - DÊ",
+      "Giá trị": 140000
+    },
+    {
+      "Mã phiếu": "TT001078",
+      "Thời gian": 45862.46388888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "EM SƠN - ECOVET",
+      "Giá trị": 20000000
+    },
+    {
+      "Mã phiếu": "TT001077",
+      "Thời gian": 45862.3125,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH LÂM  FIVEVET",
+      "Giá trị": 2920000
+    },
+    {
+      "Mã phiếu": "TT001076",
+      "Thời gian": 45862.3125,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ HUYỀN - VÕ DÕNG",
+      "Giá trị": 20000000
+    },
+    {
+      "Mã phiếu": "TTHD005231.02",
+      "Thời gian": 45862.30347222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HỌC",
+      "Giá trị": 2100000
+    },
+    {
+      "Mã phiếu": "PC000322",
+      "Thời gian": 45861.71389146991,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "ĐẠI LÝ THÀNH AN",
+      "Giá trị": -115000
+    },
+    {
+      "Mã phiếu": "TT001075",
+      "Thời gian": 45861.71319444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ HƯƠNG-THÀNH AN",
+      "Giá trị": 115000
+    },
+    {
+      "Mã phiếu": "TTHD005220",
+      "Thời gian": 45861.709027777775,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 800000
+    },
+    {
+      "Mã phiếu": "TT001074",
+      "Thời gian": 45861.66111111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH LỢI",
+      "Giá trị": 30000000
+    },
+    {
+      "Mã phiếu": "PC000321",
+      "Thời gian": 45861.605410219905,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "HẢI CJ",
+      "Giá trị": -4004000
+    },
+    {
+      "Mã phiếu": "TTHD005213",
+      "Thời gian": 45861.6,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 230000
+    },
+    {
+      "Mã phiếu": "TT001073",
+      "Thời gian": 45861.59652777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH TIẾN -  VỊT - SOKLU",
+      "Giá trị": 9245000
+    },
+    {
+      "Mã phiếu": "PC000320",
+      "Thời gian": 45861.47361226852,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY VIETVET",
+      "Giá trị": -130530000
+    },
+    {
+      "Mã phiếu": "TT001072",
+      "Thời gian": 45861.447222222225,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "THUỲ TRANG",
+      "Giá trị": 1795000
+    },
+    {
+      "Mã phiếu": "TTHD005206",
+      "Thời gian": 45861.438888888886,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 100000
+    },
+    {
+      "Mã phiếu": "PCPN000603",
+      "Thời gian": 45861.43785578704,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "THUỲ TRANG",
+      "Giá trị": -665000
+    },
+    {
+      "Mã phiếu": "TT001071",
+      "Thời gian": 45861.30347222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TRUNG - BƯU ĐIỆN - VỊT",
+      "Giá trị": 30000000
+    },
+    {
+      "Mã phiếu": "TT001070",
+      "Thời gian": 45861.302083333336,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TRUNG - BƯU ĐIỆN - LÔ MỚI",
+      "Giá trị": 26020000
+    },
+    {
+      "Mã phiếu": "TT001069",
+      "Thời gian": 45861.27291666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TÂM UNITEK",
+      "Giá trị": 6610000
+    },
+    {
+      "Mã phiếu": "TT001068",
+      "Thời gian": 45860.72777777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔ PHƯỢNG - BÌNH LỘC",
+      "Giá trị": 8000000
+    },
+    {
+      "Mã phiếu": "TTHD005184",
+      "Thời gian": 45860.72708333333,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 200000
+    },
+    {
+      "Mã phiếu": "TT001067",
+      "Thời gian": 45860.64444444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔNG ARIVIET",
+      "Giá trị": 16000000
+    },
+    {
+      "Mã phiếu": "TTHD005180",
+      "Thời gian": 45860.64375,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HỌC",
+      "Giá trị": 3400000
+    },
+    {
+      "Mã phiếu": "TT001066",
+      "Thời gian": 45860.59652777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "HÀ HOÀNG",
+      "Giá trị": 420000
+    },
+    {
+      "Mã phiếu": "PCPN000600",
+      "Thời gian": 45860.29649212963,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "THUỲ TRANG",
+      "Giá trị": -850000
+    },
+    {
+      "Mã phiếu": "TTHD005156",
+      "Thời gian": 45860.28402777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 10000
+    },
+    {
+      "Mã phiếu": "TT001065",
+      "Thời gian": 45859.736805555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ VY - LÂM ĐỒNG",
+      "Giá trị": 8515000
+    },
+    {
+      "Mã phiếu": "TTHD005143",
+      "Thời gian": 45859.643055555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 820000
+    },
+    {
+      "Mã phiếu": "TTHD005137",
+      "Thời gian": 45859.38680555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 60000
+    },
+    {
+      "Mã phiếu": "PC000319",
+      "Thời gian": 45859.33264082176,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "THÀNH CÔNG",
+      "Giá trị": -11600000
+    },
+    {
+      "Mã phiếu": "TT001064",
+      "Thời gian": 45858.722916666666,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TÂM UNITEK",
+      "Giá trị": 27000000
+    },
+    {
+      "Mã phiếu": "TTHD005120.01",
+      "Thời gian": 45858.6125,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 240000
+    },
+    {
+      "Mã phiếu": "TTHD005118",
+      "Thời gian": 45858.490277777775,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 120000
+    },
+    {
+      "Mã phiếu": "TT001063",
+      "Thời gian": 45858.47083333333,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HIỂN - BÀU SẬY",
+      "Giá trị": 45570000
+    },
+    {
+      "Mã phiếu": "TTHD005116",
+      "Thời gian": 45858.46319444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 50000
+    },
+    {
+      "Mã phiếu": "TT001062",
+      "Thời gian": 45857.73888888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CƯỜNG UNITEX",
+      "Giá trị": 1080000
+    },
+    {
+      "Mã phiếu": "PC000318",
+      "Thời gian": 45857.7375028125,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "ĐẠI LÝ THÀNH AN",
+      "Giá trị": -13689100
+    },
+    {
+      "Mã phiếu": "TT001061",
+      "Thời gian": 45857.73611111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Giá trị": 29950000
+    },
+    {
+      "Mã phiếu": "TT001060",
+      "Thời gian": 45857.73541666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HÀNH - XUÂN BẮC",
+      "Giá trị": 17000000
+    },
+    {
+      "Mã phiếu": "TT001059",
+      "Thời gian": 45857.73472222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH THẾ - VÕ DÕNG",
+      "Giá trị": 670000
+    },
+    {
+      "Mã phiếu": "TT001058",
+      "Thời gian": 45857.73055555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HƯNG ARIVIET",
+      "Giá trị": 40000000
+    },
+    {
+      "Mã phiếu": "TT001057",
+      "Thời gian": 45857.60972222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HÀO",
+      "Giá trị": 9400000
+    },
+    {
+      "Mã phiếu": "TT001056",
+      "Thời gian": 45857.60972222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HẢI HÀO LÔ MỚI",
+      "Giá trị": 900000
+    },
+    {
+      "Mã phiếu": "TTHD005104",
+      "Thời gian": 45857.45347222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 50000
+    },
+    {
+      "Mã phiếu": "PCPN000593",
+      "Thời gian": 45857.43225204861,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "THUỲ TRANG",
+      "Giá trị": -385000
+    },
+    {
+      "Mã phiếu": "TTHD005095",
+      "Thời gian": 45857.36388888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TUYẾN DONAVET",
+      "Giá trị": 100000
+    },
+    {
+      "Mã phiếu": "TTHD005093",
+      "Thời gian": 45857.32986111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 10000
+    },
+    {
+      "Mã phiếu": "PC000317",
+      "Thời gian": 45857.323217627316,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY NOVAVETTER",
+      "Giá trị": -10280000
+    },
+    {
+      "Mã phiếu": "PC000316",
+      "Thời gian": 45857.32252596065,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "ĐẠI LÝ KHOAN DUY",
+      "Giá trị": -4650000
+    },
+    {
+      "Mã phiếu": "PC000315",
+      "Thời gian": 45857.32191890046,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY TOPCIN",
+      "Giá trị": -4513000
+    },
+    {
+      "Mã phiếu": "PC000314",
+      "Thời gian": 45857.31961612269,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "MẠNH ĐỨC HUY",
+      "Giá trị": -2250000
+    },
+    {
+      "Mã phiếu": "PC000313",
+      "Thời gian": 45857.31895532407,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "TRẦN GIA",
+      "Giá trị": -220000
+    },
+    {
+      "Mã phiếu": "PC000312",
+      "Thời gian": 45857.30873626158,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY HTC SÔNG HÔNG",
+      "Giá trị": -350000
+    },
+    {
+      "Mã phiếu": "PC000311",
+      "Thời gian": 45857.308403090276,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "GIANG CEFOTAXIN",
+      "Giá trị": -55200000
+    },
+    {
+      "Mã phiếu": "PC000310",
+      "Thời gian": 45857.300577118054,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "TÂM UNITEX",
+      "Giá trị": -3690000
+    },
+    {
+      "Mã phiếu": "PC000309",
+      "Thời gian": 45857.28333946759,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "THƯƠNG W.S.P",
+      "Giá trị": -3528000
+    },
+    {
+      "Mã phiếu": "TT001054",
+      "Thời gian": 45857.28125,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Giá trị": 2000000
+    },
+    {
+      "Mã phiếu": "TT001053",
+      "Thời gian": 45857.28055555555,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "EM HOÀNG CHÍCH LONG KHÁNH",
+      "Giá trị": 1340000
+    },
+    {
+      "Mã phiếu": "TT001052",
+      "Thời gian": 45857.27916666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH PHONG - VĨNH TÂN",
+      "Giá trị": 28265000
+    },
+    {
+      "Mã phiếu": "TT001051",
+      "Thời gian": 45856.71666666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8",
+      "Giá trị": 50000000
+    },
+    {
+      "Mã phiếu": "TT001050",
+      "Thời gian": 45856.71597222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH THÁI - VỊT - PHÚC NHẠC",
+      "Giá trị": 24680000
+    },
+    {
+      "Mã phiếu": "TTHD005080",
+      "Thời gian": 45856.69097222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH ĐỨC - VÔ NHIỄM",
+      "Giá trị": 450000
+    },
+    {
+      "Mã phiếu": "TTHD005076",
+      "Thời gian": 45856.65069444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "HẢI - TRẢNG BOM",
+      "Giá trị": 3150000
+    },
+    {
+      "Mã phiếu": "TT001049",
+      "Thời gian": 45856.61875,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH TIÊN - ĐỨC HUY",
+      "Giá trị": 10000000
+    },
+    {
+      "Mã phiếu": "TT001048",
+      "Thời gian": 45856.618055555555,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH QUẢNG - LONG THÀNH",
+      "Giá trị": 5200000
+    },
+    {
+      "Mã phiếu": "TTHD005061",
+      "Thời gian": 45856.37777777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 120000
+    },
+    {
+      "Mã phiếu": "TTHD005058",
+      "Thời gian": 45856.36597222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 380000
+    },
+    {
+      "Mã phiếu": "TT001047",
+      "Thời gian": 45856.325694444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ THÚY - GÀ ĐẺ - NINH PHÁT",
+      "Giá trị": 10000000
+    },
+    {
+      "Mã phiếu": "PC000308",
+      "Thời gian": 45855.69812133102,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "TRINH - HIPPRA",
+      "Giá trị": -7000000
+    },
+    {
+      "Mã phiếu": "TT001046",
+      "Thời gian": 45855.69652777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TRINH - HIPPRA",
+      "Giá trị": 7000000
+    },
+    {
+      "Mã phiếu": "TT001045",
+      "Thời gian": 45855.60138888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH VŨ - BÌNH LỘC",
+      "Giá trị": 20410000
+    },
+    {
+      "Mã phiếu": "TT001044",
+      "Thời gian": 45855.46527777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH THẾ - VÕ DÕNG",
+      "Giá trị": 1850000
+    },
+    {
+      "Mã phiếu": "TT001043",
+      "Thời gian": 45855.34375,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HẢI (KẾ)",
+      "Giá trị": 1400000
+    },
+    {
+      "Mã phiếu": "TT001042",
+      "Thời gian": 45855.34375,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "MI TIGERVET",
+      "Giá trị": 4500000
+    },
+    {
+      "Mã phiếu": "TT001041",
+      "Thời gian": 45855.34097222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHÚ MẪN - CÚT - VÕ DÕNG",
+      "Giá trị": 650000
+    },
+    {
+      "Mã phiếu": "TTHD005030",
+      "Thời gian": 45855.33819444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 250000
+    },
+    {
+      "Mã phiếu": "TT001040",
+      "Thời gian": 45854.70486111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TRINH - HIPPRA",
+      "Giá trị": 350000
+    },
+    {
+      "Mã phiếu": "PC000307",
+      "Thời gian": 45854.70247210648,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "TRINH - HIPPRA",
+      "Giá trị": -350000
+    },
+    {
+      "Mã phiếu": "TTHD005024",
+      "Thời gian": 45854.7,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "NGUYỆT SƠN LÂM",
+      "Giá trị": 350000
+    },
+    {
+      "Mã phiếu": "TTHD005020",
+      "Thời gian": 45854.67569444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 440000
+    },
+    {
+      "Mã phiếu": "TT001039",
+      "Thời gian": 45854.63125,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔ VỠI - XUÂN BẮC",
+      "Giá trị": 10000000
+    },
+    {
+      "Mã phiếu": "TT001038",
+      "Thời gian": 45854.611805555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HÀO",
+      "Giá trị": 10000000
+    },
+    {
+      "Mã phiếu": "PC000306",
+      "Thời gian": 45854.481947719905,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY VIETVET",
+      "Giá trị": -15600000
+    },
+    {
+      "Mã phiếu": "PC000305",
+      "Thời gian": 45854.480266087965,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY VIETVET",
+      "Giá trị": -77952500
+    },
+    {
+      "Mã phiếu": "TT001037",
+      "Thời gian": 45854.46388888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ NHUNG VIETVET",
+      "Giá trị": 19388500
+    },
+    {
+      "Mã phiếu": "TT001036",
+      "Thời gian": 45854.333333333336,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHÚ DŨNG - ĐỐNG ĐA",
+      "Giá trị": 70000000
+    },
+    {
+      "Mã phiếu": "TT001035",
+      "Thời gian": 45854.32638888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ LOAN ( ĐỊNH)",
+      "Giá trị": 48380000
+    },
+    {
+      "Mã phiếu": "TTHD005008",
+      "Thời gian": 45854.32083333333,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 120000
+    },
+    {
+      "Mã phiếu": "TTHD005004",
+      "Thời gian": 45854.28402777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 50000
+    },
+    {
+      "Mã phiếu": "TT001034",
+      "Thời gian": 45853.675,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔNG ARIVIET",
+      "Giá trị": 10000000
+    },
+    {
+      "Mã phiếu": "PCPN000575",
+      "Thời gian": 45853.65556755787,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY THAI HOA VET",
+      "Giá trị": -19840000
+    },
+    {
+      "Mã phiếu": "TTHD004990",
+      "Thời gian": 45853.6,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "HẢI - TRẢNG BOM",
+      "Giá trị": 2040000
+    },
+    {
+      "Mã phiếu": "TT001033",
+      "Thời gian": 45853.48819444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TRẠI GÀ ĐẺ - LONG THÀNH",
+      "Giá trị": 3150000
+    },
+    {
+      "Mã phiếu": "TT001032",
+      "Thời gian": 45853.481944444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHẢI GIA KIỆM",
+      "Giá trị": 38840000
+    },
+    {
+      "Mã phiếu": "TT001031",
+      "Thời gian": 45853.48055555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Giá trị": 2000000
+    },
+    {
+      "Mã phiếu": "TTHD004986",
+      "Thời gian": 45853.45347222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 120000
+    },
+    {
+      "Mã phiếu": "PCPN000574",
+      "Thời gian": 45853.369925810184,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "TIỆM ĐOÁN",
+      "Giá trị": -140000
+    },
+    {
+      "Mã phiếu": "TTHD004981",
+      "Thời gian": 45853.36666666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHÚ THÀNH - GÀ TRE",
+      "Giá trị": 610000
+    },
+    {
+      "Mã phiếu": "TTDH000907",
+      "Thời gian": 45853.36666666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HIẾU - DÊ",
+      "Giá trị": 1600000
+    },
+    {
+      "Mã phiếu": "TT001030",
+      "Thời gian": 45853.347916666666,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHÚ HUỲNH - XÃ LỘ 25",
+      "Giá trị": 10680000
+    },
+    {
+      "Mã phiếu": "TT001029",
+      "Thời gian": 45853.34722222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH TRIỆU - GIA KIỆM",
+      "Giá trị": 50000000
+    },
+    {
+      "Mã phiếu": "TT001028",
+      "Thời gian": 45853.322222222225,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔNG ARIVIET",
+      "Giá trị": 2550000
+    },
+    {
+      "Mã phiếu": "PCPN000573",
+      "Thời gian": 45853.32025972222,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG AGRIVIET",
+      "Giá trị": -2550000
+    },
+    {
+      "Mã phiếu": "TT001027",
+      "Thời gian": 45853.31041666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH PHONG - VỊT (NHÀ)",
+      "Giá trị": 27480000
+    },
+    {
+      "Mã phiếu": "TT001026",
+      "Thời gian": 45853.30902777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH PHONG - BÀU SẬY",
+      "Giá trị": 51870000
+    },
+    {
+      "Mã phiếu": "TT001025",
+      "Thời gian": 45853.288194444445,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH DŨNG - VỊT",
+      "Giá trị": 23920000
+    },
+    {
+      "Mã phiếu": "TT001024",
+      "Thời gian": 45853.28472222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH NAM - CẦU QUÂN Y",
+      "Giá trị": 5800000
+    },
+    {
+      "Mã phiếu": "TT001023",
+      "Thời gian": 45852.71666666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HƯNG - ANH HỌC",
+      "Giá trị": 20000000
+    },
+    {
+      "Mã phiếu": "TT001022",
+      "Thời gian": 45852.71597222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HƯNG LÔ MỚI - MARTINO",
+      "Giá trị": 1430000
+    },
+    {
+      "Mã phiếu": "TTHD004970",
+      "Thời gian": 45852.711805555555,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 80000
+    },
+    {
+      "Mã phiếu": "TT001021",
+      "Thời gian": 45852.70763888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HƯNG - GÀ - SUỐI ĐÁ",
+      "Giá trị": 40000000
+    },
+    {
+      "Mã phiếu": "TT001020",
+      "Thời gian": 45852.70208333333,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HẢI CJ",
+      "Giá trị": 1710000
+    },
+    {
+      "Mã phiếu": "PCPN000572",
+      "Thời gian": 45852.699546145835,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "THÚ Y XANH",
+      "Giá trị": -4468800
+    },
+    {
+      "Mã phiếu": "TT001019",
+      "Thời gian": 45852.67986111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HẢI HÀO LÔ MỚI",
+      "Giá trị": 2210000
+    },
+    {
+      "Mã phiếu": "TT001018",
+      "Thời gian": 45852.67013888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHÚ HÙNG - BÀU CÁ",
+      "Giá trị": 10000000
+    },
+    {
+      "Mã phiếu": "TT001017",
+      "Thời gian": 45852.66875,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔ HOA - BÀU CẠN",
+      "Giá trị": 15100000
+    },
+    {
+      "Mã phiếu": "TT001016",
+      "Thời gian": 45852.66875,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH VŨ CÁM ODON",
+      "Giá trị": 2340000
+    },
+    {
+      "Mã phiếu": "TT001015",
+      "Thời gian": 45852.666666666664,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH QUỐC - DẦU GIÂY",
+      "Giá trị": 5600000
+    },
+    {
+      "Mã phiếu": "TTHD004960",
+      "Thời gian": 45852.631944444445,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 120000
+    },
+    {
+      "Mã phiếu": "TT001014",
+      "Thời gian": 45852.61736111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ĐẠI LÝ TIÊN PHÚC",
+      "Giá trị": 4690000
+    },
+    {
+      "Mã phiếu": "TT001013",
+      "Thời gian": 45852.46875,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH DŨNG - CÂY XĂNG THANH SƠN",
+      "Giá trị": 30000000
+    },
+    {
+      "Mã phiếu": "TT001012",
+      "Thời gian": 45852.42083333333,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ĐẠI LÝ TUẤN PHÁT",
+      "Giá trị": 6480000
+    },
+    {
+      "Mã phiếu": "TTHD004950",
+      "Thời gian": 45852.311111111114,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 60000
+    },
+    {
+      "Mã phiếu": "TT001011",
+      "Thời gian": 45852.26666666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TIẾN CHÍCH",
+      "Giá trị": 840000
+    },
+    {
+      "Mã phiếu": "TT001010",
+      "Thời gian": 45851.697916666664,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH TRƯỜNG - CẦU CƯỜNG",
+      "Giá trị": 400000
+    },
+    {
+      "Mã phiếu": "TTHD004937",
+      "Thời gian": 45851.69583333333,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 80000
+    },
+    {
+      "Mã phiếu": "TT001009",
+      "Thời gian": 45851.268055555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH THIÊN - TÍN NGHĨA - LÔ MỚI",
+      "Giá trị": 1260000
+    },
+    {
+      "Mã phiếu": "TT001008",
+      "Thời gian": 45850.76736111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "XUÂN ( THUÊ NGÁT)",
+      "Giá trị": 72700000
+    },
+    {
+      "Mã phiếu": "TT001007",
+      "Thời gian": 45850.76666666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "XUÂN - VỊT ( NHÀ)",
+      "Giá trị": 8185000
+    },
+    {
+      "Mã phiếu": "TTHD004912",
+      "Thời gian": 45850.38958333333,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 20000
+    },
+    {
+      "Mã phiếu": "TTHD004910",
+      "Thời gian": 45850.37291666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH GIA CHÍCH",
+      "Giá trị": 200000
+    },
+    {
+      "Mã phiếu": "TTHD004909",
+      "Thời gian": 45850.36944444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH ĐỨC - VÔ NHIỄM",
+      "Giá trị": 450000
+    },
+    {
+      "Mã phiếu": "TTHD004902",
+      "Thời gian": 45850.29513888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH TỨ",
+      "Giá trị": 470000
+    },
+    {
+      "Mã phiếu": "TT001006",
+      "Thời gian": 45850.270833333336,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH QUÂN CÁM GOLD COIN - GA TA",
+      "Giá trị": 11160000
+    },
+    {
+      "Mã phiếu": "TTHD004897",
+      "Thời gian": 45849.711805555555,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 90000
+    },
+    {
+      "Mã phiếu": "TTHD004885",
+      "Thời gian": 45849.37152777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 70000
+    },
+    {
+      "Mã phiếu": "PC000304",
+      "Thời gian": 45849.32986600694,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "ĐẠI LÝ THÀNH AN",
+      "Giá trị": -26500000
+    },
+    {
+      "Mã phiếu": "TT001005",
+      "Thời gian": 45849.27777777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "HÀ HOÀNG",
+      "Giá trị": 1050000
+    },
+    {
+      "Mã phiếu": "TT001004",
+      "Thời gian": 45848.748611111114,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TÂM UNITEK",
+      "Giá trị": 56200000
+    },
+    {
+      "Mã phiếu": "PC000303",
+      "Thời gian": 45848.7328403125,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "ĐẠI LÝ THÀNH AN",
+      "Giá trị": -2550000
+    },
+    {
+      "Mã phiếu": "TT001003",
+      "Thời gian": 45848.73125,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ HƯƠNG-THÀNH AN",
+      "Giá trị": 2550000
+    },
+    {
+      "Mã phiếu": "TTHD004872",
+      "Thời gian": 45848.70694444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 30000
+    },
+    {
+      "Mã phiếu": "TT001002",
+      "Thời gian": 45848.65694444445,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ QUY - BÌNH DƯƠNG",
+      "Giá trị": 64120000
+    },
+    {
+      "Mã phiếu": "TTHD004863",
+      "Thời gian": 45848.61736111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 100000
+    },
+    {
+      "Mã phiếu": "TT001001",
+      "Thời gian": 45848.44027777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "HUYỀN TIGERVET",
+      "Giá trị": 11500000
+    },
+    {
+      "Mã phiếu": "TTHD004854",
+      "Thời gian": 45848.42291666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TUYẾN DONAVET",
+      "Giá trị": 230000
+    },
+    {
+      "Mã phiếu": "PC000302",
+      "Thời gian": 45848.35764351852,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY HTC SÔNG HÔNG",
+      "Giá trị": -2500000
+    },
+    {
+      "Mã phiếu": "TTHD004851",
+      "Thời gian": 45848.279861111114,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 10000
+    },
+    {
+      "Mã phiếu": "TT001000",
+      "Thời gian": 45847.709027777775,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH TRƯỜNG - CẦU CƯỜNG",
+      "Giá trị": 490000
+    },
+    {
+      "Mã phiếu": "TT000999",
+      "Thời gian": 45847.69236111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "LONG - BIÊN HOÀ 2",
+      "Giá trị": 28200000
+    },
+    {
+      "Mã phiếu": "PCPN000562",
+      "Thời gian": 45847.69042731482,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY HTC SÔNG HÔNG",
+      "Giá trị": -530000
+    },
+    {
+      "Mã phiếu": "TTHD004837",
+      "Thời gian": 45847.64236111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 40000
+    },
+    {
+      "Mã phiếu": "PC000301",
+      "Thời gian": 45847.631252465275,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY VIETVET",
+      "Giá trị": -97675000
+    },
+    {
+      "Mã phiếu": "PC000300",
+      "Thời gian": 45847.47709001158,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "TTY BẢO BẢO",
+      "Giá trị": -95150000
+    },
+    {
+      "Mã phiếu": "TTHD004828",
+      "Thời gian": 45847.40347222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": null,
+      "Giá trị": 1000000
+    },
+    {
+      "Mã phiếu": "TT000998",
+      "Thời gian": 45847.282638888886,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ĐẠI LÝ TIÊN PHÚC",
+      "Giá trị": 9425000
+    },
+    {
+      "Mã phiếu": "TTHD004816",
+      "Thời gian": 45847.27777777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH GIA CHÍCH",
+      "Giá trị": 220000
+    },
+    {
+      "Mã phiếu": "TT000997",
+      "Thời gian": 45846.70416666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "HUYỀN TIGERVET",
+      "Giá trị": 30000000
+    },
+    {
+      "Mã phiếu": "PC000299",
+      "Thời gian": 45846.69795952546,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "TRINH - HIPPRA",
+      "Giá trị": -5650000
+    },
+    {
+      "Mã phiếu": "TT000996",
+      "Thời gian": 45846.697222222225,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TRINH - HIPPRA",
+      "Giá trị": 5650000
+    },
+    {
+      "Mã phiếu": "TT000995",
+      "Thời gian": 45846.665972222225,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH QUẢNG - LONG THÀNH",
+      "Giá trị": 1260000
+    },
+    {
+      "Mã phiếu": "TT000994",
+      "Thời gian": 45846.66527777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HẢI CJ",
+      "Giá trị": 480000
+    },
+    {
+      "Mã phiếu": "TTHD004807",
+      "Thời gian": 45846.631944444445,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 500000
+    },
+    {
+      "Mã phiếu": "PC000298",
+      "Thời gian": 45846.623960763885,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "THƯƠNG W.S.P",
+      "Giá trị": -4410000
+    },
+    {
+      "Mã phiếu": "TT000993",
+      "Thời gian": 45846.45625,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HẢI (KẾ)",
+      "Giá trị": 1350000
+    },
+    {
+      "Mã phiếu": "TT000992",
+      "Thời gian": 45846.45416666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH LÂM - TAM HOÀNG - NINH PHÁT",
+      "Giá trị": 2707500
+    },
+    {
+      "Mã phiếu": "TT000991",
+      "Thời gian": 45846.43541666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ĐẠI LÝ TUẤN PHÁT",
+      "Giá trị": 2750000
+    },
+    {
+      "Mã phiếu": "TT000990",
+      "Thời gian": 45846.39791666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HIẾN - CÂY GÁO",
+      "Giá trị": 20000000
+    },
+    {
+      "Mã phiếu": "TT000989",
+      "Thời gian": 45846.38611111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "HOÀ MEGA",
+      "Giá trị": 1000000
+    },
+    {
+      "Mã phiếu": "PC000297",
+      "Thời gian": 45846.33750408565,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY THAI HOA VET",
+      "Giá trị": -15532000
+    },
+    {
+      "Mã phiếu": "TT000988",
+      "Thời gian": 45846.33263888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "THÚ Y ĐÌNH HIỀN",
+      "Giá trị": 2910000
+    },
+    {
+      "Mã phiếu": "TTHD004786",
+      "Thời gian": 45846.29375,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 440000
+    },
+    {
+      "Mã phiếu": "PCPN000553",
+      "Thời gian": 45845.70704201389,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY HTC SÔNG HÔNG",
+      "Giá trị": -345000
+    },
+    {
+      "Mã phiếu": "TT000987",
+      "Thời gian": 45845.70347222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "QUÂN BIOFRAM",
+      "Giá trị": 480000
+    },
+    {
+      "Mã phiếu": "TT000986",
+      "Thời gian": 45845.645833333336,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HÙNG - CẦU CƯỜNG",
+      "Giá trị": 6870000
+    },
+    {
+      "Mã phiếu": "TT000985",
+      "Thời gian": 45845.61319444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "QUYỀN - TAM HOÀNG",
+      "Giá trị": 88580000
+    },
+    {
+      "Mã phiếu": "TTHD004767",
+      "Thời gian": 45845.40694444445,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": null,
+      "Giá trị": 130000
+    },
+    {
+      "Mã phiếu": "TTHD004762",
+      "Thời gian": 45845.32986111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 450000
+    },
+    {
+      "Mã phiếu": "TT000984",
+      "Thời gian": 45845.308333333334,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TÂM UNITEK",
+      "Giá trị": 13900000
+    },
+    {
+      "Mã phiếu": "TTHD004752.01",
+      "Thời gian": 45844.76736111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 450000
+    },
+    {
+      "Mã phiếu": "TTHD004751.01",
+      "Thời gian": 45844.691666666666,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 30000
+    },
+    {
+      "Mã phiếu": "PC000296",
+      "Thời gian": 45844.668761458335,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY AGRIVIET",
+      "Giá trị": -109979000
+    },
+    {
+      "Mã phiếu": "TT000983",
+      "Thời gian": 45844.455555555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH LÂM (8K) - TRẠI 4",
+      "Giá trị": 75540000
+    },
+    {
+      "Mã phiếu": "PC000295",
+      "Thời gian": 45844.401838541664,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "ĐẠI LÝ THÀNH AN",
+      "Giá trị": -465000
+    },
+    {
+      "Mã phiếu": "TT000982",
+      "Thời gian": 45844.40069444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ HƯƠNG-THÀNH AN",
+      "Giá trị": 465000
+    },
+    {
+      "Mã phiếu": "TT000981",
+      "Thời gian": 45844.39722222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "NGUYỆT SƠN LÂM",
+      "Giá trị": 600000
+    },
+    {
+      "Mã phiếu": "PC000294",
+      "Thời gian": 45844.34792630787,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG AGRIVIET",
+      "Giá trị": -1100000
+    },
+    {
+      "Mã phiếu": "TTHD004739",
+      "Thời gian": 45844.28402777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH PHÙNG - TAM HOÀNG-NINH PHÁT",
+      "Giá trị": 1805000
+    },
+    {
+      "Mã phiếu": "TTHD004736",
+      "Thời gian": 45844.268055555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 20000
+    },
+    {
+      "Mã phiếu": "TTHD004735",
+      "Thời gian": 45843.72361111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 50000
+    },
+    {
+      "Mã phiếu": "TT000980",
+      "Thời gian": 45843.65416666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH TRƯỜNG - CẦU CƯỜNG",
+      "Giá trị": 680000
+    },
+    {
+      "Mã phiếu": "TT000979",
+      "Thời gian": 45843.60763888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH PHONG - CTY GREENTECH",
+      "Giá trị": 2520000
+    },
+    {
+      "Mã phiếu": "TTDH000880",
+      "Thời gian": 45843.40277777778,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HIẾU - DÊ",
+      "Giá trị": 550000
+    },
+    {
+      "Mã phiếu": "TT000978",
+      "Thời gian": 45843.384722222225,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CỬA HÀNG THỊNH VƯỢNG ( CHỊ CÚC)",
+      "Giá trị": 4400000
+    },
+    {
+      "Mã phiếu": "TT000977",
+      "Thời gian": 45843.37986111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "HÀ HOÀNG",
+      "Giá trị": 840000
+    },
+    {
+      "Mã phiếu": "PCPN000549",
+      "Thời gian": 45843.36974123843,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY HTC SÔNG HÔNG",
+      "Giá trị": -60000
+    },
+    {
+      "Mã phiếu": "TT000976",
+      "Thời gian": 45843.36319444444,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH VŨ - GÀ ĐẺ",
+      "Giá trị": 350000
+    },
+    {
+      "Mã phiếu": "PC000293",
+      "Thời gian": 45842.750027662034,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "ĐẠI LÝ THÀNH AN",
+      "Giá trị": -1190000
+    },
+    {
+      "Mã phiếu": "TT000975",
+      "Thời gian": 45842.740277777775,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ HƯƠNG-THÀNH AN",
+      "Giá trị": 1190000
+    },
+    {
+      "Mã phiếu": "TTHD004703",
+      "Thời gian": 45842.722916666666,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HUYẾN - CÚT",
+      "Giá trị": 760000
+    },
+    {
+      "Mã phiếu": "TT000974",
+      "Thời gian": 45842.67361111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TUẤN NGÔ - SOKLU",
+      "Giá trị": 7000000
+    },
+    {
+      "Mã phiếu": "TT000973",
+      "Thời gian": 45842.62569444445,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HIẾU - DÊ",
+      "Giá trị": 2950000
+    },
+    {
+      "Mã phiếu": "PC000292",
+      "Thời gian": 45841.734723263886,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY HTC SÔNG HÔNG",
+      "Giá trị": -120000
+    },
+    {
+      "Mã phiếu": "TT000972",
+      "Thời gian": 45841.73263888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ĐẠI LÝ TIÊN PHÚC",
+      "Giá trị": 2375000
+    },
+    {
+      "Mã phiếu": "PC000291",
+      "Thời gian": 45841.73185644676,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "ĐẠI LÝ TIÊN PHÚC",
+      "Giá trị": -2375000
+    },
+    {
+      "Mã phiếu": "TT000971",
+      "Thời gian": 45841.73055555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔNG ARIVIET",
+      "Giá trị": 3500000
+    },
+    {
+      "Mã phiếu": "PC000290",
+      "Thời gian": 45841.72654467593,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "ĐẠI LÝ THÀNH AN",
+      "Giá trị": -5070000
+    },
+    {
+      "Mã phiếu": "TT000970",
+      "Thời gian": 45841.71597222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ HƯƠNG-THÀNH AN",
+      "Giá trị": 5070000
+    },
+    {
+      "Mã phiếu": "TT000969",
+      "Thời gian": 45841.714583333334,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HẢI CJ",
+      "Giá trị": 1240000
+    },
+    {
+      "Mã phiếu": "TT000968",
+      "Thời gian": 45841.71388888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔNG ARIVIET",
+      "Giá trị": 15600000
+    },
+    {
+      "Mã phiếu": "TTHD004682",
+      "Thời gian": 45841.62986111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 230000
+    },
+    {
+      "Mã phiếu": "PCPN000542",
+      "Thời gian": 45841.629100729166,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY HTC SÔNG HÔNG",
+      "Giá trị": -2250000
+    },
+    {
+      "Mã phiếu": "TT000967",
+      "Thời gian": 45841.61875,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH KHÁNH - TAM HOÀNG - SOKLU",
+      "Giá trị": 50000000
+    },
+    {
+      "Mã phiếu": "TT000966",
+      "Thời gian": 45841.61111111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HIẾU - DÊ",
+      "Giá trị": 1320000
+    },
+    {
+      "Mã phiếu": "TTHD004676",
+      "Thời gian": 45841.595138888886,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 210000
+    },
+    {
+      "Mã phiếu": "PC000289",
+      "Thời gian": 45841.475010069444,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY VIETVET",
+      "Giá trị": -82598000
+    },
+    {
+      "Mã phiếu": "TT000965",
+      "Thời gian": 45841.47222222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ NHUNG VIETVET",
+      "Giá trị": 40000000
+    },
+    {
+      "Mã phiếu": "PC000288",
+      "Thời gian": 45841.39098012731,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "TIGERVET",
+      "Giá trị": -365793000
+    },
+    {
+      "Mã phiếu": "PC000287",
+      "Thời gian": 45841.38889672454,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY VIETVET",
+      "Giá trị": -15105000
+    },
+    {
+      "Mã phiếu": "PC000286",
+      "Thời gian": 45841.38729239583,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY AGRIVIET",
+      "Giá trị": -25303040
+    },
+    {
+      "Mã phiếu": "PC000285",
+      "Thời gian": 45841.386118518516,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY AGRIVIET",
+      "Giá trị": -53500000
+    },
+    {
+      "Mã phiếu": "PC000284",
+      "Thời gian": 45841.38607743056,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY AGRIVIET",
+      "Giá trị": -30301200
+    },
+    {
+      "Mã phiếu": "PC000283",
+      "Thời gian": 45841.38541890046,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY AGRIVIET",
+      "Giá trị": -64982340
+    },
+    {
+      "Mã phiếu": "PC000282",
+      "Thời gian": 45840.734671377315,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "ĐẠI LÝ THÀNH AN",
+      "Giá trị": -3120000
+    },
+    {
+      "Mã phiếu": "PCPN000539",
+      "Thời gian": 45840.734014849535,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY VIETVET",
+      "Giá trị": -48600000
+    },
+    {
+      "Mã phiếu": "PC000281",
+      "Thời gian": 45840.72847623842,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "ĐẠI LÝ THÀNH AN",
+      "Giá trị": -3500000
+    },
+    {
+      "Mã phiếu": "TT000964",
+      "Thời gian": 45840.722916666666,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ HƯƠNG-THÀNH AN",
+      "Giá trị": 3500000
+    },
+    {
+      "Mã phiếu": "TTHD004658",
+      "Thời gian": 45840.70208333333,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 200000
+    },
+    {
+      "Mã phiếu": "PC000280",
+      "Thời gian": 45840.70140204861,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY VIETVET",
+      "Giá trị": -54008000
+    },
+    {
+      "Mã phiếu": "PC000279",
+      "Thời gian": 45840.70078310185,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG TY VIETVET",
+      "Giá trị": -67568750
+    },
+    {
+      "Mã phiếu": "PC000278",
+      "Thời gian": 45840.69236230324,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "MEGA VET",
+      "Giá trị": -100000000
+    },
+    {
+      "Mã phiếu": "PCPN000538",
+      "Thời gian": 45840.62231805555,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "NHUNG VIETVET",
+      "Giá trị": -1950000
+    },
+    {
+      "Mã phiếu": "TT000963",
+      "Thời gian": 45840.62222222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ NHUNG VIETVET",
+      "Giá trị": 1950000
+    },
+    {
+      "Mã phiếu": "TT000962",
+      "Thời gian": 45840.61875,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "QUÂN BIOFRAM",
+      "Giá trị": 1320000
+    },
+    {
+      "Mã phiếu": "TT000961",
+      "Thời gian": 45840.61666666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HIẾU - DÊ",
+      "Giá trị": 1100000
+    },
+    {
+      "Mã phiếu": "TT000960",
+      "Thời gian": 45840.59444444445,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHÁNH CHÍCH",
+      "Giá trị": 5000000
+    },
+    {
+      "Mã phiếu": "TT000959",
+      "Thời gian": 45840.41180555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ĐẠI LÝ GẤU - BÀU CÁ",
+      "Giá trị": 1540000
+    },
+    {
+      "Mã phiếu": "TT000958",
+      "Thời gian": 45840.32708333333,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "TÂM UNITEK",
+      "Giá trị": 5000000
+    },
+    {
+      "Mã phiếu": "TT000957",
+      "Thời gian": 45840.32638888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CHỊ VY - A.ĐIỆN",
+      "Giá trị": 2550000
+    },
+    {
+      "Mã phiếu": "TTHD004634",
+      "Thời gian": 45840.28611111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 350000
+    },
+    {
+      "Mã phiếu": "TT000956",
+      "Thời gian": 45839.711805555555,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "A VŨ - GÀ ĐẺ",
+      "Giá trị": 2140000
+    },
+    {
+      "Mã phiếu": "TT000955",
+      "Thời gian": 45839.69513888889,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH LÂM - TAM HOÀNG - NINH PHÁT",
+      "Giá trị": 4034000
+    },
+    {
+      "Mã phiếu": "TTHD004625",
+      "Thời gian": 45839.69305555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "HẢI - TRẢNG BOM",
+      "Giá trị": 860000
+    },
+    {
+      "Mã phiếu": "TT000954",
+      "Thời gian": 45839.62291666667,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔ TUYẾT THU - PHÚ CƯỜNG 11K",
+      "Giá trị": 48530000
+    },
+    {
+      "Mã phiếu": "TT000953",
+      "Thời gian": 45839.62222222222,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "ANH HÙNG - BỘ - TAM HOÀNG",
+      "Giá trị": 16386000
+    },
+    {
+      "Mã phiếu": "TTHD004622",
+      "Thời gian": 45839.61736111111,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 160000
+    },
+    {
+      "Mã phiếu": "TTHD004615.01",
+      "Thời gian": 45839.40694444445,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "KHÁCH LẺ",
+      "Giá trị": 280000
+    },
+    {
+      "Mã phiếu": "PC000277",
+      "Thời gian": 45839.29161172454,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "CÔNG AGRIVIET",
+      "Giá trị": -1080000
+    },
+    {
+      "Mã phiếu": "PC000276",
+      "Thời gian": 45839.290666747685,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "VACCINE VỊT",
+      "Giá trị": -54505000
+    },
+    {
+      "Mã phiếu": "PC000275",
+      "Thời gian": 45839.290180868054,
+      "Loại thu chi": "Phiếu chi Tiền trả NCC",
+      "Người nộp/nhận": "TTY BẢO BẢO",
+      "Giá trị": -41300000
+    },
+    {
+      "Mã phiếu": "TT000952",
+      "Thời gian": 45839.28680555556,
+      "Loại thu chi": "Phiếu thu Tiền khách trả",
+      "Người nộp/nhận": "CÔ TUYẾN - TAM HOÀNG - CẦU CƯỜNG",
+      "Giá trị": 27000000
+    },
+    {
+      "Mã phiếu": null,
+      "Thời gian": null,
+      "Loại thu chi": null,
+      "Người nộp/nhận": "Quỹ đầu kỳ",
+      "Giá trị": 4327107614
+    },
+    {
+      "Mã phiếu": null,
+      "Thời gian": null,
+      "Loại thu chi": null,
+      "Người nộp/nhận": "Tổng thu",
+      "Giá trị": 2159436000
+    },
+    {
+      "Mã phiếu": null,
+      "Thời gian": null,
+      "Loại thu chi": null,
+      "Người nộp/nhận": "Tổng chi",
+      "Giá trị": -1912177730
+    },
+    {
+      "Mã phiếu": null,
+      "Thời gian": null,
+      "Loại thu chi": null,
+      "Người nộp/nhận": "Tồn quỹ",
+      "Giá trị": 4574365884
+    }
+  ]
+}

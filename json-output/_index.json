@@ -1,0 +1,67 @@
+{
+  "generatedAt": "2025-07-29T05:30:59.864Z",
+  "totalFiles": 12,
+  "totalRecords": 4134,
+  "files": [
+    {
+      "fileName": "DanhSachChiTietDatHang_KV28072025-105758-688_DanhSachChiTietDatHang_KV280720.json",
+      "path": "D:\\Thang\\thuyle04-fulldata\\json-output\\03-details\\DanhSachChiTietDatHang_KV28072025-105758-688_DanhSachChiTietDatHang_KV280720.json",
+      "recordCount": 178
+    },
+    {
+      "fileName": "DanhSachChiTietHoaDon_KV28072025-105413-578_DanhSachChiTietHoaDon_KV2807202.json",
+      "path": "D:\\Thang\\thuyle04-fulldata\\json-output\\03-details\\DanhSachChiTietHoaDon_KV28072025-105413-578_DanhSachChiTietHoaDon_KV2807202.json",
+      "recordCount": 1407
+    },
+    {
+      "fileName": "DanhSachChiTietKiemKho_KV28072025-105932-519_DanhSachChiTietKiemKho_KV280720.json",
+      "path": "D:\\Thang\\thuyle04-fulldata\\json-output\\03-details\\DanhSachChiTietKiemKho_KV28072025-105932-519_DanhSachChiTietKiemKho_KV280720.json",
+      "recordCount": 28
+    },
+    {
+      "fileName": "DanhSachChiTietNhapHang_KV28072025-105857-511_DanhSachChiTietNhapHang_KV28072.json",
+      "path": "D:\\Thang\\thuyle04-fulldata\\json-output\\03-details\\DanhSachChiTietNhapHang_KV28072025-105857-511_DanhSachChiTietNhapHang_KV28072.json",
+      "recordCount": 204
+    },
+    {
+      "fileName": "DanhSachChiTietTraHang_KV28072025-105815-832_DanhSachChiTietTraHang_KV280720.json",
+      "path": "D:\\Thang\\thuyle04-fulldata\\json-output\\03-details\\DanhSachChiTietTraHang_KV28072025-105815-832_DanhSachChiTietTraHang_KV280720.json",
+      "recordCount": 46
+    },
+    {
+      "fileName": "DanhSachDatHang_KV28072025-105750-537_DanhSachDatHang_KV28072025_1057.json",
+      "path": "D:\\Thang\\thuyle04-fulldata\\json-output\\02-documents\\DanhSachDatHang_KV28072025-105750-537_DanhSachDatHang_KV28072025_1057.json",
+      "recordCount": 85
+    },
+    {
+      "fileName": "DanhSachHoaDon_KV28072025-105524-890_DanhSachHoaDon_KV28072025_10552.json",
+      "path": "D:\\Thang\\thuyle04-fulldata\\json-output\\02-documents\\DanhSachHoaDon_KV28072025-105524-890_DanhSachHoaDon_KV28072025_10552.json",
+      "recordCount": 739
+    },
+    {
+      "fileName": "DanhSachKhachHang_KV28072025-105555-313_DanhSachKhachHang_KV28072025_10.json",
+      "path": "D:\\Thang\\thuyle04-fulldata\\json-output\\01-master-data\\DanhSachKhachHang_KV28072025-105555-313_DanhSachKhachHang_KV28072025_10.json",
+      "recordCount": 397
+    },
+    {
+      "fileName": "DanhSachKiemKho_KV28072025-105927-215_DanhSachKiemKho_KV28072025_1059.json",
+      "path": "D:\\Thang\\thuyle04-fulldata\\json-output\\02-documents\\DanhSachKiemKho_KV28072025-105927-215_DanhSachKiemKho_KV28072025_1059.json",
+      "recordCount": 28
+    },
+    {
+      "fileName": "DanhSachNhaCungCap_KV28072025-105606-281_DanhSachNhaCungCap_KV28072025_1.json",
+      "path": "D:\\Thang\\thuyle04-fulldata\\json-output\\01-master-data\\DanhSachNhaCungCap_KV28072025-105606-281_DanhSachNhaCungCap_KV28072025_1.json",
+      "recordCount": 51
+    },
+    {
+      "fileName": "DanhSachSanPham_KV28072025-104947-061_DanhSachSanPham_KV28072025_1049.json",
+      "path": "D:\\Thang\\thuyle04-fulldata\\json-output\\01-master-data\\DanhSachSanPham_KV28072025-104947-061_DanhSachSanPham_KV28072025_1049.json",
+      "recordCount": 686
+    },
+    {
+      "fileName": "SoQuy_KV28072025-105641-473_SoQuy_KV28072025_105641_473_xls.json",
+      "path": "D:\\Thang\\thuyle04-fulldata\\json-output\\02-documents\\SoQuy_KV28072025-105641-473_SoQuy_KV28072025_105641_473_xls.json",
+      "recordCount": 285
+    }
+  ]
+}

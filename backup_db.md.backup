@@ -1,0 +1,14 @@
+# Backup toàn bộ schema public - Tables, Views, Functions, Indexes, Triggers
+$env:PGPASSWORD = "gjDB4sxf56Yq1mNq"
+pg_dump --host=aws-0-ap-southeast-1.pooler.supabase.com --port=6543 --username=postgres.ospkleabpejgyvdevkmv --dbname=postgres --schema=public --schema-only --no-owner --no-privileges --verbose --file=backup_thuyle_schema_complete.sql
+
+
+# Backup chỉ dữ liệu (không có cấu trúc)
+$env:PGPASSWORD = "gjDB4sxf56Yq1mNq"
+pg_dump --host=aws-0-ap-southeast-1.pooler.supabase.com --port=6543 --username=postgres.ospkleabpejgyvdevkmv --dbname=postgres --schema=public --data-only --no-owner --no-privileges --file=backup_thuyle_data.sql
+
+
+# Backup toàn bộ (cấu trúc + dữ liệu)
+$env:PGPASSWORD = "gjDB4sxf56Yq1mNq"
+pg_dump --host=aws-0-ap-southeast-1.pooler.supabase.com --port=6543 --username=postgres.ospkleabpejgyvdevkmv --dbname=postgres --schema=public --no-owner --no-privileges --file=backup_thuyle_complete.sql
+

@@ -1,0 +1,6156 @@
+{
+  "metadata": {
+    "fileName": "DanhSachHoaDon_KV28072025-105524-890.xlsx",
+    "sheetName": "DanhSachHoaDon_KV28072025-10552",
+    "generatedAt": "2025-07-29T05:30:58.188Z",
+    "rowCount": 739,
+    "columnCount": 7,
+    "source": "KiotViet Export - DanhSachHoaDon_KV28072025-105524-890"
+  },
+  "schema": {
+    "Mã hóa đơn": {
+      "type": "string",
+      "nullable": false,
+      "description": "string - Mã định danh KiotViet"
+    },
+    "Thời gian": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Dữ liệu Thời gian"
+    },
+    "Mã trả hàng": {
+      "type": "string",
+      "nullable": true,
+      "description": "string - Mã định danh KiotViet"
+    },
+    "Khách hàng": {
+      "type": "string",
+      "nullable": false,
+      "description": "string - Thông tin khách hàng"
+    },
+    "Tổng tiền hàng": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Giá tiền (VND)"
+    },
+    "Khách đã trả": {
+      "type": "number",
+      "nullable": false,
+      "description": "number - Dữ liệu Khách đã trả"
+    },
+    "Giảm giá": {
+      "type": "number",
+      "nullable": true,
+      "description": "number - Giá tiền (VND)"
+    }
+  },
+  "data": [
+    {
+      "Mã hóa đơn": "HD005354",
+      "Thời gian": 45866.44211145833,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ - VỊT",
+      "Tổng tiền hàng": 7365000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005353",
+      "Thời gian": 45866.440704479166,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ TRÂM - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005352",
+      "Thời gian": 45866.41916762731,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HUYỀN - VÕ DÕNG",
+      "Tổng tiền hàng": 2140000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005351",
+      "Thời gian": 45866.418284988424,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRINH - HIPPRA",
+      "Tổng tiền hàng": 2380000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005350",
+      "Thời gian": 45866.41484841435,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾT THU - PHÚ CƯỜNG 11K",
+      "Tổng tiền hàng": 14760000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005349",
+      "Thời gian": 45866.4107503125,
+      "Mã trả hàng": null,
+      "Khách hàng": "ĐINH QUỐC TUẤN",
+      "Tổng tiền hàng": 500000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005348",
+      "Thời gian": 45866.40822106481,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ - VỊT",
+      "Tổng tiền hàng": 4120000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005347",
+      "Thời gian": 45866.39714359953,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HÙNG - CẦU CƯỜNG",
+      "Tổng tiền hàng": 1600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005346",
+      "Thời gian": 45866.38273283565,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Tổng tiền hàng": 180000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005345.02",
+      "Thời gian": 45866.359027314815,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HƯNG - MARTINO",
+      "Tổng tiền hàng": 900000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005344",
+      "Thời gian": 45866.34505748843,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VƯƠNG  KÍNH - TÍN NGHĨA",
+      "Tổng tiền hàng": 2760000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005343.01",
+      "Thời gian": 45866.34378267361,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUỐC - DẦU GIÂY",
+      "Tổng tiền hàng": 4770000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005342.01",
+      "Thời gian": 45866.34212554398,
+      "Mã trả hàng": null,
+      "Khách hàng": "HOÀ MEGA",
+      "Tổng tiền hàng": 10240000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005341",
+      "Thời gian": 45866.33024105324,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH KHÁNH - VỊT - SOKLU",
+      "Tổng tiền hàng": 1300000,
+      "Khách đã trả": 1300000
+    },
+    {
+      "Mã hóa đơn": "HD005340",
+      "Thời gian": 45866.291071875,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8",
+      "Tổng tiền hàng": 2200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005339.01",
+      "Thời gian": 45866.289742395835,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 4200000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005338",
+      "Thời gian": 45866.27497832176,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ QUYỀN - ĐỨC LONG",
+      "Tổng tiền hàng": 4630000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005337",
+      "Thời gian": 45866.26798452546,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI",
+      "Tổng tiền hàng": 4520000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005336",
+      "Thời gian": 45866.266997025465,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CU - TAM HOÀNG HƯNG LỘC",
+      "Tổng tiền hàng": 3840000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005335",
+      "Thời gian": 45865.76647299768,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 230000,
+      "Khách đã trả": 230000
+    },
+    {
+      "Mã hóa đơn": "HD005334",
+      "Thời gian": 45865.61567774306,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - BÀU SẬY",
+      "Tổng tiền hàng": 10000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005333",
+      "Thời gian": 45865.61266947917,
+      "Mã trả hàng": null,
+      "Khách hàng": "HẢI - TRẢNG BOM",
+      "Tổng tiền hàng": 2000000,
+      "Khách đã trả": 2000000
+    },
+    {
+      "Mã hóa đơn": "HD005332",
+      "Thời gian": 45865.43304927083,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ HUỲNH - XÃ LỘ 25",
+      "Tổng tiền hàng": 6800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005331",
+      "Thời gian": 45865.40076273148,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - BÀU SẬY",
+      "Tổng tiền hàng": 3600000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005330",
+      "Thời gian": 45865.39530945602,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5K) - TRẠI 2",
+      "Tổng tiền hàng": 520000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005329",
+      "Thời gian": 45865.38650929398,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHẢI ( CÔ CHUNG)",
+      "Tổng tiền hàng": 7580000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005328",
+      "Thời gian": 45865.362356909725,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - VỊT (NHÀ)",
+      "Tổng tiền hàng": 420000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005327",
+      "Thời gian": 45865.354290243056,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Tổng tiền hàng": 450000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005326",
+      "Thời gian": 45865.35031929398,
+      "Mã trả hàng": null,
+      "Khách hàng": "NHUNG VIETVET",
+      "Tổng tiền hàng": 6750000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005325",
+      "Thời gian": 45865.32805204861,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VƯƠNG  KÍNH - TÍN NGHĨA",
+      "Tổng tiền hàng": 350000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005324",
+      "Thời gian": 45865.31397908565,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - VỊT (NHÀ)",
+      "Tổng tiền hàng": 2520000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005323",
+      "Thời gian": 45865.302821412035,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 4200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005322",
+      "Thời gian": 45865.27430034722,
+      "Mã trả hàng": null,
+      "Khách hàng": "HÀ HOÀNG",
+      "Tổng tiền hàng": 1680000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005321",
+      "Thời gian": 45865.27347380787,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH NGHĨA - SOKLU",
+      "Tổng tiền hàng": 4260000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005320",
+      "Thời gian": 45865.27223310185,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI",
+      "Tổng tiền hàng": 6800000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005319",
+      "Thời gian": 45864.59887572916,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 4750000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005318",
+      "Thời gian": 45864.59597357639,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUẢNG - LONG THÀNH",
+      "Tổng tiền hàng": 1500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005317",
+      "Thời gian": 45864.594914733796,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HỌC (LONG)",
+      "Tổng tiền hàng": 6800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005316",
+      "Thời gian": 45864.476639699074,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THIỆN - TAM HOÀNG - PHÚ TÚC",
+      "Tổng tiền hàng": 9900000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005315.01",
+      "Thời gian": 45864.47203174768,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ĐEN - GÀ - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 1830000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005314",
+      "Thời gian": 45864.470833252315,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CHÍNH - VÔ NHIỄM",
+      "Tổng tiền hàng": 3400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005313.01",
+      "Thời gian": 45864.46784417824,
+      "Mã trả hàng": null,
+      "Khách hàng": "SÁNG TẰNG HAID",
+      "Tổng tiền hàng": 8825000,
+      "Giảm giá": 0,
+      "Khách đã trả": 8755000
+    },
+    {
+      "Mã hóa đơn": "HD005312.01",
+      "Thời gian": 45864.45119586805,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHẢI HAIDER - BÀU CẠN LÔ 20k",
+      "Tổng tiền hàng": 7200000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005311",
+      "Thời gian": 45864.43975181713,
+      "Mã trả hàng": null,
+      "Khách hàng": "EM TÀI - CÁM - TOGET",
+      "Tổng tiền hàng": 700000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005310.01",
+      "Thời gian": 45864.42665165509,
+      "Mã trả hàng": "TH000192",
+      "Khách hàng": "ANH HẢI (TUẤN)",
+      "Tổng tiền hàng": 6630000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005309",
+      "Thời gian": 45864.42076987268,
+      "Mã trả hàng": null,
+      "Khách hàng": "HOÀ MEGA",
+      "Tổng tiền hàng": 1800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005308",
+      "Thời gian": 45864.410736226855,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 1600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005307",
+      "Thời gian": 45864.39934019676,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 150000,
+      "Khách đã trả": 150000
+    },
+    {
+      "Mã hóa đơn": "HD005306",
+      "Thời gian": 45864.38201574074,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VƯƠNG  KÍNH - TÍN NGHĨA",
+      "Tổng tiền hàng": 1635000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005305",
+      "Thời gian": 45864.3774959838,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ THÚY - GÀ ĐẺ - NINH PHÁT",
+      "Tổng tiền hàng": 1250000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005304.01",
+      "Thời gian": 45864.34920833333,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( NHÀ) - LÔ 2",
+      "Tổng tiền hàng": 1000000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005303",
+      "Thời gian": 45864.345073344906,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Tổng tiền hàng": 8400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005302",
+      "Thời gian": 45864.339192824074,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ THÀNH - GÀ TRE",
+      "Tổng tiền hàng": 220000,
+      "Khách đã trả": 220000
+    },
+    {
+      "Mã hóa đơn": "HD005301",
+      "Thời gian": 45864.333657256946,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THỨC - TAM HOÀNG",
+      "Tổng tiền hàng": 1600000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005300",
+      "Thời gian": 45864.32288900463,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ - VỊT",
+      "Tổng tiền hàng": 2610000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005299",
+      "Thời gian": 45864.31345949074,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 4290000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005298",
+      "Thời gian": 45864.288985914354,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HẢI (THUÝ)",
+      "Tổng tiền hàng": 440000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005297",
+      "Thời gian": 45864.286211493054,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ LAN ( TUẤN) - TAM HOÀNG",
+      "Tổng tiền hàng": 1980000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005296",
+      "Thời gian": 45864.28550987269,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ QUY - BÌNH DƯƠNG",
+      "Tổng tiền hàng": 9400000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005295",
+      "Thời gian": 45864.28455320602,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN ( ĐỊNH)",
+      "Tổng tiền hàng": 1100000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005294",
+      "Thời gian": 45864.28391975694,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THANH - XUÂN BẮC",
+      "Tổng tiền hàng": 2640000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005293",
+      "Thời gian": 45864.283009756946,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DŨNG - VỊT",
+      "Tổng tiền hàng": 4400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005292",
+      "Thời gian": 45864.28182600695,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HỌC",
+      "Tổng tiền hàng": 960000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005291.02",
+      "Thời gian": 45864.27999915509,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM - TAM HOÀNG - NINH PHÁT",
+      "Tổng tiền hàng": 2160000,
+      "Giảm giá": 108000,
+      "Khách đã trả": 400000
+    },
+    {
+      "Mã hóa đơn": "HD005290",
+      "Thời gian": 45864.27996635417,
+      "Mã trả hàng": null,
+      "Khách hàng": "Thắng bida (test)",
+      "Tổng tiền hàng": 170000,
+      "Khách đã trả": 170000
+    },
+    {
+      "Mã hóa đơn": "HD005288",
+      "Thời gian": 45864.27780204861,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM - TRẠI 5",
+      "Tổng tiền hàng": 520000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005287",
+      "Thời gian": 45864.273972256946,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 1030000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005286",
+      "Thời gian": 45864.27271655093,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ CHƯƠNG - TAM HOÀNG",
+      "Tổng tiền hàng": 1400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005285",
+      "Thời gian": 45864.27147716435,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ PHƯỢNG - BÌNH LỘC",
+      "Tổng tiền hàng": 2220000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005283",
+      "Thời gian": 45863.6883283912,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI",
+      "Tổng tiền hàng": 4600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005282.01",
+      "Thời gian": 45863.68594510417,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HẢI HÀO LÔ MỚI",
+      "Tổng tiền hàng": 3030000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005281",
+      "Thời gian": 45863.68412179398,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LIỄU - LONG THÀNH",
+      "Tổng tiền hàng": 10760000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005280",
+      "Thời gian": 45863.64820162037,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRUNG - BƯU ĐIỆN - LÔ 2",
+      "Tổng tiền hàng": 1000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005279",
+      "Thời gian": 45863.62314351852,
+      "Mã trả hàng": null,
+      "Khách hàng": "EM SƠN - ECOVET",
+      "Tổng tiền hàng": 4350000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005278",
+      "Thời gian": 45863.61427052083,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THỨC - TAM HOÀNG",
+      "Tổng tiền hàng": 3500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005277",
+      "Thời gian": 45863.608646608795,
+      "Mã trả hàng": null,
+      "Khách hàng": "EM TÀI - CÁM - TOGET",
+      "Tổng tiền hàng": 1980000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005276",
+      "Thời gian": 45863.60697920139,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ TRÂM - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 550000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005275.01",
+      "Thời gian": 45863.60555431713,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VƯƠNG  KÍNH - TÍN NGHĨA",
+      "Tổng tiền hàng": 2415000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005274",
+      "Thời gian": 45863.59445945602,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ - VỊT",
+      "Tổng tiền hàng": 4615000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005273.02",
+      "Thời gian": 45863.4740659375,
+      "Mã trả hàng": null,
+      "Khách hàng": "HẢI - TRẢNG BOM",
+      "Tổng tiền hàng": 7380000,
+      "Giảm giá": 0,
+      "Khách đã trả": 7380000
+    },
+    {
+      "Mã hóa đơn": "HD005272",
+      "Thời gian": 45863.46836388889,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ TRANG-TAM HOÀNG-NAGOA",
+      "Tổng tiền hàng": 2400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005271",
+      "Thời gian": 45863.456141979164,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 1100000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005270",
+      "Thời gian": 45863.41691863426,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 440000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005269",
+      "Thời gian": 45863.392726736114,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 200000,
+      "Khách đã trả": 200000
+    },
+    {
+      "Mã hóa đơn": "HD005268",
+      "Thời gian": 45863.370472256946,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5k) - TRẠI 1",
+      "Tổng tiền hàng": 2700000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005267",
+      "Thời gian": 45863.36891975695,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 11600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005266",
+      "Thời gian": 45863.329391666666,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DUY - PHƯƠNG LÂM",
+      "Tổng tiền hàng": 3420000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005265",
+      "Thời gian": 45863.32849918982,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (8K) - TRẠI 4",
+      "Tổng tiền hàng": 910000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005264",
+      "Thời gian": 45863.322274618055,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DANH - GÀ TRE - VÔ NHIỄM 9K",
+      "Tổng tiền hàng": 3500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005263",
+      "Thời gian": 45863.32135378472,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HIỂN - BÀU SẬY",
+      "Tổng tiền hàng": 3300000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005262",
+      "Thời gian": 45863.31882438657,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHÁT - DỐC MƠ",
+      "Tổng tiền hàng": 570000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005261",
+      "Thời gian": 45863.31611975694,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH KHÔI",
+      "Tổng tiền hàng": 880000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005260",
+      "Thời gian": 45863.31069320602,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHƯỚC - TAM HOÀNG",
+      "Tổng tiền hàng": 900000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005259",
+      "Thời gian": 45863.30829652778,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM (CÔNG) LÔ MỚI",
+      "Tổng tiền hàng": 350000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005258",
+      "Thời gian": 45863.30737052083,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN ( THUÊ NGÁT)",
+      "Tổng tiền hàng": 4200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005257",
+      "Thời gian": 45863.3066996875,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN - VỊT ( NHÀ)",
+      "Tổng tiền hàng": 1550000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005256.01",
+      "Thời gian": 45863.29130153935,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HIỂN - BÀU SẬY",
+      "Tổng tiền hàng": 5350000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005255",
+      "Thời gian": 45863.285989317126,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHẢI GIA KIỆM",
+      "Tổng tiền hàng": 4590000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005254.01",
+      "Thời gian": 45863.27513313657,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 2380000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005253",
+      "Thời gian": 45863.27250489583,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ LAN ( TUẤN) - TAM HOÀNG",
+      "Tổng tiền hàng": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005252",
+      "Thời gian": 45863.272175081016,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ LAN ( TUẤN) - TAM HOÀNG",
+      "Tổng tiền hàng": 12700000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005251",
+      "Thời gian": 45862.74284212963,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUỐC - DẦU GIÂY",
+      "Tổng tiền hàng": 950000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005250",
+      "Thời gian": 45862.74094004629,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HUY - GÀ - ĐỨC HUY",
+      "Tổng tiền hàng": 1750000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005249",
+      "Thời gian": 45862.72773726852,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHÁT - DỐC MƠ",
+      "Tổng tiền hàng": 440000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005248",
+      "Thời gian": 45862.726306979166,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 32000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005247",
+      "Thời gian": 45862.697749733794,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 100000,
+      "Khách đã trả": 100000
+    },
+    {
+      "Mã hóa đơn": "HD005246",
+      "Thời gian": 45862.693142627315,
+      "Mã trả hàng": null,
+      "Khách hàng": "HOÀ MEGA",
+      "Tổng tiền hàng": 8850000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005245",
+      "Thời gian": 45862.657611076385,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CHÍNH - VÔ NHIỄM",
+      "Tổng tiền hàng": 350000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005244",
+      "Thời gian": 45862.63146469907,
+      "Mã trả hàng": null,
+      "Khách hàng": "TUẤN NGÔ - SOKLU",
+      "Tổng tiền hàng": 1300000,
+      "Giảm giá": 65000,
+      "Khách đã trả": 1235000
+    },
+    {
+      "Mã hóa đơn": "HD005243",
+      "Thời gian": 45862.62042283565,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ DUNG - SOKLU",
+      "Tổng tiền hàng": 10700000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005241.01",
+      "Thời gian": 45862.60595697917,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HIẾU - DÊ",
+      "Tổng tiền hàng": 140000,
+      "Giảm giá": 0,
+      "Khách đã trả": 140000
+    },
+    {
+      "Mã hóa đơn": "HD005240",
+      "Thời gian": 45862.473341122684,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5K) - TRẠI 2",
+      "Tổng tiền hàng": 660000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005239",
+      "Thời gian": 45862.47273298611,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5k) - TRẠI 1",
+      "Tổng tiền hàng": 1320000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005238",
+      "Thời gian": 45862.469477199076,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 1600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005237",
+      "Thời gian": 45862.43863391204,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH KHÁNH - TAM HOÀNG - SOKLU 2",
+      "Tổng tiền hàng": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005236",
+      "Thời gian": 45862.437860150465,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH KHÁNH - TAM HOÀNG - SOKLU 2",
+      "Tổng tiền hàng": 9540000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005235.01",
+      "Thời gian": 45862.40967693287,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ TRINH - VĨNH AN",
+      "Tổng tiền hàng": 8270000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005234",
+      "Thời gian": 45862.3906903588,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THỨC - TAM HOÀNG",
+      "Tổng tiền hàng": 1800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005233",
+      "Thời gian": 45862.338177777776,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ THÚY - BƯU ĐIỆN",
+      "Tổng tiền hàng": 11640000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005232",
+      "Thời gian": 45862.3108965625,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHƯỚC - TAM HOÀNG",
+      "Tổng tiền hàng": 650000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005231.02",
+      "Thời gian": 45862.30416489583,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HỌC",
+      "Tổng tiền hàng": 2100000,
+      "Giảm giá": 0,
+      "Khách đã trả": 2100000
+    },
+    {
+      "Mã hóa đơn": "HD005230.01",
+      "Thời gian": 45862.29340998842,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VƯƠNG NHẤT - TÍN NGHĨA",
+      "Tổng tiền hàng": 2400000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005229",
+      "Thời gian": 45862.292323761576,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VƯƠNG  KÍNH - TÍN NGHĨA",
+      "Tổng tiền hàng": 2400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005228",
+      "Thời gian": 45862.291085069446,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÈO - VÔ NHIỄM",
+      "Tổng tiền hàng": 200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005227",
+      "Thời gian": 45862.28954366898,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 260000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005226",
+      "Thời gian": 45862.27967658565,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CU - TAM HOÀNG HƯNG LỘC",
+      "Tổng tiền hàng": 3370000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005225",
+      "Thời gian": 45862.278463622686,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN - VỊT ( NHÀ)",
+      "Tổng tiền hàng": 520000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005224",
+      "Thời gian": 45862.273254548614,
+      "Mã trả hàng": null,
+      "Khách hàng": "EM SƠN - ECOVET",
+      "Tổng tiền hàng": 5220000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005223",
+      "Thời gian": 45862.27165818287,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HÙNG - BỘ - TAM HOÀNG",
+      "Tổng tiền hàng": 1130000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005222",
+      "Thời gian": 45862.270644675926,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8",
+      "Tổng tiền hàng": 2820000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005221",
+      "Thời gian": 45862.26872982639,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HUYỀN - VÕ DÕNG",
+      "Tổng tiền hàng": 2400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005220",
+      "Thời gian": 45861.70958931713,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 800000,
+      "Khách đã trả": 800000
+    },
+    {
+      "Mã hóa đơn": "HD005218",
+      "Thời gian": 45861.683803900465,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM (CÔNG) LÔ MỚI",
+      "Tổng tiền hàng": 590000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005217",
+      "Thời gian": 45861.62692048611,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HÙNG - CẦU CƯỜNG",
+      "Tổng tiền hàng": 140000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005216",
+      "Thời gian": 45861.612388622685,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH GIA CHÍCH",
+      "Tổng tiền hàng": 630000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005215.01",
+      "Thời gian": 45861.604388506945,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 2010000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005214",
+      "Thời gian": 45861.60309783565,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN ( ĐỊNH)",
+      "Tổng tiền hàng": 5800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005213",
+      "Thời gian": 45861.600135381945,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 230000,
+      "Khách đã trả": 230000
+    },
+    {
+      "Mã hóa đơn": "HD005212",
+      "Thời gian": 45861.599504398146,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - VỊT (NHÀ)",
+      "Tổng tiền hàng": 3600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005211.02",
+      "Thời gian": 45861.59849366898,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHÁT - DỐC MƠ",
+      "Tổng tiền hàng": 1260000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005210",
+      "Thời gian": 45861.470065277776,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾT THU (5K) - LÔ SONG HÀNH",
+      "Tổng tiền hàng": 1230000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005209",
+      "Thời gian": 45861.46887928241,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI",
+      "Tổng tiền hàng": 5250000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005208",
+      "Thời gian": 45861.46784239583,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾT THU - PHÚ CƯỜNG 11K",
+      "Tổng tiền hàng": 1920000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005207",
+      "Thời gian": 45861.46117728009,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHƯỚC - TAM HOÀNG",
+      "Tổng tiền hàng": 450000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005206",
+      "Thời gian": 45861.439028125,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 100000,
+      "Khách đã trả": 100000
+    },
+    {
+      "Mã hóa đơn": "HD005205",
+      "Thời gian": 45861.434953159725,
+      "Mã trả hàng": null,
+      "Khách hàng": "THUỲ TRANG",
+      "Tổng tiền hàng": 665000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005204.01",
+      "Thời gian": 45861.4063628125,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÀI - MARTINO (BÀ NGOẠI)",
+      "Tổng tiền hàng": 3120000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005203.01",
+      "Thời gian": 45861.405242395835,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÀI - GÀ TA - MARTINO",
+      "Tổng tiền hàng": 3120000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005202",
+      "Thời gian": 45861.38237885416,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 4710000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005201",
+      "Thời gian": 45861.376321875,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ THÚY - BƯU ĐIỆN",
+      "Tổng tiền hàng": 3395000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005200",
+      "Thời gian": 45861.37508684028,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ THÚY - BƯU ĐIỆN",
+      "Tổng tiền hàng": 15705000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005199",
+      "Thời gian": 45861.3629625,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DANH - GÀ TRE - VÔ NHIỄM 9K",
+      "Tổng tiền hàng": 2500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005198",
+      "Thời gian": 45861.35933741898,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DANH - GÀ TRE - VÔ NHIỄM 4K",
+      "Tổng tiền hàng": 640000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005197.02",
+      "Thời gian": 45861.35225123842,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUẢNG - LONG THÀNH",
+      "Tổng tiền hàng": 3950000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005196",
+      "Thời gian": 45861.35048252315,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ĐEN - GÀ - VÔ NHIỄM 2K",
+      "Tổng tiền hàng": 260000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005195.02",
+      "Thời gian": 45861.32464864583,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH KHÁNH - TAM HOÀNG - SOKLU 2",
+      "Tổng tiền hàng": 950000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005194",
+      "Thời gian": 45861.3009275463,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRUNG - BƯU ĐIỆN - LÔ MỚI",
+      "Tổng tiền hàng": 2800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005193",
+      "Thời gian": 45861.30039027778,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRUNG - BƯU ĐIỆN - VỊT",
+      "Tổng tiền hàng": 280000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005192",
+      "Thời gian": 45861.29972364583,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - BÀU SẬY",
+      "Tổng tiền hàng": 950000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005191",
+      "Thời gian": 45861.2983568287,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Tổng tiền hàng": 2200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005190",
+      "Thời gian": 45861.29350590278,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ TRÂM - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 220000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005189.01",
+      "Thời gian": 45861.27281987268,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ NGA VỊT - SUỐI NHO",
+      "Tổng tiền hàng": 4100000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005188",
+      "Thời gian": 45861.27168935185,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VŨ CÁM ODON",
+      "Tổng tiền hàng": 1350000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005187",
+      "Thời gian": 45861.2709209838,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHƯỚC - TAM HOÀNG",
+      "Tổng tiền hàng": 3500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005186",
+      "Thời gian": 45861.269706631945,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HƯƠNG-THÀNH AN",
+      "Tổng tiền hàng": 115000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005185",
+      "Thời gian": 45861.26477450231,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Tổng tiền hàng": 6330000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005184",
+      "Thời gian": 45860.727314814816,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 200000,
+      "Khách đã trả": 200000
+    },
+    {
+      "Mã hóa đơn": "HD005183",
+      "Thời gian": 45860.72304869213,
+      "Mã trả hàng": null,
+      "Khách hàng": "EM HOÀNG AGRIVIET",
+      "Tổng tiền hàng": 15294000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005182",
+      "Thời gian": 45860.65618425926,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 1000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005181",
+      "Thời gian": 45860.65339146991,
+      "Mã trả hàng": null,
+      "Khách hàng": "EM HẢI - TÂN PHÚ",
+      "Tổng tiền hàng": 5392000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005180",
+      "Thời gian": 45860.64414780093,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HỌC",
+      "Tổng tiền hàng": 3400000,
+      "Khách đã trả": 3400000
+    },
+    {
+      "Mã hóa đơn": "HD005179",
+      "Thời gian": 45860.623504710646,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 3520000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005178.02",
+      "Thời gian": 45860.61431975695,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 3300000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005177",
+      "Thời gian": 45860.61182885417,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K",
+      "Tổng tiền hàng": 4200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005176",
+      "Thời gian": 45860.60603642361,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM  FIVEVET",
+      "Tổng tiền hàng": 2920000,
+      "Khách đã trả": 2920000
+    },
+    {
+      "Mã hóa đơn": "HD005175",
+      "Thời gian": 45860.600485069444,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 6610000,
+      "Khách đã trả": 2100000
+    },
+    {
+      "Mã hóa đơn": "HD005174",
+      "Thời gian": 45860.45646674769,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ QUY - BÌNH DƯƠNG",
+      "Tổng tiền hàng": 4800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005173",
+      "Thời gian": 45860.43723811342,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( NHÀ) - LÔ 2",
+      "Tổng tiền hàng": 6230000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005172.01",
+      "Thời gian": 45860.4287778125,
+      "Mã trả hàng": "TH000189",
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 11900000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005171",
+      "Thời gian": 45860.427455324076,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 3220000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005170",
+      "Thời gian": 45860.390589386574,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ THỌ - GÀ TA - SUỐI NHO",
+      "Tổng tiền hàng": 1100000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005169.01",
+      "Thời gian": 45860.38938788194,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 3880000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005168",
+      "Thời gian": 45860.38583572917,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN ( ĐỊNH)",
+      "Tổng tiền hàng": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005167.01",
+      "Thời gian": 45860.37738657407,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN ( ĐỊNH)",
+      "Tổng tiền hàng": 11800000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005165",
+      "Thời gian": 45860.37463167824,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ĐEN - GÀ - VÔ NHIỄM 2K",
+      "Tổng tiền hàng": 260000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005164",
+      "Thời gian": 45860.372616782406,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Tổng tiền hàng": 1200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005163.01",
+      "Thời gian": 45860.364614618054,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM - TRẠI 5",
+      "Tổng tiền hàng": 3340000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005162",
+      "Thời gian": 45860.35856099537,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5K) - TRẠI 2",
+      "Tổng tiền hàng": 2400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005161",
+      "Thời gian": 45860.34069950232,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ THÚY - BƯU ĐIỆN",
+      "Tổng tiền hàng": 5145000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005160",
+      "Thời gian": 45860.33073043981,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CU - TAM HOÀNG HƯNG LỘC",
+      "Tổng tiền hàng": 13950000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005159.01",
+      "Thời gian": 45860.304385219904,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ĐEN - GÀ - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 400000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005158",
+      "Thời gian": 45860.2956215625,
+      "Mã trả hàng": null,
+      "Khách hàng": "THUỲ TRANG",
+      "Tổng tiền hàng": 745000,
+      "Khách đã trả": 494000
+    },
+    {
+      "Mã hóa đơn": "HD005157",
+      "Thời gian": 45860.29474012731,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÚ GÀ TA",
+      "Tổng tiền hàng": 640000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005156",
+      "Thời gian": 45860.284443171295,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 10000,
+      "Khách đã trả": 10000
+    },
+    {
+      "Mã hóa đơn": "HD005155.01",
+      "Thời gian": 45860.27569390046,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 1120000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005154",
+      "Thời gian": 45860.27424259259,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN ( ĐỊNH)",
+      "Tổng tiền hàng": 4400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005153",
+      "Thời gian": 45860.27209841435,
+      "Mã trả hàng": null,
+      "Khách hàng": "THÚ Y ĐÌNH HIỀN",
+      "Tổng tiền hàng": 4900000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005152",
+      "Thời gian": 45860.26949313658,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DŨNG - VỊT",
+      "Tổng tiền hàng": 2940000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005151",
+      "Thời gian": 45860.26623541667,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DUY - PHƯƠNG LÂM",
+      "Tổng tiền hàng": 2600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005150",
+      "Thời gian": 45860.26453912037,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ CẦN - GÀ ĐẺ - NINH PHÁT",
+      "Tổng tiền hàng": 3600000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005149",
+      "Thời gian": 45859.72619302083,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM (CÔNG) LÔ MỚI",
+      "Tổng tiền hàng": 500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005148",
+      "Thời gian": 45859.71146975694,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - CTY GREENTECH",
+      "Tổng tiền hàng": 2520000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005147",
+      "Thời gian": 45859.68407241898,
+      "Mã trả hàng": "TH000190",
+      "Khách hàng": "HOÀ MEGA",
+      "Tổng tiền hàng": 3300000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005146.01",
+      "Thời gian": 45859.67696454861,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH KHÔI",
+      "Tổng tiền hàng": 3050000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005145",
+      "Thời gian": 45859.66472569444,
+      "Mã trả hàng": null,
+      "Khách hàng": "QUYỀN - TAM HOÀNG LÔ MỚI",
+      "Tổng tiền hàng": 800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005144",
+      "Thời gian": 45859.66314417824,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI",
+      "Tổng tiền hàng": 12600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005143",
+      "Thời gian": 45859.6435193287,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 820000,
+      "Khách đã trả": 820000
+    },
+    {
+      "Mã hóa đơn": "HD005142",
+      "Thời gian": 45859.640475,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ TRÂM - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 110000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005141",
+      "Thời gian": 45859.63883217592,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 5400000,
+      "Khách đã trả": 5400000
+    },
+    {
+      "Mã hóa đơn": "HD005140.01",
+      "Thời gian": 45859.624310416664,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHƯỚC VỊNH - NINH PHÁT",
+      "Tổng tiền hàng": 2800000,
+      "Giảm giá": 0,
+      "Khách đã trả": 2800000
+    },
+    {
+      "Mã hóa đơn": "HD005139",
+      "Thời gian": 45859.61624880787,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN - VỊT ( NHÀ)",
+      "Tổng tiền hàng": 1260000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005138",
+      "Thời gian": 45859.59521947917,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Tổng tiền hàng": 3910000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005137",
+      "Thời gian": 45859.38724482639,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 60000,
+      "Khách đã trả": 60000
+    },
+    {
+      "Mã hóa đơn": "HD005136",
+      "Thời gian": 45859.38553734954,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHẢI HAIDER - BÀU CẠN",
+      "Tổng tiền hàng": 9200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005135",
+      "Thời gian": 45859.376397025466,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHẢI 8.500 CON - XUYÊN MỘC",
+      "Tổng tiền hàng": 4150000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005134",
+      "Thời gian": 45859.37458831019,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 2",
+      "Tổng tiền hàng": 7720000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005133",
+      "Thời gian": 45859.37321478009,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 14680000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005132",
+      "Thời gian": 45859.36318579861,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 1740000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005131",
+      "Thời gian": 45859.35690292824,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DUY - PHƯƠNG LÂM",
+      "Tổng tiền hàng": 4030000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005130",
+      "Thời gian": 45859.34290844907,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 3",
+      "Tổng tiền hàng": 1350000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005129",
+      "Thời gian": 45859.33801987269,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 1",
+      "Tổng tiền hàng": 3470000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005128",
+      "Thời gian": 45859.330225150465,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CHÍNH - VÔ NHIỄM",
+      "Tổng tiền hàng": 5800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005127.01",
+      "Thời gian": 45859.32663715278,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CU - TAM HOÀNG HƯNG LỘC",
+      "Tổng tiền hàng": 13950000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005126",
+      "Thời gian": 45859.322012349534,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VŨ (CÔ HUỆ) - TAM HOÀNG",
+      "Tổng tiền hàng": 3150000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005125",
+      "Thời gian": 45859.31167638889,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ TRANG-TAM HOÀNG-NAGOA",
+      "Tổng tiền hàng": 1400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005124",
+      "Thời gian": 45859.2772462963,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÚ GÀ TA",
+      "Tổng tiền hàng": 280000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005123.01",
+      "Thời gian": 45859.27540003472,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HƯNG - GÀ - SUỐI ĐÁ",
+      "Tổng tiền hàng": 19100000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005122",
+      "Thời gian": 45859.27242797454,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN ( THUÊ NGÁT)",
+      "Tổng tiền hàng": 2500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005121",
+      "Thời gian": 45858.655715243054,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUẢNG - LONG THÀNH",
+      "Tổng tiền hàng": 2600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005120.01",
+      "Thời gian": 45858.61286396991,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 240000,
+      "Giảm giá": 0,
+      "Khách đã trả": 240000
+    },
+    {
+      "Mã hóa đơn": "HD005119",
+      "Thời gian": 45858.59799001157,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 10024000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005118",
+      "Thời gian": 45858.49090228009,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 120000,
+      "Khách đã trả": 120000
+    },
+    {
+      "Mã hóa đơn": "HD005117",
+      "Thời gian": 45858.46525778935,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 2560000,
+      "Khách đã trả": 1100000
+    },
+    {
+      "Mã hóa đơn": "HD005116",
+      "Thời gian": 45858.46378237269,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 50000,
+      "Khách đã trả": 50000
+    },
+    {
+      "Mã hóa đơn": "HD005115",
+      "Thời gian": 45858.46199390046,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ TRÂM - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 1900000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005114",
+      "Thời gian": 45858.45306015046,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5K) - TRẠI 2",
+      "Tổng tiền hàng": 1400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005113",
+      "Thời gian": 45858.45214695602,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5k) - TRẠI 1",
+      "Tổng tiền hàng": 4800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005111",
+      "Thời gian": 45858.317022337964,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HÙNG - BỘ - TAM HOÀNG",
+      "Tổng tiền hàng": 2010000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005110",
+      "Thời gian": 45858.291044756945,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI",
+      "Tổng tiền hàng": 4520000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005109",
+      "Thời gian": 45858.28824181713,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8",
+      "Tổng tiền hàng": 5240000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005108",
+      "Thời gian": 45857.691590891205,
+      "Mã trả hàng": "TH000186",
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 15600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005107",
+      "Thời gian": 45857.68882688657,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 960000,
+      "Khách đã trả": 960000
+    },
+    {
+      "Mã hóa đơn": "HD005106",
+      "Thời gian": 45857.60757890046,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THẾ - VÕ DÕNG",
+      "Tổng tiền hàng": 670000,
+      "Khách đã trả": 670000
+    },
+    {
+      "Mã hóa đơn": "HD005105",
+      "Thời gian": 45857.60563225694,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM (CÔNG) LÔ MỚI",
+      "Tổng tiền hàng": 4760000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005104",
+      "Thời gian": 45857.4534940625,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 50000,
+      "Khách đã trả": 50000
+    },
+    {
+      "Mã hóa đơn": "HD005103",
+      "Thời gian": 45857.4489028588,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ DUNG - SOKLU",
+      "Tổng tiền hàng": 2900000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005102",
+      "Thời gian": 45857.43979606481,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁNH EMIVET",
+      "Tổng tiền hàng": 660000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005101.01",
+      "Thời gian": 45857.43507769676,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VƯƠNG  KÍNH - TÍN NGHĨA",
+      "Tổng tiền hàng": 700000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005100",
+      "Thời gian": 45857.425084375,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Tổng tiền hàng": 2200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005099",
+      "Thời gian": 45857.42252623843,
+      "Mã trả hàng": null,
+      "Khách hàng": "THUỲ TRANG",
+      "Tổng tiền hàng": 385000,
+      "Khách đã trả": 385000
+    },
+    {
+      "Mã hóa đơn": "HD005098.01",
+      "Thời gian": 45857.40659652778,
+      "Mã trả hàng": null,
+      "Khách hàng": "EM SƠN - ECOVET",
+      "Tổng tiền hàng": 3170000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005097",
+      "Thời gian": 45857.377855983796,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ĐEN - GÀ - VÔ NHIỄM 2K",
+      "Tổng tiền hàng": 1100000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005096",
+      "Thời gian": 45857.37406454861,
+      "Mã trả hàng": null,
+      "Khách hàng": "CƯỜNG UNITEX",
+      "Tổng tiền hàng": 1080000,
+      "Khách đã trả": 1080000
+    },
+    {
+      "Mã hóa đơn": "HD005095",
+      "Thời gian": 45857.36423753472,
+      "Mã trả hàng": null,
+      "Khách hàng": "TUYẾN DONAVET",
+      "Tổng tiền hàng": 100000,
+      "Khách đã trả": 100000
+    },
+    {
+      "Mã hóa đơn": "HD005094.01",
+      "Thời gian": 45857.35053619213,
+      "Mã trả hàng": null,
+      "Khách hàng": "EM HOÀNG AGRIVIET",
+      "Tổng tiền hàng": 6660000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005093",
+      "Thời gian": 45857.32996122685,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 10000,
+      "Khách đã trả": 10000
+    },
+    {
+      "Mã hóa đơn": "HD005092",
+      "Thời gian": 45857.32602577547,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ QUYÊN - VỊT",
+      "Tổng tiền hàng": 6850000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005091",
+      "Thời gian": 45857.29666755787,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ THÚY - BƯU ĐIỆN",
+      "Tổng tiền hàng": 0,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005090.01",
+      "Thời gian": 45857.29619771991,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ THÚY - BƯU ĐIỆN",
+      "Tổng tiền hàng": 8500000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005089",
+      "Thời gian": 45857.29004487269,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VŨ CÁM ODON",
+      "Tổng tiền hàng": 500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005088",
+      "Thời gian": 45857.28586971065,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HUYỀN - VÕ DÕNG",
+      "Tổng tiền hàng": 2680000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005087",
+      "Thời gian": 45857.27739771991,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ QUY - BÌNH DƯƠNG",
+      "Tổng tiền hàng": 3600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005086",
+      "Thời gian": 45857.27430104167,
+      "Mã trả hàng": null,
+      "Khách hàng": "ĐẠI LÝ TIÊN PHÚC",
+      "Tổng tiền hàng": 11840000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005085.01",
+      "Thời gian": 45857.27202430556,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHÁT - DỐC MƠ",
+      "Tổng tiền hàng": 440000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005084",
+      "Thời gian": 45857.260947766204,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ LAN ( TUẤN) - TAM HOÀNG",
+      "Tổng tiền hàng": 3640000,
+      "Giảm giá": 0,
+      "Khách đã trả": 3640000
+    },
+    {
+      "Mã hóa đơn": "HD005083",
+      "Thời gian": 45856.7379,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 960000,
+      "Khách đã trả": 960000
+    },
+    {
+      "Mã hóa đơn": "HD005082",
+      "Thời gian": 45856.71364475694,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - VĨNH TÂN",
+      "Tổng tiền hàng": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005081",
+      "Thời gian": 45856.69894872685,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ HUỲNH - XÃ LỘ 25",
+      "Tổng tiền hàng": 1200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005080",
+      "Thời gian": 45856.69118815972,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ĐỨC - VÔ NHIỄM",
+      "Tổng tiền hàng": 450000,
+      "Khách đã trả": 450000
+    },
+    {
+      "Mã hóa đơn": "HD005079",
+      "Thời gian": 45856.68742144676,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH KHÔI",
+      "Tổng tiền hàng": 1160000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005078",
+      "Thời gian": 45856.6833412037,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HOAN - XUÂN BẮC",
+      "Tổng tiền hàng": 950000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005077",
+      "Thời gian": 45856.68175123842,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 18180000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005076",
+      "Thời gian": 45856.651375925925,
+      "Mã trả hàng": null,
+      "Khách hàng": "HẢI - TRẢNG BOM",
+      "Tổng tiền hàng": 3150000,
+      "Khách đã trả": 3150000
+    },
+    {
+      "Mã hóa đơn": "HD005075",
+      "Thời gian": 45856.63254791667,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HẢI HÀO LÔ MỚI",
+      "Tổng tiền hàng": 900000,
+      "Khách đã trả": 900000
+    },
+    {
+      "Mã hóa đơn": "HD005074",
+      "Thời gian": 45856.6259184375,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HƯNG - SƠN MAI",
+      "Tổng tiền hàng": 3000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005072",
+      "Thời gian": 45856.62288353009,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VƯƠNG NHẤT - TÍN NGHĨA",
+      "Tổng tiền hàng": 1890000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005071",
+      "Thời gian": 45856.61581079861,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM (CÔNG) LÔ MỚI",
+      "Tổng tiền hàng": 2160000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005070",
+      "Thời gian": 45856.60492002315,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DŨNG - VỊT",
+      "Tổng tiền hàng": 3600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005069",
+      "Thời gian": 45856.477211805555,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HÙNG - CẦU CƯỜNG",
+      "Tổng tiền hàng": 1260000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005068",
+      "Thời gian": 45856.475319178244,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN ( ĐỊNH)",
+      "Tổng tiền hàng": 7800000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005067.01",
+      "Thời gian": 45856.474412118056,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - VĨNH TÂN",
+      "Tổng tiền hàng": 13670000,
+      "Giảm giá": 0,
+      "Khách đã trả": 13670000
+    },
+    {
+      "Mã hóa đơn": "HD005066",
+      "Thời gian": 45856.41431137732,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN ( ĐỊNH)",
+      "Tổng tiền hàng": 5800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005065",
+      "Thời gian": 45856.3983502662,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THỨC - TAM HOÀNG",
+      "Tổng tiền hàng": 1900000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005064",
+      "Thời gian": 45856.390674965274,
+      "Mã trả hàng": null,
+      "Khách hàng": "Đ.LÝ  DUNG TÙNG - TÂN PHÚ",
+      "Tổng tiền hàng": 2500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005063",
+      "Thời gian": 45856.38480096065,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI",
+      "Tổng tiền hàng": 7600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005062",
+      "Thời gian": 45856.38052164352,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CHÍNH - VÔ NHIỄM",
+      "Tổng tiền hàng": 1000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005061",
+      "Thời gian": 45856.37790501158,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 120000,
+      "Khách đã trả": 120000
+    },
+    {
+      "Mã hóa đơn": "HD005060",
+      "Thời gian": 45856.37332630787,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUẢNG - LONG THÀNH",
+      "Tổng tiền hàng": 5200000,
+      "Khách đã trả": 5200000
+    },
+    {
+      "Mã hóa đơn": "HD005059",
+      "Thời gian": 45856.36750991898,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ĐEN - GÀ - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 630000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005058",
+      "Thời gian": 45856.366221261575,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 380000,
+      "Khách đã trả": 380000
+    },
+    {
+      "Mã hóa đơn": "HD005057",
+      "Thời gian": 45856.361485960646,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ TRÂM - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 1220000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005056",
+      "Thời gian": 45856.35766666666,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÈO - VÔ NHIỄM",
+      "Tổng tiền hàng": 2800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005055",
+      "Thời gian": 45856.332956018516,
+      "Mã trả hàng": null,
+      "Khách hàng": "NHUNG VIETVET",
+      "Tổng tiền hàng": 3480000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005054",
+      "Thời gian": 45856.330466747684,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Tổng tiền hàng": 3230000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005053",
+      "Thời gian": 45856.28711936343,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 1335000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004919.01",
+      "Thời gian": 45856.281941863424,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VƯƠNG NHẤT - TÍN NGHĨA",
+      "Tổng tiền hàng": 3050000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005052",
+      "Thời gian": 45856.27031184028,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HOAN - XUÂN BẮC",
+      "Tổng tiền hàng": 1350000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005051",
+      "Thời gian": 45856.26699135417,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁNH EMIVET",
+      "Tổng tiền hàng": 2240000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005049",
+      "Thời gian": 45856.26558028935,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Tổng tiền hàng": 4610000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005048.01",
+      "Thời gian": 45855.73356454861,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HƯNG - GÀ - SUỐI ĐÁ",
+      "Tổng tiền hàng": 6340000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005047",
+      "Thời gian": 45855.69460065972,
+      "Mã trả hàng": null,
+      "Khách hàng": "ĐẠI LÝ VĂN THANH",
+      "Tổng tiền hàng": 1540000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005046.01",
+      "Thời gian": 45855.69270494213,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VŨ CÁM ODON",
+      "Tổng tiền hàng": 1950000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005045",
+      "Thời gian": 45855.68908109954,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HÙNG - BỘ - TAM HOÀNG",
+      "Tổng tiền hàng": 1980000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005044",
+      "Thời gian": 45855.68529644676,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 1200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005043",
+      "Thời gian": 45855.672915625,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (8K) - TRẠI 4",
+      "Tổng tiền hàng": 1190000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005042.01",
+      "Thời gian": 45855.600811689816,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HÀNH - XUÂN BẮC",
+      "Tổng tiền hàng": 6500000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005041",
+      "Thời gian": 45855.59993730324,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 15400000,
+      "Khách đã trả": 15400000
+    },
+    {
+      "Mã hóa đơn": "HD005040.01",
+      "Thời gian": 45855.59891165509,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 1600000,
+      "Giảm giá": 0,
+      "Khách đã trả": 1600000
+    },
+    {
+      "Mã hóa đơn": "HD005039",
+      "Thời gian": 45855.59806157408,
+      "Mã trả hàng": null,
+      "Khách hàng": "NHUNG VIETVET",
+      "Tổng tiền hàng": 6570000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005038",
+      "Thời gian": 45855.46344487269,
+      "Mã trả hàng": null,
+      "Khách hàng": "QUYỀN - TAM HOÀNG LÔ MỚI",
+      "Tổng tiền hàng": 700000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005037",
+      "Thời gian": 45855.45403572917,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHẢI 8.500 CON - XUYÊN MỘC",
+      "Tổng tiền hàng": 2880000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005036",
+      "Thời gian": 45855.43221832176,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THẾ - VÕ DÕNG",
+      "Tổng tiền hàng": 1850000,
+      "Khách đã trả": 1850000
+    },
+    {
+      "Mã hóa đơn": "HD005035.02",
+      "Thời gian": 45855.42933591435,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DANH - GÀ TRE - VÔ NHIỄM 4K",
+      "Tổng tiền hàng": 1850000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005034",
+      "Thời gian": 45855.35985659722,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 840000,
+      "Khách đã trả": 840000
+    },
+    {
+      "Mã hóa đơn": "HD005033",
+      "Thời gian": 45855.35683464121,
+      "Mã trả hàng": null,
+      "Khách hàng": "EM SƠN - ECOVET",
+      "Tổng tiền hàng": 2550000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005032",
+      "Thời gian": 45855.35316716435,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005031",
+      "Thời gian": 45855.35283263889,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 1400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005030",
+      "Thời gian": 45855.338416238425,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 250000,
+      "Khách đã trả": 250000
+    },
+    {
+      "Mã hóa đơn": "HD005029",
+      "Thời gian": 45855.3343897338,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ MẪN - CÚT - VÕ DÕNG",
+      "Tổng tiền hàng": 650000,
+      "Khách đã trả": 650000
+    },
+    {
+      "Mã hóa đơn": "HD005028",
+      "Thời gian": 45855.3057287037,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ CHƯƠNG - TAM HOÀNG",
+      "Tổng tiền hàng": 1920000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005027",
+      "Thời gian": 45855.26782033565,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾT THU - PHÚ CƯỜNG 11K",
+      "Tổng tiền hàng": 5630000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005025.03",
+      "Thời gian": 45855.263080358796,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÈO - VÔ NHIỄM",
+      "Tổng tiền hàng": 4900000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005024",
+      "Thời gian": 45854.70037222222,
+      "Mã trả hàng": null,
+      "Khách hàng": "NGUYỆT SƠN LÂM",
+      "Tổng tiền hàng": 350000,
+      "Khách đã trả": 350000
+    },
+    {
+      "Mã hóa đơn": "HD005023",
+      "Thời gian": 45854.69843869213,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHƯỚC - TAM HOÀNG",
+      "Tổng tiền hàng": 900000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005022",
+      "Thời gian": 45854.69622665509,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ QUÝ - TÂN PHÚ",
+      "Tổng tiền hàng": 12840000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005021",
+      "Thời gian": 45854.689919247685,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRINH - HIPPRA",
+      "Tổng tiền hàng": 7350000,
+      "Giảm giá": 0,
+      "Khách đã trả": 7350000
+    },
+    {
+      "Mã hóa đơn": "HD005020",
+      "Thời gian": 45854.67617989583,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 440000,
+      "Khách đã trả": 440000
+    },
+    {
+      "Mã hóa đơn": "HD005019",
+      "Thời gian": 45854.64071319444,
+      "Mã trả hàng": "TH000184",
+      "Khách hàng": "ANH PHONG - VĨNH TÂN",
+      "Tổng tiền hàng": 16685000,
+      "Khách đã trả": 14595000
+    },
+    {
+      "Mã hóa đơn": "HD005017",
+      "Thời gian": 45854.63370648148,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HẢI (KẾ)",
+      "Tổng tiền hàng": 1400000,
+      "Khách đã trả": 1400000
+    },
+    {
+      "Mã hóa đơn": "HD005016",
+      "Thời gian": 45854.40779375,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HỌC (LONG)",
+      "Tổng tiền hàng": 11550000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005015",
+      "Thời gian": 45854.39722835648,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁNH EMIVET",
+      "Tổng tiền hàng": 940000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005014",
+      "Thời gian": 45854.39509521991,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI",
+      "Tổng tiền hàng": 12920000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005013",
+      "Thời gian": 45854.38703028935,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾT THU (5K) - LÔ SONG HÀNH",
+      "Tổng tiền hàng": 1200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005012",
+      "Thời gian": 45854.3788215625,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Tổng tiền hàng": 3405000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005011",
+      "Thời gian": 45854.372977465275,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRUNG - BƯU ĐIỆN - LÔ MỚI",
+      "Tổng tiền hàng": 2520000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005010",
+      "Thời gian": 45854.37093989583,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ CẦN - GÀ ĐẺ - NINH PHÁT",
+      "Tổng tiền hàng": 2050000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005009",
+      "Thời gian": 45854.36735486111,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 820000,
+      "Khách đã trả": 820000
+    },
+    {
+      "Mã hóa đơn": "HD005008",
+      "Thời gian": 45854.32086929398,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 120000,
+      "Khách đã trả": 120000
+    },
+    {
+      "Mã hóa đơn": "HD005007",
+      "Thời gian": 45854.30073217593,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VŨ (CÔ HUỆ) - TAM HOÀNG",
+      "Tổng tiền hàng": 1960000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005006",
+      "Thời gian": 45854.29874363426,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN ( ĐỊNH)",
+      "Tổng tiền hàng": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005005",
+      "Thời gian": 45854.28510972222,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN - VỊT ( NHÀ)",
+      "Tổng tiền hàng": 750000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005004",
+      "Thời gian": 45854.28424224537,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 50000,
+      "Khách đã trả": 50000
+    },
+    {
+      "Mã hóa đơn": "HD005003",
+      "Thời gian": 45854.2789315625,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ QUY - BÌNH DƯƠNG",
+      "Tổng tiền hàng": 1400000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005002",
+      "Thời gian": 45854.27778700231,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÚ GÀ TA",
+      "Tổng tiền hàng": 440000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005001",
+      "Thời gian": 45854.274623495374,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂN - TÍN NGHĨA",
+      "Tổng tiền hàng": 2565000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD005000",
+      "Thời gian": 45854.2714908912,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Tổng tiền hàng": 15720000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004999.01",
+      "Thời gian": 45854.26924336806,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRUNG - BƯU ĐIỆN - LÔ 2",
+      "Tổng tiền hàng": 3200000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004998",
+      "Thời gian": 45854.26826188657,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5k) - TRẠI 1",
+      "Tổng tiền hàng": 2340000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004997",
+      "Thời gian": 45853.674000150466,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 14928000,
+      "Khách đã trả": 5629800
+    },
+    {
+      "Mã hóa đơn": "HD004996",
+      "Thời gian": 45853.66666658565,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ HUỲNH - XÃ LỘ 25",
+      "Tổng tiền hàng": 1200000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004995.01",
+      "Thời gian": 45853.64184467593,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ VY - LÂM ĐỒNG",
+      "Tổng tiền hàng": 8515000,
+      "Giảm giá": 0,
+      "Khách đã trả": 8515000
+    },
+    {
+      "Mã hóa đơn": "HD004994",
+      "Thời gian": 45853.638808449075,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ CHƯƠNG - TAM HOÀNG",
+      "Tổng tiền hàng": 1650000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004993",
+      "Thời gian": 45853.62788078704,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ DUNG - SOKLU",
+      "Tổng tiền hàng": 1450000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004992.01",
+      "Thời gian": 45853.626947916666,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Tổng tiền hàng": 0,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004991.01",
+      "Thời gian": 45853.62629748842,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Tổng tiền hàng": 5200000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004990",
+      "Thời gian": 45853.600022719904,
+      "Mã trả hàng": null,
+      "Khách hàng": "HẢI - TRẢNG BOM",
+      "Tổng tiền hàng": 2040000,
+      "Khách đã trả": 2040000
+    },
+    {
+      "Mã hóa đơn": "HD004989",
+      "Thời gian": 45853.49638498842,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ THÚY - GÀ ĐẺ - NINH PHÁT",
+      "Tổng tiền hàng": 5280000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004988",
+      "Thời gian": 45853.48756258102,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRẠI GÀ ĐẺ - LONG THÀNH",
+      "Tổng tiền hàng": 1900000,
+      "Khách đã trả": 1900000
+    },
+    {
+      "Mã hóa đơn": "HD004987",
+      "Thời gian": 45853.48064401621,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 1360000,
+      "Khách đã trả": 1360000
+    },
+    {
+      "Mã hóa đơn": "HD004986",
+      "Thời gian": 45853.45374861111,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 120000,
+      "Khách đã trả": 120000
+    },
+    {
+      "Mã hóa đơn": "HD004985",
+      "Thời gian": 45853.4427190162,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 3300000,
+      "Khách đã trả": 3300000
+    },
+    {
+      "Mã hóa đơn": "HD004984",
+      "Thời gian": 45853.43022068287,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN ( THUÊ NGÁT)",
+      "Tổng tiền hàng": 3800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004983.01",
+      "Thời gian": 45853.41378726852,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HỌC - CTY TIẾN THẠNH",
+      "Tổng tiền hàng": 890000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004982",
+      "Thời gian": 45853.37773105324,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 6980000,
+      "Khách đã trả": 6980000
+    },
+    {
+      "Mã hóa đơn": "HDD_TH000179",
+      "Thời gian": 45853.37168318287,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HIẾU - DÊ",
+      "Tổng tiền hàng": 30000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004981",
+      "Thời gian": 45853.36731385416,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ THÀNH - GÀ TRE",
+      "Tổng tiền hàng": 610000,
+      "Giảm giá": 0,
+      "Khách đã trả": 610000
+    },
+    {
+      "Mã hóa đơn": "HD004980",
+      "Thời gian": 45853.3668059375,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HIẾU - DÊ",
+      "Tổng tiền hàng": 1600000,
+      "Giảm giá": 0,
+      "Khách đã trả": 1600000
+    },
+    {
+      "Mã hóa đơn": "HD004979",
+      "Thời gian": 45853.3215721875,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH KHÔI",
+      "Tổng tiền hàng": 7620000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004978",
+      "Thời gian": 45853.31655107639,
+      "Mã trả hàng": null,
+      "Khách hàng": "HÀ HOÀNG",
+      "Tổng tiền hàng": 420000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004977.01",
+      "Thời gian": 45853.31487241898,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 3460000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004976",
+      "Thời gian": 45853.31348278935,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ QUYÊN - VỊT",
+      "Tổng tiền hàng": 5000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004975",
+      "Thời gian": 45853.278636145835,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HUYỀN - VÕ DÕNG",
+      "Tổng tiền hàng": 3600000,
+      "Khách đã trả": 2220000
+    },
+    {
+      "Mã hóa đơn": "HD004974",
+      "Thời gian": 45853.2738971875,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN -BỐT ĐỎ",
+      "Tổng tiền hàng": 6180000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004973",
+      "Thời gian": 45853.26791180555,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRẠI GÀ ĐẺ - LONG THÀNH",
+      "Tổng tiền hàng": 1250000,
+      "Giảm giá": 0,
+      "Khách đã trả": 1250000
+    },
+    {
+      "Mã hóa đơn": "HD004972.01",
+      "Thời gian": 45853.265287118054,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Tổng tiền hàng": 2200000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004971",
+      "Thời gian": 45853.26248954861,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VŨ (CÔ HUỆ) - TAM HOÀNG",
+      "Tổng tiền hàng": 2600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004970",
+      "Thời gian": 45852.71199297454,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 80000,
+      "Khách đã trả": 80000
+    },
+    {
+      "Mã hóa đơn": "HD004969",
+      "Thời gian": 45852.70617438657,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ PHƯỢNG - BÌNH LỘC",
+      "Tổng tiền hàng": 2250000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004968",
+      "Thời gian": 45852.69192271991,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (6K) - TRẠI 3",
+      "Tổng tiền hàng": 660000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004967",
+      "Thời gian": 45852.69129849537,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5k) - TRẠI 1",
+      "Tổng tiền hàng": 4020000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004966.01",
+      "Thời gian": 45852.684366747686,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Tổng tiền hàng": 200000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004965",
+      "Thời gian": 45852.67475211806,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 500000,
+      "Khách đã trả": 500000
+    },
+    {
+      "Mã hóa đơn": "HD004964",
+      "Thời gian": 45852.66778082176,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH NAM - CẦU QUÂN Y",
+      "Tổng tiền hàng": 5800000,
+      "Khách đã trả": 5800000
+    },
+    {
+      "Mã hóa đơn": "HD004963",
+      "Thời gian": 45852.665432905094,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HƯNG LÔ MỚI - MARTINO",
+      "Tổng tiền hàng": 500000,
+      "Khách đã trả": 500000
+    },
+    {
+      "Mã hóa đơn": "HD004962",
+      "Thời gian": 45852.66428255787,
+      "Mã trả hàng": "TH000180",
+      "Khách hàng": "CHÚ HOÀ",
+      "Tổng tiền hàng": 1100000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004961",
+      "Thời gian": 45852.662994328704,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 2140000,
+      "Khách đã trả": 2140000
+    },
+    {
+      "Mã hóa đơn": "HD004960",
+      "Thời gian": 45852.63198684028,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 120000,
+      "Khách đã trả": 120000
+    },
+    {
+      "Mã hóa đơn": "HD004959",
+      "Thời gian": 45852.62407445602,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 720000,
+      "Khách đã trả": 720000
+    },
+    {
+      "Mã hóa đơn": "HD004957",
+      "Thời gian": 45852.47986400463,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HẢI HÀO LÔ MỚI",
+      "Tổng tiền hàng": 2210000,
+      "Khách đã trả": 2210000
+    },
+    {
+      "Mã hóa đơn": "HD004956",
+      "Thời gian": 45852.47865208334,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRUNG - BƯU ĐIỆN - LÔ MỚI",
+      "Tổng tiền hàng": 800000,
+      "Khách đã trả": 800000
+    },
+    {
+      "Mã hóa đơn": "HD004955.02",
+      "Thời gian": 45852.45568734954,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUỐC - DẦU GIÂY",
+      "Tổng tiền hàng": 5600000,
+      "Giảm giá": 0,
+      "Khách đã trả": 5600000
+    },
+    {
+      "Mã hóa đơn": "HD004954",
+      "Thời gian": 45852.367541238425,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 4105000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004953.01",
+      "Thời gian": 45852.365707523146,
+      "Mã trả hàng": null,
+      "Khách hàng": "ĐẠI LÝ TIÊN PHÚC",
+      "Tổng tiền hàng": 4690000,
+      "Giảm giá": 0,
+      "Khách đã trả": 4690000
+    },
+    {
+      "Mã hóa đơn": "HD004952",
+      "Thời gian": 45852.34419131945,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( ANH CÔNG)",
+      "Tổng tiền hàng": 2150000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004951",
+      "Thời gian": 45852.31765841435,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 720000,
+      "Khách đã trả": 720000
+    },
+    {
+      "Mã hóa đơn": "HD004950",
+      "Thời gian": 45852.3116556713,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 60000,
+      "Khách đã trả": 60000
+    },
+    {
+      "Mã hóa đơn": "HD004949.01",
+      "Thời gian": 45852.30576084491,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÈO - VÔ NHIỄM",
+      "Tổng tiền hàng": 2250000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004948.01",
+      "Thời gian": 45852.30405644676,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 3250000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004947",
+      "Thời gian": 45852.294874074076,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - VỊT (NHÀ)",
+      "Tổng tiền hàng": 950000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004946",
+      "Thời gian": 45852.283091701385,
+      "Mã trả hàng": "TH000178",
+      "Khách hàng": "ANH HƯNG LÔ MỚI - MARTINO",
+      "Tổng tiền hàng": 1830000,
+      "Khách đã trả": 930000
+    },
+    {
+      "Mã hóa đơn": "HD004945",
+      "Thời gian": 45852.27509108796,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HÙNG - BỘ - TAM HOÀNG",
+      "Tổng tiền hàng": 2010000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004944",
+      "Thời gian": 45852.27398622685,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (8K) - TRẠI 4",
+      "Tổng tiền hàng": 1000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004943",
+      "Thời gian": 45852.271060844905,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DUY - PHƯƠNG LÂM",
+      "Tổng tiền hàng": 2970000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004942.01",
+      "Thời gian": 45852.265876006946,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2",
+      "Tổng tiền hàng": 520000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004941",
+      "Thời gian": 45852.26520543981,
+      "Mã trả hàng": null,
+      "Khách hàng": "TIẾN CHÍCH",
+      "Tổng tiền hàng": 840000,
+      "Khách đã trả": 840000
+    },
+    {
+      "Mã hóa đơn": "HD004940",
+      "Thời gian": 45852.26338966435,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂN - TÍN NGHĨA",
+      "Tổng tiền hàng": 2735000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004939",
+      "Thời gian": 45851.69749834491,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VŨ CÁM ODON",
+      "Tổng tiền hàng": 2340000,
+      "Khách đã trả": 2340000
+    },
+    {
+      "Mã hóa đơn": "HD004938",
+      "Thời gian": 45851.696838194446,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRƯỜNG - CẦU CƯỜNG",
+      "Tổng tiền hàng": 400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004937",
+      "Thời gian": 45851.69605505787,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 80000,
+      "Khách đã trả": 80000
+    },
+    {
+      "Mã hóa đơn": "HD004936",
+      "Thời gian": 45851.46755755787,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN ( THUÊ NGÁT)",
+      "Tổng tiền hàng": 1200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004935",
+      "Thời gian": 45851.39114189815,
+      "Mã trả hàng": "TH000176",
+      "Khách hàng": "HÀ HOÀNG",
+      "Tổng tiền hàng": 840000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004934",
+      "Thời gian": 45851.39039204861,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VŨ (CÔ HUỆ) - TAM HOÀNG",
+      "Tổng tiền hàng": 900000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004933",
+      "Thời gian": 45851.37817457176,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Tổng tiền hàng": 160000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004932",
+      "Thời gian": 45851.34383024306,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ CHƯƠNG - TAM HOÀNG",
+      "Tổng tiền hàng": 500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004931",
+      "Thời gian": 45851.30268321759,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN -BỐT ĐỎ",
+      "Tổng tiền hàng": 2250000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004930",
+      "Thời gian": 45851.30169945602,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 3",
+      "Tổng tiền hàng": 450000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004929",
+      "Thời gian": 45851.300785300926,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 1",
+      "Tổng tiền hàng": 1200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004928",
+      "Thời gian": 45851.29989170139,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - BÀU SẬY",
+      "Tổng tiền hàng": 2550000,
+      "Khách đã trả": 2550000
+    },
+    {
+      "Mã hóa đơn": "HD004927",
+      "Thời gian": 45851.29878873842,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 5550000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004926",
+      "Thời gian": 45851.29662832176,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HỌC (LONG)",
+      "Tổng tiền hàng": 1200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004924",
+      "Thời gian": 45851.26539609954,
+      "Mã trả hàng": null,
+      "Khách hàng": "ĐẠI LÝ TUẤN PHÁT",
+      "Tổng tiền hàng": 6480000,
+      "Giảm giá": 0,
+      "Khách đã trả": 6480000
+    },
+    {
+      "Mã hóa đơn": "HD004923",
+      "Thời gian": 45850.680417905096,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÚ GÀ TA",
+      "Tổng tiền hàng": 630000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004922",
+      "Thời gian": 45850.65732766204,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ THÚY - GÀ ĐẺ - NINH PHÁT",
+      "Tổng tiền hàng": 1600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004921",
+      "Thời gian": 45850.65530957176,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 1080000,
+      "Khách đã trả": 1080000
+    },
+    {
+      "Mã hóa đơn": "HD004920",
+      "Thời gian": 45850.64630289352,
+      "Mã trả hàng": null,
+      "Khách hàng": "MI TIGERVET",
+      "Tổng tiền hàng": 4500000,
+      "Khách đã trả": 4500000
+    },
+    {
+      "Mã hóa đơn": "HD004919",
+      "Thời gian": 45850.645178969906,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VƯƠNG  KÍNH - TÍN NGHĨA",
+      "Tổng tiền hàng": 2550000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004918",
+      "Thời gian": 45850.63098850694,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 450000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004917",
+      "Thời gian": 45850.619289965274,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN ( ĐỊNH)",
+      "Tổng tiền hàng": 5800000,
+      "Khách đã trả": 1600000
+    },
+    {
+      "Mã hóa đơn": "HD004916",
+      "Thời gian": 45850.593941782405,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CHÍNH - VÔ NHIỄM",
+      "Tổng tiền hàng": 3200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004915",
+      "Thời gian": 45850.46086883102,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM - MARTINO - VỊT (NHÀ)",
+      "Tổng tiền hàng": 2970000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004914",
+      "Thời gian": 45850.4544903125,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K",
+      "Tổng tiền hàng": 19000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004913",
+      "Thời gian": 45850.4502321412,
+      "Mã trả hàng": "TH000177",
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 11000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004912",
+      "Thời gian": 45850.38975219907,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 20000,
+      "Khách đã trả": 20000
+    },
+    {
+      "Mã hóa đơn": "HD004911.01",
+      "Thời gian": 45850.37613449074,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - BÀU SẬY",
+      "Tổng tiền hàng": 6980000,
+      "Giảm giá": 0,
+      "Khách đã trả": 6980000
+    },
+    {
+      "Mã hóa đơn": "HD004910.01",
+      "Thời gian": 45850.373041087965,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH GIA CHÍCH",
+      "Tổng tiền hàng": 200000,
+      "Giảm giá": 0,
+      "Khách đã trả": 200000
+    },
+    {
+      "Mã hóa đơn": "HD004909",
+      "Thời gian": 45850.36991559028,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ĐỨC - VÔ NHIỄM",
+      "Tổng tiền hàng": 450000,
+      "Khách đã trả": 450000
+    },
+    {
+      "Mã hóa đơn": "HD004908",
+      "Thời gian": 45850.34420092592,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HẢI CJ",
+      "Tổng tiền hàng": 600000,
+      "Khách đã trả": 600000
+    },
+    {
+      "Mã hóa đơn": "HD004907",
+      "Thời gian": 45850.337650891204,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DANH - GÀ TRE - VÔ NHIỄM 9K",
+      "Tổng tiền hàng": 1470000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004906",
+      "Thời gian": 45850.32369556713,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ÂN - PHÚ TÚC",
+      "Tổng tiền hàng": 220000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004905",
+      "Thời gian": 45850.32268059028,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHÁT - DỐC MƠ",
+      "Tổng tiền hàng": 1050000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004904",
+      "Thời gian": 45850.30859100694,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 500000,
+      "Khách đã trả": 500000
+    },
+    {
+      "Mã hóa đơn": "HD004903",
+      "Thời gian": 45850.30330269676,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM - MARTINO - VỊT (NHÀ)",
+      "Tổng tiền hàng": 1350000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004902",
+      "Thời gian": 45850.29536033565,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TỨ",
+      "Tổng tiền hàng": 470000,
+      "Khách đã trả": 470000
+    },
+    {
+      "Mã hóa đơn": "HD004901",
+      "Thời gian": 45850.2875690162,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 6560000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004900",
+      "Thời gian": 45850.268140706015,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾT THU - PHÚ CƯỜNG 11K",
+      "Tổng tiền hàng": 7150000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004898",
+      "Thời gian": 45850.264858912036,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾN - TAM HOÀNG - CẦU CƯỜNG",
+      "Tổng tiền hàng": 1120000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004897",
+      "Thời gian": 45849.71238063657,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 90000,
+      "Khách đã trả": 90000
+    },
+    {
+      "Mã hóa đơn": "HD004896",
+      "Thời gian": 45849.675780289355,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRUNG - BƯU ĐIỆN - LÔ 2",
+      "Tổng tiền hàng": 950000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004895.01",
+      "Thời gian": 45849.64935891204,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HƯNG - GÀ - SUỐI ĐÁ",
+      "Tổng tiền hàng": 3060000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004894",
+      "Thời gian": 45849.64811149306,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THỨC - TAM HOÀNG",
+      "Tổng tiền hàng": 4200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004893",
+      "Thời gian": 45849.62890297454,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004892",
+      "Thời gian": 45849.62861327546,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 6400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004891",
+      "Thời gian": 45849.608470405095,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 8915000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004890",
+      "Thời gian": 45849.595855555555,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HUYỀN - VÕ DÕNG",
+      "Tổng tiền hàng": 2740000,
+      "Khách đã trả": 2740000
+    },
+    {
+      "Mã hóa đơn": "HD004889",
+      "Thời gian": 45849.46322010417,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM - MARTINO - VỊT (NHÀ)",
+      "Tổng tiền hàng": 1400000,
+      "Khách đã trả": 30000
+    },
+    {
+      "Mã hóa đơn": "HD004888",
+      "Thời gian": 45849.45915697917,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHẢI HAIDER - BÀU CẠN LÔ 20k",
+      "Tổng tiền hàng": 10600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004887",
+      "Thời gian": 45849.45597025463,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHẢI 8.500 CON - XUYÊN MỘC",
+      "Tổng tiền hàng": 3680000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004886",
+      "Thời gian": 45849.389025034725,
+      "Mã trả hàng": null,
+      "Khách hàng": "EM SƠN - ECOVET",
+      "Tổng tiền hàng": 7650000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004885",
+      "Thời gian": 45849.37182893518,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 70000,
+      "Khách đã trả": 70000
+    },
+    {
+      "Mã hóa đơn": "HD004884",
+      "Thời gian": 45849.35870243055,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM - MARTINO - VỊT (NHÀ)",
+      "Tổng tiền hàng": 7100000,
+      "Khách đã trả": 7100000
+    },
+    {
+      "Mã hóa đơn": "HD004883",
+      "Thời gian": 45849.325813344905,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THỨC - TAM HOÀNG",
+      "Tổng tiền hàng": 4300000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004882",
+      "Thời gian": 45849.28266681713,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Tổng tiền hàng": 2360000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004881",
+      "Thời gian": 45849.27296354167,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THỨC - TAM HOÀNG",
+      "Tổng tiền hàng": 1560000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004880",
+      "Thời gian": 45849.26969325232,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ CHƯƠNG - TAM HOÀNG",
+      "Tổng tiền hàng": 220000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004879",
+      "Thời gian": 45849.26838576389,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 910000,
+      "Khách đã trả": 910000
+    },
+    {
+      "Mã hóa đơn": "HD004878",
+      "Thời gian": 45849.26692109954,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ CẦN - GÀ ĐẺ - NINH PHÁT",
+      "Tổng tiền hàng": 3900000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004877.01",
+      "Thời gian": 45849.266019560186,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THIÊN - TÍN NGHĨA - LÔ MỚI",
+      "Tổng tiền hàng": 1260000,
+      "Giảm giá": 0,
+      "Khách đã trả": 1260000
+    },
+    {
+      "Mã hóa đơn": "HD004876",
+      "Thời gian": 45849.26449494213,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ QUY - BÌNH DƯƠNG",
+      "Tổng tiền hàng": 5900000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004875",
+      "Thời gian": 45848.74314320602,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( ANH CÔNG)",
+      "Tổng tiền hàng": 6300000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004874",
+      "Thời gian": 45848.7424125,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 12300000,
+      "Giảm giá": 0,
+      "Khách đã trả": 12300000
+    },
+    {
+      "Mã hóa đơn": "HD004873",
+      "Thời gian": 45848.72690381944,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HƯƠNG-THÀNH AN",
+      "Tổng tiền hàng": 1740000,
+      "Khách đã trả": 1225000
+    },
+    {
+      "Mã hóa đơn": "HD004872",
+      "Thời gian": 45848.70751412037,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 30000,
+      "Khách đã trả": 30000
+    },
+    {
+      "Mã hóa đơn": "HD004871",
+      "Thời gian": 45848.70245636574,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HUYỀN - VÕ DÕNG",
+      "Tổng tiền hàng": 500000,
+      "Khách đã trả": 500000
+    },
+    {
+      "Mã hóa đơn": "HD004870.02",
+      "Thời gian": 45848.70173734954,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRUNG - BƯU ĐIỆN - LÔ MỚI",
+      "Tổng tiền hàng": 580000,
+      "Giảm giá": 0,
+      "Khách đã trả": 580000
+    },
+    {
+      "Mã hóa đơn": "HD004869",
+      "Thời gian": 45848.687075347225,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÀI - MARTINO (BÀ NGOẠI)",
+      "Tổng tiền hàng": 690000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004868.02",
+      "Thời gian": 45848.67995783565,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÀI - GÀ TA - MARTINO",
+      "Tổng tiền hàng": 690000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004867",
+      "Thời gian": 45848.67416944444,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( ANH CÔNG)",
+      "Tổng tiền hàng": 1650000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004866",
+      "Thời gian": 45848.65292905093,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ ĐÔNG - TAM HOÀNG",
+      "Tổng tiền hàng": 4400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004865",
+      "Thời gian": 45848.647704282404,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Tổng tiền hàng": 1200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004864",
+      "Thời gian": 45848.6466462963,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 740000,
+      "Khách đã trả": 740000
+    },
+    {
+      "Mã hóa đơn": "HD004863",
+      "Thời gian": 45848.617361226854,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 100000,
+      "Khách đã trả": 100000
+    },
+    {
+      "Mã hóa đơn": "HD004862",
+      "Thời gian": 45848.61244837963,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ PHƯỢNG - BÌNH LỘC",
+      "Tổng tiền hàng": 2100000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004861",
+      "Thời gian": 45848.611066631944,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 2100000,
+      "Khách đã trả": 2100000
+    },
+    {
+      "Mã hóa đơn": "HD004860",
+      "Thời gian": 45848.60185798611,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN - VỊT ( NHÀ)",
+      "Tổng tiền hàng": 1140000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004859",
+      "Thời gian": 45848.600732025465,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHƯỚC - TAM HOÀNG",
+      "Tổng tiền hàng": 4500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004858",
+      "Thời gian": 45848.598896180556,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SƠN ( BỘ) - TAM HOÀNG",
+      "Tổng tiền hàng": 3674000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004857",
+      "Thời gian": 45848.59718896991,
+      "Mã trả hàng": "TH000174",
+      "Khách hàng": "ĐẠI LÝ TIÊN PHÚC",
+      "Tổng tiền hàng": 3400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004856",
+      "Thời gian": 45848.59523587963,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HUYỀN - VÕ DÕNG",
+      "Tổng tiền hàng": 2720000,
+      "Khách đã trả": 2720000
+    },
+    {
+      "Mã hóa đơn": "HD004855",
+      "Thời gian": 45848.459301076386,
+      "Mã trả hàng": null,
+      "Khách hàng": "QUYỀN - TAM HOÀNG LÔ MỚI",
+      "Tổng tiền hàng": 30000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004854",
+      "Thời gian": 45848.423478668985,
+      "Mã trả hàng": null,
+      "Khách hàng": "TUYẾN DONAVET",
+      "Tổng tiền hàng": 230000,
+      "Khách đã trả": 230000
+    },
+    {
+      "Mã hóa đơn": "HD004853",
+      "Thời gian": 45848.33477832176,
+      "Mã trả hàng": null,
+      "Khách hàng": "NHUNG VIETVET",
+      "Tổng tiền hàng": 1586000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004852",
+      "Thời gian": 45848.30007068287,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 7160000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004851",
+      "Thời gian": 45848.280233564816,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 10000,
+      "Khách đã trả": 10000
+    },
+    {
+      "Mã hóa đơn": "HD004850.01",
+      "Thời gian": 45848.27847835648,
+      "Mã trả hàng": "TH000173",
+      "Khách hàng": "ANH HÙNG - BỘ - TAM HOÀNG",
+      "Tổng tiền hàng": 6925000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004849.01",
+      "Thời gian": 45848.276902743055,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRUNG - BƯU ĐIỆN - LÔ 2",
+      "Tổng tiền hàng": 2520000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004848.01",
+      "Thời gian": 45848.273126354165,
+      "Mã trả hàng": "TH000182",
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 5380000,
+      "Giảm giá": 0,
+      "Khách đã trả": 3960000
+    },
+    {
+      "Mã hóa đơn": "HD004847",
+      "Thời gian": 45848.27082893519,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5K) - TRẠI 2",
+      "Tổng tiền hàng": 1200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004846.01",
+      "Thời gian": 45848.26851967593,
+      "Mã trả hàng": null,
+      "Khách hàng": "QUYỀN - TAM HOÀNG LÔ MỚI",
+      "Tổng tiền hàng": 4800000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004845",
+      "Thời gian": 45847.723614814815,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5k) - TRẠI 1",
+      "Tổng tiền hàng": 7100000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004844",
+      "Thời gian": 45847.7208005787,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5K) - TRẠI 2",
+      "Tổng tiền hàng": 1450000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004843.01",
+      "Thời gian": 45847.69104695602,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 1250000,
+      "Giảm giá": 0,
+      "Khách đã trả": 1250000
+    },
+    {
+      "Mã hóa đơn": "HD004842.01",
+      "Thời gian": 45847.68587832176,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 1600000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004841",
+      "Thời gian": 45847.67307719908,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K",
+      "Tổng tiền hàng": 7560000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004840",
+      "Thời gian": 45847.64708908565,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HỌC - CTY TIẾN THẠNH",
+      "Tổng tiền hàng": 2580000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004839",
+      "Thời gian": 45847.64577461805,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRƯỜNG - CẦU CƯỜNG",
+      "Tổng tiền hàng": 490000,
+      "Khách đã trả": 490000
+    },
+    {
+      "Mã hóa đơn": "HD004838",
+      "Thời gian": 45847.644801041664,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ QUYÊN - VỊT",
+      "Tổng tiền hàng": 5550000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004837",
+      "Thời gian": 45847.64296200231,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 40000,
+      "Khách đã trả": 40000
+    },
+    {
+      "Mã hóa đơn": "HD004836",
+      "Thời gian": 45847.641677430554,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HÀO",
+      "Tổng tiền hàng": 540000,
+      "Khách đã trả": 540000
+    },
+    {
+      "Mã hóa đơn": "HD004835.01",
+      "Thời gian": 45847.64022175926,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 32900000,
+      "Giảm giá": 0,
+      "Khách đã trả": 32900000
+    },
+    {
+      "Mã hóa đơn": "HD004834.01",
+      "Thời gian": 45847.607578703704,
+      "Mã trả hàng": null,
+      "Khách hàng": "LONG - BIÊN HOÀ 2",
+      "Tổng tiền hàng": 28200000,
+      "Giảm giá": 0,
+      "Khách đã trả": 28200000
+    },
+    {
+      "Mã hóa đơn": "HD004833",
+      "Thời gian": 45847.476641469904,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ BÌNH - AN LỘC",
+      "Tổng tiền hàng": 6450000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004832",
+      "Thời gian": 45847.44169918982,
+      "Mã trả hàng": null,
+      "Khách hàng": "NHUNG VIETVET",
+      "Tổng tiền hàng": 16200000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004831",
+      "Thời gian": 45847.42216388889,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (6K) - TRẠI 3",
+      "Tổng tiền hàng": 1300000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004830",
+      "Thời gian": 45847.42123946759,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (8K) - TRẠI 4",
+      "Tổng tiền hàng": 2400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004829",
+      "Thời gian": 45847.40537079861,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 2",
+      "Tổng tiền hàng": 4820000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004828",
+      "Thời gian": 45847.40387407407,
+      "Mã trả hàng": null,
+      "Khách hàng": "Khách lẻ",
+      "Tổng tiền hàng": 1000000,
+      "Khách đã trả": 1000000
+    },
+    {
+      "Mã hóa đơn": "HD004827",
+      "Thời gian": 45847.37654791667,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 2780000,
+      "Khách đã trả": 2780000
+    },
+    {
+      "Mã hóa đơn": "HD004826",
+      "Thời gian": 45847.373865277776,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 5750000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004825",
+      "Thời gian": 45847.370060381945,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ QUYÊN - VỊT",
+      "Tổng tiền hàng": 1000000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004824",
+      "Thời gian": 45847.36289077546,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 4150000,
+      "Khách đã trả": 4150000
+    },
+    {
+      "Mã hóa đơn": "HD004823.01",
+      "Thời gian": 45847.34598846065,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ĐEN - GÀ - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 830000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004822",
+      "Thời gian": 45847.3449303588,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CHÍNH - VÔ NHIỄM",
+      "Tổng tiền hàng": 2620000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004821",
+      "Thời gian": 45847.317050115744,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( ANH CÔNG)",
+      "Tổng tiền hàng": 1650000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004820",
+      "Thời gian": 45847.315975034726,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 3",
+      "Tổng tiền hàng": 1200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004819",
+      "Thời gian": 45847.31512369213,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 1",
+      "Tổng tiền hàng": 3600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004818",
+      "Thời gian": 45847.31142175926,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 880000,
+      "Khách đã trả": 880000
+    },
+    {
+      "Mã hóa đơn": "HD004817",
+      "Thời gian": 45847.28229707176,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5K) - TRẠI 2",
+      "Tổng tiền hàng": 1600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004816",
+      "Thời gian": 45847.27819398148,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH GIA CHÍCH",
+      "Tổng tiền hàng": 220000,
+      "Khách đã trả": 220000
+    },
+    {
+      "Mã hóa đơn": "HD004815",
+      "Thời gian": 45847.274382407406,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( ANH CÔNG)",
+      "Tổng tiền hàng": 5510000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004814",
+      "Thời gian": 45847.27328306713,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VŨ (CÔ HUỆ) - TAM HOÀNG",
+      "Tổng tiền hàng": 560000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004813",
+      "Thời gian": 45847.27220929398,
+      "Mã trả hàng": null,
+      "Khách hàng": "QUYỀN - TAM HOÀNG LÔ MỚI",
+      "Tổng tiền hàng": 18660000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004812",
+      "Thời gian": 45847.26842083333,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ CHƯNG - TAM HOÀNG - NAGOA",
+      "Tổng tiền hàng": 6000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004811.01",
+      "Thời gian": 45847.26727777778,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH RÒN - DỐC MƠ",
+      "Tổng tiền hàng": 1560000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004810.01",
+      "Thời gian": 45847.26367288194,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Tổng tiền hàng": 2300000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004809",
+      "Thời gian": 45846.69101866898,
+      "Mã trả hàng": null,
+      "Khách hàng": "TRUNG - BƯU ĐIỆN - LÔ MỚI",
+      "Tổng tiền hàng": 1040000,
+      "Khách đã trả": 1040000
+    },
+    {
+      "Mã hóa đơn": "HD004808",
+      "Thời gian": 45846.63993290509,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÈO - VÔ NHIỄM",
+      "Tổng tiền hàng": 7210000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004807",
+      "Thời gian": 45846.63252144676,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 500000,
+      "Khách đã trả": 500000
+    },
+    {
+      "Mã hóa đơn": "HD004806",
+      "Thời gian": 45846.62553549768,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K",
+      "Tổng tiền hàng": 2640000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004805",
+      "Thời gian": 45846.608538113425,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Tổng tiền hàng": 5250000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004804",
+      "Thời gian": 45846.60497542824,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUẢNG - LONG THÀNH",
+      "Tổng tiền hàng": 1260000,
+      "Khách đã trả": 1260000
+    },
+    {
+      "Mã hóa đơn": "HD004803",
+      "Thời gian": 45846.476449155096,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - BÀU SẬY",
+      "Tổng tiền hàng": 7800000,
+      "Khách đã trả": 7800000
+    },
+    {
+      "Mã hóa đơn": "HD004802",
+      "Thời gian": 45846.46035188658,
+      "Mã trả hàng": null,
+      "Khách hàng": "NHUNG VIETVET",
+      "Tổng tiền hàng": 3720000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004801.01",
+      "Thời gian": 45846.442688194446,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM - MARTINO - VỊT (NHÀ)",
+      "Tổng tiền hàng": 550000,
+      "Giảm giá": 0,
+      "Khách đã trả": 550000
+    },
+    {
+      "Mã hóa đơn": "HD004800.01",
+      "Thời gian": 45846.44175081018,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( ANH CÔNG)",
+      "Tổng tiền hàng": 550000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004799",
+      "Thời gian": 45846.4393059838,
+      "Mã trả hàng": null,
+      "Khách hàng": "ĐẠI LÝ TIÊN PHÚC",
+      "Tổng tiền hàng": 3000000,
+      "Khách đã trả": 3000000
+    },
+    {
+      "Mã hóa đơn": "HD004798",
+      "Thời gian": 45846.43178429398,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (8K) - TRẠI 4",
+      "Tổng tiền hàng": 1840000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004797.01",
+      "Thời gian": 45846.412284756945,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Tổng tiền hàng": 2776000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004796",
+      "Thời gian": 45846.40097866898,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HẢI CJ",
+      "Tổng tiền hàng": 480000,
+      "Khách đã trả": 480000
+    },
+    {
+      "Mã hóa đơn": "HD004795",
+      "Thời gian": 45846.353464085645,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THỨC - TAM HOÀNG",
+      "Tổng tiền hàng": 1200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004794",
+      "Thời gian": 45846.350761608795,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾT THU (5K) - LÔ SONG HÀNH",
+      "Tổng tiền hàng": 6000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004793",
+      "Thời gian": 45846.34975625,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÈO - VÔ NHIỄM",
+      "Tổng tiền hàng": 960000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004792.02",
+      "Thời gian": 45846.341553356484,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI",
+      "Tổng tiền hàng": 4220000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004791.01",
+      "Thời gian": 45846.32900471065,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 8100000,
+      "Giảm giá": 0,
+      "Khách đã trả": 8100000
+    },
+    {
+      "Mã hóa đơn": "HD004790",
+      "Thời gian": 45846.31973244213,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 490000,
+      "Giảm giá": 0,
+      "Khách đã trả": 490000
+    },
+    {
+      "Mã hóa đơn": "HD004789",
+      "Thời gian": 45846.316973229164,
+      "Mã trả hàng": null,
+      "Khách hàng": "HÀ HOÀNG",
+      "Tổng tiền hàng": 1050000,
+      "Khách đã trả": 270000
+    },
+    {
+      "Mã hóa đơn": "HD004788",
+      "Thời gian": 45846.313616747684,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM - MARTINO - VỊT (NHÀ)",
+      "Tổng tiền hàng": 6690000,
+      "Khách đã trả": 6690000
+    },
+    {
+      "Mã hóa đơn": "HD004787",
+      "Thời gian": 45846.31206157408,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TUÝ (KIM PHÁT)",
+      "Tổng tiền hàng": 1560000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004786",
+      "Thời gian": 45846.29378619213,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 440000,
+      "Khách đã trả": 440000
+    },
+    {
+      "Mã hóa đơn": "HD004785",
+      "Thời gian": 45846.282724108794,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN ( ĐỊNH)",
+      "Tổng tiền hàng": 2200000,
+      "Khách đã trả": 2200000
+    },
+    {
+      "Mã hóa đơn": "HD004784",
+      "Thời gian": 45846.28101076389,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHÁT - DỐC MƠ",
+      "Tổng tiền hàng": 570000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004783",
+      "Thời gian": 45846.27651859954,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 1160000,
+      "Khách đã trả": 1160000
+    },
+    {
+      "Mã hóa đơn": "HD004782.01",
+      "Thời gian": 45846.27043819444,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM - TAM HOÀNG - NINH PHÁT",
+      "Tổng tiền hàng": 2850000,
+      "Giảm giá": 142500,
+      "Khách đã trả": 2707500
+    },
+    {
+      "Mã hóa đơn": "HD004781",
+      "Thời gian": 45846.267559872686,
+      "Mã trả hàng": null,
+      "Khách hàng": "ĐẠI LÝ TUẤN PHÁT",
+      "Tổng tiền hàng": 2750000,
+      "Giảm giá": 0,
+      "Khách đã trả": 2750000
+    },
+    {
+      "Mã hóa đơn": "HD004780",
+      "Thời gian": 45846.265840011576,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2",
+      "Tổng tiền hàng": 2200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004779.01",
+      "Thời gian": 45845.79066539352,
+      "Mã trả hàng": null,
+      "Khách hàng": "HOÀ MEGA",
+      "Tổng tiền hàng": 1000000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004778",
+      "Thời gian": 45845.700152743055,
+      "Mã trả hàng": "TH000171, TH000181, TH000183",
+      "Khách hàng": "HOÀ MEGA",
+      "Tổng tiền hàng": 17600000,
+      "Khách đã trả": 1000000
+    },
+    {
+      "Mã hóa đơn": "HD004777",
+      "Thời gian": 45845.69916778935,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 1530000,
+      "Khách đã trả": 1530000
+    },
+    {
+      "Mã hóa đơn": "HD004776",
+      "Thời gian": 45845.611861226855,
+      "Mã trả hàng": "TH000168",
+      "Khách hàng": "CÔ TUYẾN - TAM HOÀNG - CẦU CƯỜNG",
+      "Tổng tiền hàng": 7390000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004775",
+      "Thời gian": 45845.6101227662,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HẢI (KẾ)",
+      "Tổng tiền hàng": 1350000,
+      "Khách đã trả": 1350000
+    },
+    {
+      "Mã hóa đơn": "HD004774",
+      "Thời gian": 45845.59955697917,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CHÍNH - VÔ NHIỄM",
+      "Tổng tiền hàng": 4100000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004773",
+      "Thời gian": 45845.594777743056,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 2000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004772",
+      "Thời gian": 45845.59361319445,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 2190000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004771.01",
+      "Thời gian": 45845.43461473379,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ THÚY - GÀ ĐẺ - NINH PHÁT",
+      "Tổng tiền hàng": 4210000,
+      "Giảm giá": 0,
+      "Khách đã trả": 3310000
+    },
+    {
+      "Mã hóa đơn": "HD004770",
+      "Thời gian": 45845.41637908565,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ CHƯƠNG - TAM HOÀNG",
+      "Tổng tiền hàng": 2600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004769",
+      "Thời gian": 45845.41219355324,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 300000,
+      "Khách đã trả": 300000
+    },
+    {
+      "Mã hóa đơn": "HD004768.01",
+      "Thời gian": 45845.411130520835,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 4400000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004767",
+      "Thời gian": 45845.40758452546,
+      "Mã trả hàng": null,
+      "Khách hàng": "Khách lẻ",
+      "Tổng tiền hàng": 130000,
+      "Khách đã trả": 130000
+    },
+    {
+      "Mã hóa đơn": "HD004766",
+      "Thời gian": 45845.38040679398,
+      "Mã trả hàng": null,
+      "Khách hàng": "QUÂN BIOFRAM",
+      "Tổng tiền hàng": 480000,
+      "Khách đã trả": 480000
+    },
+    {
+      "Mã hóa đơn": "HD004765",
+      "Thời gian": 45845.357425891205,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2",
+      "Tổng tiền hàng": 520000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004764",
+      "Thời gian": 45845.35076443287,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HUY - GÀ - ĐỨC HUY",
+      "Tổng tiền hàng": 3810000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004763",
+      "Thời gian": 45845.34104151621,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ HUỲNH - XÃ LỘ 25",
+      "Tổng tiền hàng": 13000000,
+      "Khách đã trả": 3000000
+    },
+    {
+      "Mã hóa đơn": "HD004762",
+      "Thời gian": 45845.330364699075,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 450000,
+      "Khách đã trả": 450000
+    },
+    {
+      "Mã hóa đơn": "HD004761",
+      "Thời gian": 45845.32742364583,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( ANH CÔNG)",
+      "Tổng tiền hàng": 2340000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004760",
+      "Thời gian": 45845.326781979165,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM - MARTINO - VỊT (NHÀ)",
+      "Tổng tiền hàng": 2340000,
+      "Khách đã trả": 2340000
+    },
+    {
+      "Mã hóa đơn": "HD004759",
+      "Thời gian": 45845.29029579861,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÈO - VÔ NHIỄM",
+      "Tổng tiền hàng": 920000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004758",
+      "Thời gian": 45845.28057873843,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HỌC",
+      "Tổng tiền hàng": 800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004757.01",
+      "Thời gian": 45845.26851947917,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ĐEN - GÀ - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 180000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004756",
+      "Thời gian": 45845.267363113424,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8",
+      "Tổng tiền hàng": 8770000,
+      "Khách đã trả": 8770000
+    },
+    {
+      "Mã hóa đơn": "HD004755",
+      "Thời gian": 45845.26579826389,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN -BỐT ĐỎ",
+      "Tổng tiền hàng": 1320000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004754",
+      "Thời gian": 45845.2641528125,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ PHƯỢNG - BÌNH LỘC",
+      "Tổng tiền hàng": 1080000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004753.02",
+      "Thời gian": 45845.26293186343,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 1000000,
+      "Giảm giá": 0,
+      "Khách đã trả": 1000000
+    },
+    {
+      "Mã hóa đơn": "HD004752.01",
+      "Thời gian": 45844.76770243055,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 450000,
+      "Giảm giá": 0,
+      "Khách đã trả": 450000
+    },
+    {
+      "Mã hóa đơn": "HD004751.01",
+      "Thời gian": 45844.69233333333,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 30000,
+      "Giảm giá": 0,
+      "Khách đã trả": 30000
+    },
+    {
+      "Mã hóa đơn": "HD004750",
+      "Thời gian": 45844.67470304398,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHƯỚC - TAM HOÀNG",
+      "Tổng tiền hàng": 650000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004749.01",
+      "Thời gian": 45844.66695659722,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÚ GÀ TA",
+      "Tổng tiền hàng": 400000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004748",
+      "Thời gian": 45844.66511076389,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÀI - MARTINO (BÀ NGOẠI)",
+      "Tổng tiền hàng": 520000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004747",
+      "Thời gian": 45844.663678703706,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÀI - GÀ TA - MARTINO",
+      "Tổng tiền hàng": 520000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004746",
+      "Thời gian": 45844.40045663194,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HƯƠNG-THÀNH AN",
+      "Tổng tiền hàng": 465000,
+      "Khách đã trả": 465000
+    },
+    {
+      "Mã hóa đơn": "HD004745",
+      "Thời gian": 45844.34565725694,
+      "Mã trả hàng": null,
+      "Khách hàng": "NGUYỆT SƠN LÂM",
+      "Tổng tiền hàng": 600000,
+      "Khách đã trả": 600000
+    },
+    {
+      "Mã hóa đơn": "HD004744",
+      "Thời gian": 45844.340052974534,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ HÙNG - VÕ DÕNG",
+      "Tổng tiền hàng": 820000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004743",
+      "Thời gian": 45844.33606064815,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( ANH CÔNG)",
+      "Tổng tiền hàng": 7650000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004742",
+      "Thời gian": 45844.31500228009,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Tổng tiền hàng": 700000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004741.01",
+      "Thời gian": 45844.29960744213,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ĐEN - GÀ - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 1600000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004740",
+      "Thời gian": 45844.28583665509,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 2500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004739",
+      "Thời gian": 45844.284051539355,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHÙNG - TAM HOÀNG-NINH PHÁT",
+      "Tổng tiền hàng": 1900000,
+      "Giảm giá": 95000,
+      "Khách đã trả": 1805000
+    },
+    {
+      "Mã hóa đơn": "HD004738",
+      "Thời gian": 45844.27385096065,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI",
+      "Tổng tiền hàng": 3250000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004737.01",
+      "Thời gian": 45844.27307005787,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ NGA VỊT - SUỐI NHO",
+      "Tổng tiền hàng": 4100000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004736",
+      "Thời gian": 45844.2687459838,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 20000,
+      "Khách đã trả": 20000
+    },
+    {
+      "Mã hóa đơn": "HD004735",
+      "Thời gian": 45843.724247453705,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 50000,
+      "Khách đã trả": 50000
+    },
+    {
+      "Mã hóa đơn": "HD004734.01",
+      "Thời gian": 45843.681908645834,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRUYỀN  - TAM HOÀNG - GIA PHÁT 1",
+      "Tổng tiền hàng": 2250000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004733",
+      "Thời gian": 45843.64187121528,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRƯỜNG - CẦU CƯỜNG",
+      "Tổng tiền hàng": 680000,
+      "Khách đã trả": 680000
+    },
+    {
+      "Mã hóa đơn": "HD004732",
+      "Thời gian": 45843.605605358796,
+      "Mã trả hàng": null,
+      "Khách hàng": "SÁNG TẰNG HAID",
+      "Tổng tiền hàng": 1750000,
+      "Khách đã trả": 1750000
+    },
+    {
+      "Mã hóa đơn": "HD004731",
+      "Thời gian": 45843.60437021991,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ - VỊT",
+      "Tổng tiền hàng": 4500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004730",
+      "Thời gian": 45843.60347943287,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ QUYÊN - VỊT",
+      "Tổng tiền hàng": 6700000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004729",
+      "Thời gian": 45843.474711574076,
+      "Mã trả hàng": null,
+      "Khách hàng": "NHUNG VIETVET",
+      "Tổng tiền hàng": 2238000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004728",
+      "Thời gian": 45843.453663229164,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ THÚY - GÀ ĐẺ - NINH PHÁT",
+      "Tổng tiền hàng": 1190000,
+      "Khách đã trả": 1190000
+    },
+    {
+      "Mã hóa đơn": "HD004727.01",
+      "Thời gian": 45843.435166469906,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( ANH CÔNG)",
+      "Tổng tiền hàng": 1440000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004726",
+      "Thời gian": 45843.41138336805,
+      "Mã trả hàng": null,
+      "Khách hàng": "THÚ Y ĐÌNH HIỀN",
+      "Tổng tiền hàng": 2910000,
+      "Khách đã trả": 2910000
+    },
+    {
+      "Mã hóa đơn": "HD004725",
+      "Thời gian": 45843.40514498843,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (8K) - TRẠI 4",
+      "Tổng tiền hàng": 600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004724",
+      "Thời gian": 45843.404589467595,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5K) - TRẠI 2",
+      "Tổng tiền hàng": 660000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004723",
+      "Thời gian": 45843.40415451389,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5k) - TRẠI 1",
+      "Tổng tiền hàng": 1320000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004722",
+      "Thời gian": 45843.40361056713,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHẢI ( CÔ CHUNG)",
+      "Tổng tiền hàng": 1800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004721",
+      "Thời gian": 45843.40287954861,
+      "Mã trả hàng": "TH000179",
+      "Khách hàng": "ANH HIẾU - DÊ",
+      "Tổng tiền hàng": 550000,
+      "Giảm giá": 0,
+      "Khách đã trả": 550000
+    },
+    {
+      "Mã hóa đơn": "HD004720",
+      "Thời gian": 45843.396796099536,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Tổng tiền hàng": 3500000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004719",
+      "Thời gian": 45843.37315659722,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 2",
+      "Tổng tiền hàng": 4800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004718",
+      "Thời gian": 45843.362166087965,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÀI - MARTINO (BÀ NGOẠI)",
+      "Tổng tiền hàng": 930000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004717",
+      "Thời gian": 45843.36042800926,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VŨ - GÀ ĐẺ",
+      "Tổng tiền hàng": 350000,
+      "Khách đã trả": 90000
+    },
+    {
+      "Mã hóa đơn": "HD004716.01",
+      "Thời gian": 45843.344114733794,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÚ GÀ TA",
+      "Tổng tiền hàng": 360000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004715.01",
+      "Thời gian": 45843.34140320602,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 3",
+      "Tổng tiền hàng": 1100000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004714",
+      "Thời gian": 45843.340572650464,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 1",
+      "Tổng tiền hàng": 3300000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004713.01",
+      "Thời gian": 45843.31252144676,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( ANH CÔNG)",
+      "Tổng tiền hàng": 8610000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004712",
+      "Thời gian": 45843.30062376158,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Tổng tiền hàng": 1200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004711.01",
+      "Thời gian": 45843.299838425926,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÀI - GÀ TA - MARTINO",
+      "Tổng tiền hàng": 930000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004710.03",
+      "Thời gian": 45843.27080706019,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 600000,
+      "Giảm giá": 0,
+      "Khách đã trả": 600000
+    },
+    {
+      "Mã hóa đơn": "HD004709",
+      "Thời gian": 45843.26894417824,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HẢI CJ",
+      "Tổng tiền hàng": 1110000,
+      "Khách đã trả": 1110000
+    },
+    {
+      "Mã hóa đơn": "HD004708",
+      "Thời gian": 45843.26473364583,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HUYỀN - VÕ DÕNG",
+      "Tổng tiền hàng": 2360000,
+      "Khách đã trả": 2360000
+    },
+    {
+      "Mã hóa đơn": "HD004707.01",
+      "Thời gian": 45843.26351033565,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Tổng tiền hàng": 1380000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004706",
+      "Thời gian": 45843.26264143518,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ CẦN - GÀ ĐẺ - NINH PHÁT",
+      "Tổng tiền hàng": 1380000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004705",
+      "Thời gian": 45843.26168055556,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM - MARTINO - VỊT (NHÀ)",
+      "Tổng tiền hàng": 1000000,
+      "Khách đã trả": 1000000
+    },
+    {
+      "Mã hóa đơn": "HD004704",
+      "Thời gian": 45842.73780231481,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HƯƠNG-THÀNH AN",
+      "Tổng tiền hàng": 1190000,
+      "Giảm giá": 0,
+      "Khách đã trả": 1190000
+    },
+    {
+      "Mã hóa đơn": "HD004703",
+      "Thời gian": 45842.7229212963,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HUYẾN - CÚT",
+      "Tổng tiền hàng": 800000,
+      "Giảm giá": 40000,
+      "Khách đã trả": 760000
+    },
+    {
+      "Mã hóa đơn": "HD004702",
+      "Thời gian": 45842.65357461805,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 5900000,
+      "Khách đã trả": 5900000
+    },
+    {
+      "Mã hóa đơn": "HD004701",
+      "Thời gian": 45842.642586724534,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5K) - TRẠI 2",
+      "Tổng tiền hàng": 3600000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004700",
+      "Thời gian": 45842.62541547454,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HIẾU - DÊ",
+      "Tổng tiền hàng": 2950000,
+      "Giảm giá": 0,
+      "Khách đã trả": 840000
+    },
+    {
+      "Mã hóa đơn": "HD004699.01",
+      "Thời gian": 45842.612613969904,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ QUYÊN - VỊT",
+      "Tổng tiền hàng": 1400000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004698",
+      "Thời gian": 45842.60904383102,
+      "Mã trả hàng": null,
+      "Khách hàng": "NHUNG VIETVET",
+      "Tổng tiền hàng": 10800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004697",
+      "Thời gian": 45842.60455859954,
+      "Mã trả hàng": null,
+      "Khách hàng": "HÀ HOÀNG",
+      "Tổng tiền hàng": 840000,
+      "Khách đã trả": 840000
+    },
+    {
+      "Mã hóa đơn": "HD004696",
+      "Thời gian": 45842.60361466435,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8",
+      "Tổng tiền hàng": 7990000,
+      "Khách đã trả": 7990000
+    },
+    {
+      "Mã hóa đơn": "HD004695",
+      "Thời gian": 45842.45797052083,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN ( THUÊ NGÁT)",
+      "Tổng tiền hàng": 3150000,
+      "Giảm giá": 0,
+      "Khách đã trả": 150000
+    },
+    {
+      "Mã hóa đơn": "HD004694",
+      "Thời gian": 45842.378440706016,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8",
+      "Tổng tiền hàng": 3000000,
+      "Khách đã trả": 3000000
+    },
+    {
+      "Mã hóa đơn": "HD004693",
+      "Thời gian": 45842.37753556713,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THÁI - VỊT - PHÚC NHẠC",
+      "Tổng tiền hàng": 3000000,
+      "Khách đã trả": 3000000
+    },
+    {
+      "Mã hóa đơn": "HD004692",
+      "Thời gian": 45842.31888943287,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM - MARTINO - VỊT (NHÀ)",
+      "Tổng tiền hàng": 8480000,
+      "Khách đã trả": 8480000
+    },
+    {
+      "Mã hóa đơn": "HD004691",
+      "Thời gian": 45842.27698414352,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2",
+      "Tổng tiền hàng": 7750000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004690",
+      "Thời gian": 45842.26927561343,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ NGA VỊT - SUỐI NHO",
+      "Tổng tiền hàng": 5500000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004689",
+      "Thời gian": 45842.26768568287,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Tổng tiền hàng": 1230000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004687",
+      "Thời gian": 45841.7402380787,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ VỠI - XUÂN BẮC",
+      "Tổng tiền hàng": 5350000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004686",
+      "Thời gian": 45841.723011539354,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ TUYẾN - TAM HOÀNG - CẦU CƯỜNG",
+      "Tổng tiền hàng": 1920000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004685",
+      "Thời gian": 45841.70854641204,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI",
+      "Tổng tiền hàng": 3450000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004684",
+      "Thời gian": 45841.69924332176,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ QUYỀN - ĐỨC LONG",
+      "Tổng tiền hàng": 15920000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004683",
+      "Thời gian": 45841.65313209491,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 1950000,
+      "Khách đã trả": 1950000
+    },
+    {
+      "Mã hóa đơn": "HD004682",
+      "Thời gian": 45841.63051246528,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 230000,
+      "Khách đã trả": 230000
+    },
+    {
+      "Mã hóa đơn": "HD004681",
+      "Thời gian": 45841.62719876158,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (8K) - TRẠI 4",
+      "Tổng tiền hàng": 900000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004680",
+      "Thời gian": 45841.625655324075,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (6K) - TRẠI 3",
+      "Tổng tiền hàng": 2250000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004679",
+      "Thời gian": 45841.62480188657,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5K) - TRẠI 2",
+      "Tổng tiền hàng": 450000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004678",
+      "Thời gian": 45841.62385092593,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5k) - TRẠI 1",
+      "Tổng tiền hàng": 450000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004677",
+      "Thời gian": 45841.59985462963,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÚ GÀ TA",
+      "Tổng tiền hàng": 1950000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004676",
+      "Thời gian": 45841.59533700231,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 210000,
+      "Khách đã trả": 210000
+    },
+    {
+      "Mã hóa đơn": "HD004675",
+      "Thời gian": 45841.47578295139,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - VỊT (NHÀ)",
+      "Tổng tiền hàng": 7020000,
+      "Khách đã trả": 1570000
+    },
+    {
+      "Mã hóa đơn": "HD004674",
+      "Thời gian": 45841.431533333336,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HIẾU - DÊ",
+      "Tổng tiền hàng": 1320000,
+      "Giảm giá": 0,
+      "Khách đã trả": 1320000
+    },
+    {
+      "Mã hóa đơn": "HD004673",
+      "Thời gian": 45841.423615659725,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ -TAM HOÀNG",
+      "Tổng tiền hàng": 3640000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004672",
+      "Thời gian": 45841.420492708334,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 3900000,
+      "Khách đã trả": 3900000
+    },
+    {
+      "Mã hóa đơn": "HD004671.01",
+      "Thời gian": 45841.37653434028,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HƯƠNG-THÀNH AN",
+      "Tổng tiền hàng": 5070000,
+      "Giảm giá": 0,
+      "Khách đã trả": 5070000
+    },
+    {
+      "Mã hóa đơn": "HD004670",
+      "Thời gian": 45841.365266319444,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM - MARTINO - VỊT (NHÀ)",
+      "Tổng tiền hàng": 7150000,
+      "Khách đã trả": 7150000
+    },
+    {
+      "Mã hóa đơn": "HD004669",
+      "Thời gian": 45841.36406755787,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUY - NINH PHÁT",
+      "Tổng tiền hàng": 310000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004668",
+      "Thời gian": 45841.35212746528,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 9170000,
+      "Giảm giá": 0,
+      "Khách đã trả": 9170000
+    },
+    {
+      "Mã hóa đơn": "HD004667",
+      "Thời gian": 45841.294707789355,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 4520000,
+      "Khách đã trả": 4520000
+    },
+    {
+      "Mã hóa đơn": "HD004666",
+      "Thời gian": 45841.2807059375,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 4500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004665",
+      "Thời gian": 45841.272717280095,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 1100000,
+      "Khách đã trả": 1100000
+    },
+    {
+      "Mã hóa đơn": "HD004664",
+      "Thời gian": 45841.2722096875,
+      "Mã trả hàng": "TH000167",
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 3640000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004663.01",
+      "Thời gian": 45841.2697065625,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Tổng tiền hàng": 2500000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004662",
+      "Thời gian": 45841.26433695602,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HÙNG - BỘ - TAM HOÀNG",
+      "Tổng tiền hàng": 1130000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004661",
+      "Thời gian": 45841.26252615741,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN ( THUÊ NGÁT)",
+      "Tổng tiền hàng": 0,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004660",
+      "Thời gian": 45841.26184042824,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN ( THUÊ NGÁT)",
+      "Tổng tiền hàng": 8000000,
+      "Giảm giá": 0,
+      "Khách đã trả": 8000000
+    },
+    {
+      "Mã hóa đơn": "HD004659",
+      "Thời gian": 45841.2598212963,
+      "Mã trả hàng": null,
+      "Khách hàng": "THƯƠNG CHÍCH - TRẢNG BOM",
+      "Tổng tiền hàng": 900000,
+      "Giảm giá": 0,
+      "Khách đã trả": 900000
+    },
+    {
+      "Mã hóa đơn": "HD004658",
+      "Thời gian": 45840.70262881945,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 200000,
+      "Khách đã trả": 200000
+    },
+    {
+      "Mã hóa đơn": "HD004657.01",
+      "Thời gian": 45840.62626423611,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ PHƯỢNG - BÌNH LỘC",
+      "Tổng tiền hàng": 1110000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004656",
+      "Thời gian": 45840.62525173611,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH QUANG- GÀ TA- LẠC SƠN",
+      "Tổng tiền hàng": 2600000,
+      "Khách đã trả": 2600000
+    },
+    {
+      "Mã hóa đơn": "HD004655",
+      "Thời gian": 45840.61565443287,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HIẾU - DÊ",
+      "Tổng tiền hàng": 1100000,
+      "Giảm giá": 0,
+      "Khách đã trả": 1100000
+    },
+    {
+      "Mã hóa đơn": "HD004654",
+      "Thời gian": 45840.61342693287,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HOAN - XUÂN BẮC",
+      "Tổng tiền hàng": 5200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004653",
+      "Thời gian": 45840.46532164352,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( ANH CÔNG)",
+      "Tổng tiền hàng": 6760000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004652",
+      "Thời gian": 45840.434740972225,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ HƯƠNG-THÀNH AN",
+      "Tổng tiền hàng": 520000,
+      "Khách đã trả": 520000
+    },
+    {
+      "Mã hóa đơn": "HD004651",
+      "Thời gian": 45840.41952762732,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TRIỆU - GIA KIỆM",
+      "Tổng tiền hàng": 800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004650",
+      "Thời gian": 45840.38326646991,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH VŨ (CÔ HUỆ) - TAM HOÀNG",
+      "Tổng tiền hàng": 5800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004649",
+      "Thời gian": 45840.37140917824,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (8K) - TRẠI 4",
+      "Tổng tiền hàng": 2980000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004648",
+      "Thời gian": 45840.36920003472,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5k) - TRẠI 1",
+      "Tổng tiền hàng": 2640000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004647",
+      "Thời gian": 45840.367546643516,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM (5K) - TRẠI 2",
+      "Tổng tiền hàng": 5680000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004646.02",
+      "Thời gian": 45840.349494594906,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ HUỲNH - XÃ LỘ 25",
+      "Tổng tiền hàng": 3100000,
+      "Giảm giá": 0,
+      "Khách đã trả": 3100000
+    },
+    {
+      "Mã hóa đơn": "HD004645",
+      "Thời gian": 45840.33899024306,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HỌC (LONG)",
+      "Tổng tiền hàng": 2400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004644",
+      "Thời gian": 45840.33802040509,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 5800000,
+      "Khách đã trả": 5800000
+    },
+    {
+      "Mã hóa đơn": "HD004643",
+      "Thời gian": 45840.336668206015,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ VỠI - XUÂN BẮC",
+      "Tổng tiền hàng": 3000000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004642",
+      "Thời gian": 45840.32931369213,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHỊ LOAN -BỐT ĐỎ",
+      "Tổng tiền hàng": 2250000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004641",
+      "Thời gian": 45840.3244872338,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHẢI 8.500 CON - XUYÊN MỘC",
+      "Tổng tiền hàng": 4320000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004640",
+      "Thời gian": 45840.32339305556,
+      "Mã trả hàng": null,
+      "Khách hàng": "XUÂN ( THUÊ NGÁT)",
+      "Tổng tiền hàng": 7360000,
+      "Khách đã trả": 7360000
+    },
+    {
+      "Mã hóa đơn": "HD004639",
+      "Thời gian": 45840.321955405096,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 2",
+      "Tổng tiền hàng": 1800000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004638",
+      "Thời gian": 45840.320481712966,
+      "Mã trả hàng": null,
+      "Khách hàng": "QUÂN BIOFRAM",
+      "Tổng tiền hàng": 600000,
+      "Giảm giá": 0,
+      "Khách đã trả": 600000
+    },
+    {
+      "Mã hóa đơn": "HD004637.01",
+      "Thời gian": 45840.31860755787,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔNG ARIVIET",
+      "Tổng tiền hàng": 1395000,
+      "Giảm giá": 0,
+      "Khách đã trả": 1395000
+    },
+    {
+      "Mã hóa đơn": "HD004636.01",
+      "Thời gian": 45840.31630320602,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 2940000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004635",
+      "Thời gian": 45840.31320853009,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THỨC - TAM HOÀNG",
+      "Tổng tiền hàng": 3050000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004634",
+      "Thời gian": 45840.28619545139,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 350000,
+      "Khách đã trả": 350000
+    },
+    {
+      "Mã hóa đơn": "HD004633",
+      "Thời gian": 45840.28450729167,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 1100000,
+      "Khách đã trả": 1100000
+    },
+    {
+      "Mã hóa đơn": "HD004632",
+      "Thời gian": 45840.28151443287,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÂM UNITEK",
+      "Tổng tiền hàng": 7350000,
+      "Khách đã trả": 7350000
+    },
+    {
+      "Mã hóa đơn": "HD004631.01",
+      "Thời gian": 45840.280318287034,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CHÍNH - VÔ NHIỄM",
+      "Tổng tiền hàng": 11020000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004630.01",
+      "Thời gian": 45840.27711767361,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH ĐEN - GÀ - VÔ NHIỄM 3K",
+      "Tổng tiền hàng": 1820000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004629",
+      "Thời gian": 45840.274768599535,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ - VỊT",
+      "Tổng tiền hàng": 3400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004628",
+      "Thời gian": 45839.73234163194,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ PHƯỚC - TAM HOÀNG",
+      "Tổng tiền hàng": 3500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004627.01",
+      "Thời gian": 45839.71578090278,
+      "Mã trả hàng": null,
+      "Khách hàng": "TÚ GÀ TA",
+      "Tổng tiền hàng": 720000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004626",
+      "Thời gian": 45839.7101908912,
+      "Mã trả hàng": null,
+      "Khách hàng": "A VŨ - GÀ ĐẺ",
+      "Tổng tiền hàng": 1210000,
+      "Khách đã trả": 1210000
+    },
+    {
+      "Mã hóa đơn": "HD004625",
+      "Thời gian": 45839.6932241088,
+      "Mã trả hàng": null,
+      "Khách hàng": "HẢI - TRẢNG BOM",
+      "Tổng tiền hàng": 860000,
+      "Khách đã trả": 860000
+    },
+    {
+      "Mã hóa đơn": "HD004624",
+      "Thời gian": 45839.68968804398,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂN - LỘC HOÀ",
+      "Tổng tiền hàng": 12000000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004623",
+      "Thời gian": 45839.62093498842,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH DANH - GÀ TRE - VÔ NHIỄM 9K",
+      "Tổng tiền hàng": 5490000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004622",
+      "Thời gian": 45839.61740744213,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 160000,
+      "Khách đã trả": 160000
+    },
+    {
+      "Mã hóa đơn": "HD004621",
+      "Thời gian": 45839.61621107639,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH LÂM - TAM HOÀNG - NINH PHÁT",
+      "Tổng tiền hàng": 4400000,
+      "Giảm giá": 220000,
+      "Khách đã trả": 4180000
+    },
+    {
+      "Mã hóa đơn": "HD004620",
+      "Thời gian": 45839.61443082176,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HIỂN - BÀU SẬY",
+      "Tổng tiền hàng": 5850000,
+      "Khách đã trả": 5850000
+    },
+    {
+      "Mã hóa đơn": "HD004619",
+      "Thời gian": 45839.61202596065,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8",
+      "Tổng tiền hàng": 3850000,
+      "Khách đã trả": 3850000
+    },
+    {
+      "Mã hóa đơn": "HD004618",
+      "Thời gian": 45839.610277280095,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM - MARTINO - VỊT (NHÀ)",
+      "Tổng tiền hàng": 5030000,
+      "Khách đã trả": 5030000
+    },
+    {
+      "Mã hóa đơn": "HD004617",
+      "Thời gian": 45839.59973688657,
+      "Mã trả hàng": null,
+      "Khách hàng": "ĐẠI LÝ GẤU - BÀU CÁ",
+      "Tổng tiền hàng": 440000,
+      "Khách đã trả": 440000
+    },
+    {
+      "Mã hóa đơn": "HD004616",
+      "Thời gian": 45839.59774398148,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHẢI ( CÔ CHUNG)",
+      "Tổng tiền hàng": 2300000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004615.01",
+      "Thời gian": 45839.40749244213,
+      "Mã trả hàng": null,
+      "Khách hàng": "KHÁCH LẺ",
+      "Tổng tiền hàng": 280000,
+      "Giảm giá": 0,
+      "Khách đã trả": 280000
+    },
+    {
+      "Mã hóa đơn": "HD004614",
+      "Thời gian": 45839.404814699075,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH HUY - GÀ - ĐỨC HUY",
+      "Tổng tiền hàng": 3400000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004613",
+      "Thời gian": 45839.40293325231,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH THUỲ - XUÂN BẮC",
+      "Tổng tiền hàng": 4200000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004612",
+      "Thời gian": 45839.40179510417,
+      "Mã trả hàng": null,
+      "Khách hàng": "HUYỀN TIGERVET",
+      "Tổng tiền hàng": 4950000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004611",
+      "Thời gian": 45839.40094876158,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH TÂM ( ANH CÔNG)",
+      "Tổng tiền hàng": 2020000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004610.01",
+      "Thời gian": 45839.339815625,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 3",
+      "Tổng tiền hàng": 980000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004609.01",
+      "Thời gian": 45839.33822754629,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH PHONG - SUỐI ĐÁ 1",
+      "Tổng tiền hàng": 2030000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004608",
+      "Thời gian": 45839.29555686343,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH MINH VƯƠNG - TÍN NGHĨA",
+      "Tổng tiền hàng": 4900000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004607",
+      "Thời gian": 45839.26831292824,
+      "Mã trả hàng": null,
+      "Khách hàng": "CÔ PHƯỢNG - BÌNH LỘC",
+      "Tổng tiền hàng": 740000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004606",
+      "Thời gian": 45839.26551172454,
+      "Mã trả hàng": null,
+      "Khách hàng": "ANH SỸ - VỊT",
+      "Tổng tiền hàng": 500000,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004605.01",
+      "Thời gian": 45839.26405640046,
+      "Mã trả hàng": null,
+      "Khách hàng": "QUYỀN - TAM HOÀNG LÔ MỚI",
+      "Tổng tiền hàng": 13080000,
+      "Giảm giá": 0,
+      "Khách đã trả": 0
+    },
+    {
+      "Mã hóa đơn": "HD004604",
+      "Thời gian": 45839.263153506945,
+      "Mã trả hàng": null,
+      "Khách hàng": "CHÚ HUỲNH - XÃ LỘ 25",
+      "Tổng tiền hàng": 1120000,
+      "Giảm giá": 0,
+      "Khách đã trả": 1120000
+    }
+  ]
+}
