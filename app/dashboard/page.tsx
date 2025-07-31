@@ -1,4 +1,3 @@
-import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { AuthWrapper } from "@/components/auth-wrapper"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { 
@@ -89,7 +88,6 @@ const lowStockItems = [
 export default function Dashboard() {
   return (
     <AuthWrapper requireAuth={true}>
-      <DashboardLayout>
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex items-center justify-between">
@@ -241,7 +239,6 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
-    </DashboardLayout>
-    </AuthWrapper>
+      </AuthWrapper>
   )
 }

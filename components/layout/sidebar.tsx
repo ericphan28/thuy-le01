@@ -51,12 +51,12 @@ const menuItems = [
   {
     title: "Sản Phẩm",
     icon: Package,
-    href: "/products",
+    href: "/dashboard/products",
     badge: null,
     children: [
-      { title: "Danh Sách", href: "/products/list" },
-      { title: "Danh Mục", href: "/products/categories" },
-      { title: "Đơn Vị", href: "/products/units" }
+      { title: "Danh Sách", href: "/dashboard/products/list" },
+      { title: "Danh Mục", href: "/dashboard/products/categories" },
+      { title: "Đơn Vị", href: "/dashboard/products/units" }
     ]
   },
   {
@@ -95,7 +95,7 @@ const menuItems = [
     children: [
       { title: "Doanh Thu", href: "/reports/revenue" },
       { title: "Lợi Nhuận", href: "/reports/profit" },
-      { title: "Top Sản Phẩm", href: "/reports/products" }
+      { title: "Top Sản Phẩm", href: "/reports/dashboard/products" }
     ]
   },
   {
@@ -187,14 +187,14 @@ export function Sidebar() {
         variants={sidebarVariants}
         animate={isOpen ? "open" : "closed"}
         className={cn(
-          "fixed left-0 top-0 z-50 h-full bg-white/95 backdrop-blur-xl border-r border-gray-200/50 shadow-xl",
-          "lg:relative lg:z-0 lg:shadow-none",
-          "dark:bg-gray-900/95 dark:border-gray-800/50"
+          "fixed left-0 top-0 z-50 h-full bg-white/90 backdrop-blur-xl border-r border-white/30 shadow-2xl",
+          "lg:relative lg:z-0 lg:shadow-xl",
+          "dark:bg-gray-900/90 dark:border-gray-700/30"
         )}
       >
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="flex h-16 items-center justify-between border-b border-gray-200/50 px-4 dark:border-gray-800/50">
+          <div className="flex h-16 items-center justify-between border-b border-white/20 px-4 dark:border-gray-700/30 bg-gradient-to-r from-blue-50/50 to-green-50/30 dark:from-blue-900/20 dark:to-green-900/10">
             <AnimatePresence mode="wait">
               {isOpen && (
                 <motion.div
@@ -204,15 +204,15 @@ export function Sidebar() {
                   exit="closed"
                   className="flex items-center gap-3"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 shadow-lg ring-2 ring-blue-200/50">
                     <Receipt className="h-5 w-5 text-white" />
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                      VetStore
+                      Xuân Thùy
                     </h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Management System
+                      Quản Lý Bán Hàng
                     </p>
                   </div>
                 </motion.div>
@@ -236,7 +236,9 @@ export function Sidebar() {
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto p-4 space-y-2">
             {menuItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+              // Fix logic để chỉ highlight đúng trang hiện tại
+              const isActive = pathname === item.href || 
+                (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))
               const Icon = item.icon
 
               return (
@@ -244,17 +246,17 @@ export function Sidebar() {
                   <Link
                     href={item.href}
                     className={cn(
-                      "group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200",
-                      "hover:bg-gray-100 dark:hover:bg-gray-800",
-                      isActive && "bg-blue-50 text-blue-700 border-r-2 border-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                      "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-300",
+                      "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:shadow-sm dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20",
+                      isActive && "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-200/50 dark:ring-blue-700/50"
                     )}
                     onClick={() => isMobile && setOpen(false)}
                   >
                     <Icon className={cn(
-                      "h-5 w-5 transition-colors",
+                      "h-5 w-5 transition-all duration-300",
                       isActive 
-                        ? "text-blue-700 dark:text-blue-400" 
-                        : "text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300"
+                        ? "text-white drop-shadow-sm" 
+                        : "text-gray-500 group-hover:text-blue-600 dark:text-gray-400 dark:group-hover:text-blue-400"
                     )} />
                     
                     <AnimatePresence mode="wait">
@@ -267,15 +269,20 @@ export function Sidebar() {
                           className="flex flex-1 items-center justify-between"
                         >
                           <span className={cn(
-                            "font-medium transition-colors",
+                            "font-medium transition-all duration-300",
                             isActive 
-                              ? "text-blue-700 dark:text-blue-400" 
-                              : "text-gray-700 dark:text-gray-300"
+                              ? "text-white drop-shadow-sm" 
+                              : "text-gray-700 group-hover:text-blue-600 dark:text-gray-300 dark:group-hover:text-blue-400"
                           )}>
                             {item.title}
                           </span>
                           {item.badge && (
-                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-xs font-medium text-red-800 dark:bg-red-900/20 dark:text-red-400">
+                            <span className={cn(
+                              "inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold transition-all",
+                              isActive 
+                                ? "bg-white/20 text-white backdrop-blur-sm" 
+                                : "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400"
+                            )}>
                               {item.badge}
                             </span>
                           )}
@@ -297,10 +304,10 @@ export function Sidebar() {
                           key={child.href}
                           href={child.href}
                           className={cn(
-                            "block rounded-md px-3 py-1.5 text-sm transition-colors",
-                            "hover:bg-gray-100 dark:hover:bg-gray-800",
+                            "block rounded-lg px-3 py-2 text-sm transition-all duration-200",
+                            "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:text-blue-700 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20",
                             pathname === child.href 
-                              ? "text-blue-700 dark:text-blue-400 font-medium" 
+                              ? "text-blue-700 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-900/20" 
                               : "text-gray-600 dark:text-gray-400"
                           )}
                           onClick={() => isMobile && setOpen(false)}
@@ -316,7 +323,7 @@ export function Sidebar() {
           </nav>
 
           {/* Footer */}
-          <div className="border-t border-gray-200/50 p-4 dark:border-gray-800/50">
+          <div className="border-t border-white/20 p-4 dark:border-gray-700/30 bg-gradient-to-r from-green-50/50 to-blue-50/30 dark:from-green-900/10 dark:to-blue-900/20">
             <AnimatePresence mode="wait">
               {isOpen && (
                 <motion.div
@@ -324,18 +331,20 @@ export function Sidebar() {
                   initial="closed"
                   animate="open"
                   exit="closed"
-                  className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-3 dark:from-blue-900/10 dark:to-indigo-900/10"
+                  className="rounded-xl bg-gradient-to-r from-blue-50 via-indigo-50 to-green-50 p-4 shadow-sm ring-1 ring-blue-100/50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-green-900/20 dark:ring-blue-800/30"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
-                    <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Doanh thu hôm nay
-                    </p>
-                    <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                      ₫2,456,000
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-emerald-500 shadow-lg">
+                      <TrendingUp className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        Doanh thu hôm nay
+                      </p>
+                      <p className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent dark:from-green-400 dark:to-emerald-400">
+                        ₫2,456,000
+                      </p>
+                    </div>
                   </div>
                 </motion.div>
               )}

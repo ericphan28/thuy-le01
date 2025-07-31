@@ -12,25 +12,46 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-green-50/10 dark:from-gray-900 dark:via-blue-900/5 dark:to-green-900/5 overflow-hidden">
       <Sidebar />
       
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
         
-        <motion.main 
+        <main 
           className={cn(
-            "flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900",
-            "transition-all duration-300 ease-in-out"
+            "flex-1 overflow-y-auto",
+            "bg-gradient-to-br from-slate-50/60 via-white/40 to-blue-50/20",
+            "dark:from-gray-900/80 dark:via-slate-800/40 dark:to-blue-900/10",
+            "backdrop-blur-sm scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent",
+            // Performance optimizations
+            "will-change-scroll transform-gpu"
           )}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+          style={{
+            scrollBehavior: 'smooth',
+            WebkitOverflowScrolling: 'touch'
+          }}
         >
-          <div className="container mx-auto p-6">
-            {children}
+          <div className="container mx-auto p-4 relative min-h-full">
+            {/* Optimized Decorative Background Elements */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30">
+              <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-200/10 to-green-200/10 rounded-full blur-3xl" />
+              <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-purple-200/10 to-pink-200/10 rounded-full blur-3xl" />
+            </div>
+            
+            <motion.div 
+              className="relative z-10"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ 
+                duration: 0.3,
+                ease: "easeOut"
+              }}
+            >
+              {children}
+            </motion.div>
           </div>
-        </motion.main>
+        </main>
       </div>
       
       <Toaster 
@@ -38,8 +59,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         toastOptions={{
           duration: 4000,
           style: {
-            background: 'var(--background)',
-            color: 'var(--foreground)',
+            background: 'rgba(255, 255, 255, 0.95)',
+            color: 'rgb(15, 23, 42)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(203, 213, 225, 0.3)',
+            borderRadius: '12px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
           },
         }}
       />

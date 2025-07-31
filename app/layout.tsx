@@ -9,7 +9,7 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "VetStore Management System",
+  title: "Xuân Thùy - Quản Lý Bán Hàng",
   description: "Hệ thống quản lý bán lẻ thú y chuyên nghiệp",
 };
 
