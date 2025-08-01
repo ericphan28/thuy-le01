@@ -78,8 +78,13 @@ const menuItems = [
   {
     title: "Nhà Cung Cấp",
     icon: Truck,
-    href: "/suppliers",
-    badge: null
+    href: "/dashboard/suppliers",
+    badge: null,
+    children: [
+      { title: "Danh Sách", href: "/dashboard/suppliers" },
+      { title: "Phân Tích", href: "/dashboard/suppliers/analytics" },
+      { title: "Hợp Đồng", href: "/dashboard/suppliers/contracts" }
+    ]
   },
   {
     title: "Tài Chính",

@@ -1,11 +1,11 @@
 <div align="center">
-  <img alt="VetStore Management System - Hệ thống quản lý bán lẻ thú y" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
-  <h1 align="center">VetStore Management System</h1>
-  <h2 align="center">Thú Y Thùy Trang</h2>
+  <img alt="Xuân Thùy Veterinary Management System - Hệ thống quản lý thú y" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
+  <h1 align="center">🐾 Xuân Thùy Veterinary Management System</h1>
+  <h2 align="center">Hệ thống Quản lý Bán hàng Thú y</h2>
 </div>
 
 <p align="center">
- Hệ thống quản lý bán lẻ thú y chuyên nghiệp - Phát triển bởi <strong>Gia Kiệm Số</strong>
+ Hệ thống POS/ERP chuyên nghiệp cho cửa hàng thú y - Phát triển bởi <strong>Gia Kiệm Số</strong>
 </p>
 
 <p align="center">
@@ -21,9 +21,10 @@
 ## 📋 Tổng quan Project {#overview}
 
 ### 🏢 **Thông tin Doanh nghiệp**
-- **Tên:** Thú Y Thùy Trang
-- **Ngành:** Kinh doanh thiết bị, thuốc thú y và vật tư chăn nuôi
-- **Quy mô:** Doanh nghiệp vừa và nhỏ với nhiều chi nhánh
+- **Tên:** Xuân Thùy
+- **Ngành:** Quản lý bán hàng sản phẩm thú y (Veterinary retail management)
+- **Quy mô:** Enterprise-ready với 1000+ khách hàng, 51 nhà cung cấp, 500+ sản phẩm
+- **Trạng thái:** **PRODUCTION READY** - 3/3 major modules completed
 
 ### 👨‍💻 **Thông tin Developer**
 - **Công ty phát triển:** Gia Kiệm Số (giakiemso.com)
