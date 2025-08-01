@@ -1,0 +1,418 @@
+{
+  "metadata": {
+    "title": "Customer Statistics Report - Xuân Thùy Pet Pharmacy",
+    "generatedAt": "2025-08-01T07:20:32.646Z",
+    "generatedBy": "Customer Statistics Analyzer v1.0",
+    "totalCustomersAnalyzed": 398
+  },
+  "summary": {
+    "totalCustomers": 398,
+    "activeCustomers": 398,
+    "activeRate": "100.0%",
+    "totalRevenue": "17.689.327.118 VND",
+    "averageRevenue": "44.445.546 VND",
+    "totalDebt": "0 VND"
+  },
+  "detailedStats": {
+    "totalCustomers": 398,
+    "activeCustomers": 398,
+    "inactiveCustomers": 0,
+    "totalRevenue": 17689327118,
+    "averageRevenue": 44445545.52261306,
+    "medianRevenue": 13680000,
+    "maxRevenue": 806835000,
+    "minRevenue": 0,
+    "totalDebt": 0,
+    "averageDebt": 0,
+    "customersWithDebt": 0,
+    "debtViolations": 0,
+    "dataQuality": {
+      "phoneCompleteness": 23.869346733668344,
+      "emailCompleteness": 0.25125628140703515,
+      "addressCompleteness": 1.7587939698492463,
+      "genderCompleteness": 67.08542713567839
+    },
+    "demographics": {
+      "genderDistribution": {
+        "Nữ": 45,
+        "Nam": 222,
+        "Không xác định": 131
+      },
+      "typeDistribution": {
+        "Cá nhân": 398
+      },
+      "branchDistribution": {
+        "Chi nhánh 1": 398
+      },
+      "createdByDistribution": {
+        "Ngọc Bích": 214,
+        "Thu Y Thuy Trang": 183,
+        "Unknown": 1
+      }
+    },
+    "revenueSegments": {
+      "noRevenue": 60,
+      "lowRevenue": 34,
+      "mediumRevenue": 85,
+      "highRevenue": 117,
+      "vipRevenue": 102
+    },
+    "monthlyTrends": {
+      "newCustomersLast30Days": 36,
+      "newCustomersLast90Days": 89,
+      "newCustomersLast365Days": 398
+    },
+    "topCustomers": [
+      {
+        "customer_id": 1026,
+        "customer_code": "KH000221",
+        "customer_name": "HUYỀN TIGERVET",
+        "total_revenue": 806835000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1080,
+        "customer_code": "KH000162",
+        "customer_name": "CÔNG ARIVIET",
+        "total_revenue": 590290000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1135,
+        "customer_code": "KH0000104",
+        "customer_name": "TÂM UNITEK",
+        "total_revenue": 495880000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1082,
+        "customer_code": "KH000159",
+        "customer_name": "CHỊ NHUNG VIETVET",
+        "total_revenue": 450671000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1189,
+        "customer_code": "KH0000043",
+        "customer_name": "ANH MINH VƯƠNG - TÍN NGHĨA",
+        "total_revenue": 351645000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1023,
+        "customer_code": "KH000224",
+        "customer_name": "CHỊ QUY - BÌNH DƯƠNG",
+        "total_revenue": 333250000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1092,
+        "customer_code": "KH000149",
+        "customer_name": "CHỊ THÚY - BƯU ĐIỆN",
+        "total_revenue": 282805000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1048,
+        "customer_code": "KH000198",
+        "customer_name": "ANH TRIỆU - GIA KIỆM",
+        "total_revenue": 279915000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1198,
+        "customer_code": "KH0000033",
+        "customer_name": "CÔ QUYỀN - ĐỨC LONG",
+        "total_revenue": 260328000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1203,
+        "customer_code": "KH0000028",
+        "customer_name": "CHỊ LOAN ( ĐỊNH)",
+        "total_revenue": 223740000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1208,
+        "customer_code": "KH0000022",
+        "customer_name": "ANH SỸ - VỊT",
+        "total_revenue": 216080000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1215,
+        "customer_code": "KH0000015",
+        "customer_name": "ANH TÂM ( ANH CÔNG)",
+        "total_revenue": 203445000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1138,
+        "customer_code": "KH0000101",
+        "customer_name": "ĐẠI LÝ VĂN THANH",
+        "total_revenue": 202310000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1225,
+        "customer_code": "KH000011",
+        "customer_name": "CHÚ DŨNG - ĐỐNG ĐA",
+        "total_revenue": 200190000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1159,
+        "customer_code": "KH0000076",
+        "customer_name": "EM SƠN - ECOVET",
+        "total_revenue": 195039000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1173,
+        "customer_code": "KH0000060",
+        "customer_name": "ANH BIỂN - TAM HOÀNG - CÂY GÁO",
+        "total_revenue": 182150000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1176,
+        "customer_code": "KH0000057",
+        "customer_name": "ANH SỸ -TAM HOÀNG",
+        "total_revenue": 176240000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1190,
+        "customer_code": "KH0000042",
+        "customer_name": "CHỊ QUYÊN - VỊT",
+        "total_revenue": 172705000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 924,
+        "customer_code": "KH000328",
+        "customer_name": "ANH CU - TAM HOÀNG - HƯNG LỘC LÔ MỚI",
+        "total_revenue": 171540000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1155,
+        "customer_code": "KH0000080",
+        "customer_name": "ANH PHONG - VỊT (NHÀ)",
+        "total_revenue": 168440000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      }
+    ]
+  },
+  "rawData": {
+    "topCustomers": [
+      {
+        "customer_id": 1026,
+        "customer_code": "KH000221",
+        "customer_name": "HUYỀN TIGERVET",
+        "total_revenue": 806835000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1080,
+        "customer_code": "KH000162",
+        "customer_name": "CÔNG ARIVIET",
+        "total_revenue": 590290000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1135,
+        "customer_code": "KH0000104",
+        "customer_name": "TÂM UNITEK",
+        "total_revenue": 495880000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1082,
+        "customer_code": "KH000159",
+        "customer_name": "CHỊ NHUNG VIETVET",
+        "total_revenue": 450671000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1189,
+        "customer_code": "KH0000043",
+        "customer_name": "ANH MINH VƯƠNG - TÍN NGHĨA",
+        "total_revenue": 351645000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1023,
+        "customer_code": "KH000224",
+        "customer_name": "CHỊ QUY - BÌNH DƯƠNG",
+        "total_revenue": 333250000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1092,
+        "customer_code": "KH000149",
+        "customer_name": "CHỊ THÚY - BƯU ĐIỆN",
+        "total_revenue": 282805000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1048,
+        "customer_code": "KH000198",
+        "customer_name": "ANH TRIỆU - GIA KIỆM",
+        "total_revenue": 279915000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1198,
+        "customer_code": "KH0000033",
+        "customer_name": "CÔ QUYỀN - ĐỨC LONG",
+        "total_revenue": 260328000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1203,
+        "customer_code": "KH0000028",
+        "customer_name": "CHỊ LOAN ( ĐỊNH)",
+        "total_revenue": 223740000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1208,
+        "customer_code": "KH0000022",
+        "customer_name": "ANH SỸ - VỊT",
+        "total_revenue": 216080000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1215,
+        "customer_code": "KH0000015",
+        "customer_name": "ANH TÂM ( ANH CÔNG)",
+        "total_revenue": 203445000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1138,
+        "customer_code": "KH0000101",
+        "customer_name": "ĐẠI LÝ VĂN THANH",
+        "total_revenue": 202310000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1225,
+        "customer_code": "KH000011",
+        "customer_name": "CHÚ DŨNG - ĐỐNG ĐA",
+        "total_revenue": 200190000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1159,
+        "customer_code": "KH0000076",
+        "customer_name": "EM SƠN - ECOVET",
+        "total_revenue": 195039000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1173,
+        "customer_code": "KH0000060",
+        "customer_name": "ANH BIỂN - TAM HOÀNG - CÂY GÁO",
+        "total_revenue": 182150000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1176,
+        "customer_code": "KH0000057",
+        "customer_name": "ANH SỸ -TAM HOÀNG",
+        "total_revenue": 176240000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1190,
+        "customer_code": "KH0000042",
+        "customer_name": "CHỊ QUYÊN - VỊT",
+        "total_revenue": 172705000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 924,
+        "customer_code": "KH000328",
+        "customer_name": "ANH CU - TAM HOÀNG - HƯNG LỘC LÔ MỚI",
+        "total_revenue": 171540000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      },
+      {
+        "customer_id": 1155,
+        "customer_code": "KH0000080",
+        "customer_name": "ANH PHONG - VỊT (NHÀ)",
+        "total_revenue": 168440000,
+        "customer_type": "Cá nhân",
+        "purchase_count": 0
+      }
+    ],
+    "customerTypes": [
+      {
+        "type_id": 1,
+        "type_code": "CN",
+        "type_name": "Cá nhân",
+        "description": "Khách hàng cá nhân",
+        "is_active": true,
+        "created_at": "2025-07-28T19:04:40.502926"
+      },
+      {
+        "type_id": 2,
+        "type_code": "DN",
+        "type_name": "Doanh nghiệp",
+        "description": "Khách hàng doanh nghiệp",
+        "is_active": true,
+        "created_at": "2025-07-28T19:04:40.502926"
+      },
+      {
+        "type_id": 3,
+        "type_code": "DL",
+        "type_name": "Đại lý",
+        "description": "Đại lý phân phối",
+        "is_active": true,
+        "created_at": "2025-07-28T19:04:40.502926"
+      }
+    ]
+  }
+}

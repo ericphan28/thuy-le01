@@ -45,8 +45,13 @@ const menuItems = [
   {
     title: "Khách Hàng",
     icon: Users,
-    href: "/customers",
-    badge: null
+    href: "/dashboard/customers",
+    badge: null,
+    children: [
+      { title: "Danh Sách", href: "/dashboard/customers" },
+      { title: "Phân Tích", href: "/dashboard/customers/analytics" },
+      { title: "Phân Khúc", href: "/dashboard/customers/segments" }
+    ]
   },
   {
     title: "Sản Phẩm",
@@ -236,30 +241,51 @@ export function Sidebar() {
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto p-4 space-y-2">
             {menuItems.map((item) => {
-              // Fix logic để chỉ highlight đúng trang hiện tại
-              const isActive = pathname === item.href || 
-                (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))
+              // Improved logic for highlighting active pages
+              let isActive = false
+              
+              if (item.href === '/dashboard' && pathname === '/dashboard') {
+                // Exact match for dashboard home
+                isActive = true
+              } else if (item.href !== '/dashboard') {
+                // For other pages, check if current path starts with item href
+                isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+                
+                // Special handling for sub-pages
+                if (item.children) {
+                  isActive = isActive || item.children.some(child => pathname === child.href)
+                }
+              }
+              
               const Icon = item.icon
 
               return (
                 <div key={item.href}>
-                  <Link
+                    <Link
                     href={item.href}
                     className={cn(
-                      "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-300",
+                      "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-300 relative",
                       "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:shadow-sm dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20",
-                      isActive && "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-200/50 dark:ring-blue-700/50"
+                      isActive && [
+                        "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg",
+                        "ring-2 ring-blue-200/50 dark:ring-blue-700/50",
+                        "transform scale-[1.02] hover:scale-[1.02]",
+                        "shadow-blue-500/25 dark:shadow-blue-400/25"
+                      ]
                     )}
                     onClick={() => isMobile && setOpen(false)}
                   >
-                    <Icon className={cn(
-                      "h-5 w-5 transition-all duration-300",
-                      isActive 
-                        ? "text-white drop-shadow-sm" 
-                        : "text-gray-500 group-hover:text-blue-600 dark:text-gray-400 dark:group-hover:text-blue-400"
-                    )} />
+                    {/* Active indicator */}
+                    {isActive && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full shadow-sm" />
+                    )}
                     
-                    <AnimatePresence mode="wait">
+                    <Icon className={cn(
+                      "h-5 w-5 transition-all duration-300 relative z-10",
+                      isActive 
+                        ? "text-white drop-shadow-sm scale-110" 
+                        : "text-gray-500 group-hover:text-blue-600 dark:text-gray-400 dark:group-hover:text-blue-400"
+                    )} />                    <AnimatePresence mode="wait">
                       {isOpen && (
                         <motion.div
                           variants={contentVariants}
@@ -269,18 +295,18 @@ export function Sidebar() {
                           className="flex flex-1 items-center justify-between"
                         >
                           <span className={cn(
-                            "font-medium transition-all duration-300",
+                            "font-medium transition-all duration-300 relative z-10",
                             isActive 
-                              ? "text-white drop-shadow-sm" 
+                              ? "text-white drop-shadow-sm font-semibold" 
                               : "text-gray-700 group-hover:text-blue-600 dark:text-gray-300 dark:group-hover:text-blue-400"
                           )}>
                             {item.title}
                           </span>
                           {item.badge && (
                             <span className={cn(
-                              "inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold transition-all",
+                              "inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold transition-all relative z-10",
                               isActive 
-                                ? "bg-white/20 text-white backdrop-blur-sm" 
+                                ? "bg-white/20 text-white backdrop-blur-sm shadow-sm" 
                                 : "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400"
                             )}>
                               {item.badge}
@@ -291,30 +317,46 @@ export function Sidebar() {
                     </AnimatePresence>
                   </Link>
 
-                  {/* Submenu */}
+                  {/* Submenu - Always show if parent is active */}
                   {item.children && isOpen && isActive && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="ml-8 mt-1 space-y-1"
+                      className="ml-6 mt-2 space-y-1 relative"
                     >
-                      {item.children.map((child) => (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          className={cn(
-                            "block rounded-lg px-3 py-2 text-sm transition-all duration-200",
-                            "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:text-blue-700 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20",
-                            pathname === child.href 
-                              ? "text-blue-700 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-900/20" 
-                              : "text-gray-600 dark:text-gray-400"
-                          )}
-                          onClick={() => isMobile && setOpen(false)}
-                        >
-                          {child.title}
-                        </Link>
-                      ))}
+                      {/* Submenu connector line */}
+                      <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-blue-200 to-transparent dark:from-blue-600/50" />
+                      
+                      {item.children.map((child) => {
+                        const isChildActive = pathname === child.href
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className={cn(
+                              "block rounded-lg px-4 py-2.5 text-sm transition-all duration-200 relative ml-2",
+                              "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:text-blue-700 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20",
+                              "hover:shadow-sm hover:scale-[1.01]",
+                              isChildActive 
+                                ? [
+                                    "text-blue-700 dark:text-blue-400 font-semibold",
+                                    "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30",
+                                    "shadow-sm ring-1 ring-blue-200/50 dark:ring-blue-700/30",
+                                    "scale-[1.01]"
+                                  ]
+                                : "text-gray-600 dark:text-gray-400"
+                            )}
+                            onClick={() => isMobile && setOpen(false)}
+                          >
+                            {/* Active indicator for submenu */}
+                            {isChildActive && (
+                              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-blue-500 rounded-r-full" />
+                            )}
+                            <span className="relative z-10">{child.title}</span>
+                          </Link>
+                        )
+                      })}
                     </motion.div>
                   )}
                 </div>

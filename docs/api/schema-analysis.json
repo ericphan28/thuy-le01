@@ -1,0 +1,1649 @@
+{
+  "title": "Xuân Thùy - Database Schema Documentation",
+  "generatedAt": "2025-08-01T06:29:44.118Z",
+  "generatedBy": "Offline Schema Analyzer",
+  "summary": {
+    "totalTables": 13,
+    "totalColumns": 200,
+    "totalFunctions": 7,
+    "keyTables": [
+      "customers",
+      "invoices",
+      "products",
+      "customer_types"
+    ]
+  },
+  "tables": [
+    {
+      "name": "branches",
+      "description": "Chi nhánh cửa hàng",
+      "columns": [
+        {
+          "name": "branch_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "branch_code",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "branch_name",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "phone",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "is_active",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "true"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [],
+      "apiEndpoint": "/rest/v1/branches",
+      "sampleQueries": [
+        "GET /rest/v1/branches?select=*&limit=10",
+        "GET /rest/v1/branches?select=*&is_active=eq.true",
+        "POST /rest/v1/branches",
+        "PATCH /rest/v1/branches?id=eq.1",
+        "DELETE /rest/v1/branches?id=eq.1"
+      ]
+    },
+    {
+      "name": "customer_types",
+      "description": "Phân loại khách hàng (lẻ, sỉ, VIP) với các ưu đãi tương ứng",
+      "columns": [
+        {
+          "name": "type_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "type_code",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "type_name",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "is_active",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "true"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [],
+      "apiEndpoint": "/rest/v1/customer_types",
+      "sampleQueries": [
+        "GET /rest/v1/customer_types?select=*&limit=10",
+        "GET /rest/v1/customer_types?select=*&is_active=eq.true",
+        "POST /rest/v1/customer_types",
+        "PATCH /rest/v1/customer_types?id=eq.1",
+        "DELETE /rest/v1/customer_types?id=eq.1"
+      ]
+    },
+    {
+      "name": "customers",
+      "description": "Thông tin khách hàng bao gồm thông tin cá nhân, công nợ và thống kê mua hàng",
+      "columns": [
+        {
+          "name": "customer_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_code",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_name",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_type_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "1"
+        },
+        {
+          "name": "branch_created_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "1"
+        },
+        {
+          "name": "phone",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "email",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "company_name",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "tax_code",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "id_number",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "gender",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "debt_limit",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "current_debt",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "total_revenue",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "total_profit",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "purchase_count",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "last_purchase_date",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "status",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "1"
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "created_by",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "is_active",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "true"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [
+        "chk_customers_customer_code_not_empty: CHECK ((length(TRIM(BOTH FROM customer_code)) > 0))"
+      ],
+      "apiEndpoint": "/rest/v1/customers",
+      "sampleQueries": [
+        "GET /rest/v1/customers?select=*&limit=10",
+        "GET /rest/v1/customers?select=*&is_active=eq.true",
+        "POST /rest/v1/customers",
+        "PATCH /rest/v1/customers?id=eq.1",
+        "DELETE /rest/v1/customers?id=eq.1"
+      ]
+    },
+    {
+      "name": "invoices",
+      "description": "Hóa đơn bán hàng với thông tin thanh toán và trạng thái",
+      "columns": [
+        {
+          "name": "invoice_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "invoice_code",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "invoice_date",
+          "type": "timestamp",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "return_code",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_name",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "branch_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "1"
+        },
+        {
+          "name": "total_amount",
+          "type": "numeric(15",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_paid",
+          "type": "numeric(15",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "status",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "'completed'::character"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "now()"
+        }
+      ],
+      "constraints": [
+        "chk_invoices_invoice_code_not_empty: CHECK ((length(TRIM(BOTH FROM invoice_code)) > 0)),",
+        "invoices_total_amount_check: CHECK ((total_amount >= (0)::numeric))"
+      ],
+      "apiEndpoint": "/rest/v1/invoices",
+      "sampleQueries": [
+        "GET /rest/v1/invoices?select=*&limit=10",
+        "GET /rest/v1/invoices?select=*&is_active=eq.true",
+        "POST /rest/v1/invoices",
+        "PATCH /rest/v1/invoices?id=eq.1",
+        "DELETE /rest/v1/invoices?id=eq.1"
+      ]
+    },
+    {
+      "name": "financial_transactions",
+      "description": "Bảng financial_transactions",
+      "columns": [
+        {
+          "name": "transaction_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "transaction_code",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "transaction_date",
+          "type": "timestamp",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "transaction_type",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "payer_receiver",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "amount",
+          "type": "numeric(15",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "now()"
+        }
+      ],
+      "constraints": [],
+      "apiEndpoint": "/rest/v1/financial_transactions",
+      "sampleQueries": [
+        "GET /rest/v1/financial_transactions?select=*&limit=10",
+        "GET /rest/v1/financial_transactions?select=*&is_active=eq.true",
+        "POST /rest/v1/financial_transactions",
+        "PATCH /rest/v1/financial_transactions?id=eq.1",
+        "DELETE /rest/v1/financial_transactions?id=eq.1"
+      ]
+    },
+    {
+      "name": "invoice_details",
+      "description": "Chi tiết sản phẩm trong từng hóa đơn",
+      "columns": [
+        {
+          "name": "detail_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "invoice_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "product_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "invoice_code",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "product_code",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "product_name",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_code",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_name",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "branch_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "1"
+        },
+        {
+          "name": "delivery_code",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "pickup_address",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "reconciliation_code",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "invoice_date",
+          "type": "timestamp",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "created_date",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "updated_date",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "order_code",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_phone",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_address",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_region",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_ward",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "receiver_name",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "receiver_phone",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "receiver_address",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "receiver_region",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "receiver_ward",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "sales_channel",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "creator",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "delivery_partner",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "delivery_service",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "weight_gram",
+          "type": "numeric(10",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "length_cm",
+          "type": "numeric(8",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "width_cm",
+          "type": "numeric(8",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "height_cm",
+          "type": "numeric(8",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "delivery_fee",
+          "type": "numeric(12",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "subtotal",
+          "type": "numeric(15",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "total_discount",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "customer_paid",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "cash_payment",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "card_payment",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "transfer_payment",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "wallet_payment",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "points_payment",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "unit",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "status",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "barcode",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "brand",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "product_notes",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "quantity",
+          "type": "numeric(12",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "unit_price",
+          "type": "numeric(15",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "discount_percent",
+          "type": "numeric(5",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "discount_amount",
+          "type": "numeric(12",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "sale_price",
+          "type": "numeric(15",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "line_total",
+          "type": "numeric(15",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "cost_price",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "profit_amount",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "now()"
+        },
+        {
+          "name": "customer_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        }
+      ],
+      "constraints": [
+        "chk_invoice_details_discount_percent_range: CHECK (((discount_percent >= (0)::numeric) AND (discount_percent <= (100)::numeric))),",
+        "chk_invoice_details_invoice_code_not_empty: CHECK ((length(TRIM(BOTH FROM invoice_code)) > 0)),",
+        "chk_invoice_details_positive_line_total: CHECK ((line_total >= (0)::numeric)),",
+        "chk_invoice_details_positive_quantity: CHECK ((quantity > (0)::numeric)),",
+        "chk_invoice_details_positive_unit_price: CHECK ((unit_price >= (0)::numeric)),",
+        "chk_invoice_details_product_code_not_empty: CHECK ((length(TRIM(BOTH FROM product_code)) > 0)),",
+        "invoice_details_line_total_check: CHECK ((line_total >= (0)::numeric)),",
+        "invoice_details_quantity_check: CHECK ((quantity > (0)::numeric)),",
+        "invoice_details_sale_price_check: CHECK ((sale_price >= (0)::numeric)),",
+        "invoice_details_subtotal_check: CHECK ((subtotal >= (0)::numeric)),",
+        "invoice_details_unit_price_check: CHECK ((unit_price >= (0)::numeric))"
+      ],
+      "apiEndpoint": "/rest/v1/invoice_details",
+      "sampleQueries": [
+        "GET /rest/v1/invoice_details?select=*&limit=10",
+        "GET /rest/v1/invoice_details?select=*&is_active=eq.true",
+        "POST /rest/v1/invoice_details",
+        "PATCH /rest/v1/invoice_details?id=eq.1",
+        "DELETE /rest/v1/invoice_details?id=eq.1"
+      ]
+    },
+    {
+      "name": "products",
+      "description": "Danh mục sản phẩm với thông tin giá, tồn kho và đặc tính thuốc thú y",
+      "columns": [
+        {
+          "name": "product_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "product_code",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "product_name",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "category_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "base_unit_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "6"
+        },
+        {
+          "name": "barcode",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "product_type",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "'Hàng"
+        },
+        {
+          "name": "brand",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "origin",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "image_url",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "image_urls",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "base_price",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "cost_price",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "sale_price",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "current_stock",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "reserved_stock",
+          "type": "numeric(10",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "available_stock",
+          "type": "numeric(10",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "min_stock",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "max_stock",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "is_medicine",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "false"
+        },
+        {
+          "name": "requires_prescription",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "false"
+        },
+        {
+          "name": "storage_condition",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "expiry_tracking",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "false"
+        },
+        {
+          "name": "allow_sale",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "true"
+        },
+        {
+          "name": "track_serial",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "false"
+        },
+        {
+          "name": "conversion_rate",
+          "type": "numeric(10",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "1.0"
+        },
+        {
+          "name": "unit_attributes",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "related_product_codes",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "is_active",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "true"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [
+        "chk_products_product_code_not_empty: CHECK ((length(TRIM(BOTH FROM product_code)) > 0))"
+      ],
+      "apiEndpoint": "/rest/v1/products",
+      "sampleQueries": [
+        "GET /rest/v1/products?select=*&limit=10",
+        "GET /rest/v1/products?select=*&is_active=eq.true",
+        "POST /rest/v1/products",
+        "PATCH /rest/v1/products?id=eq.1",
+        "DELETE /rest/v1/products?id=eq.1"
+      ]
+    },
+    {
+      "name": "product_categories",
+      "description": "Phân loại sản phẩm theo ngành hàng",
+      "columns": [
+        {
+          "name": "category_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "category_code",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "category_name",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "parent_category_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "level_path",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "is_active",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "true"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [],
+      "apiEndpoint": "/rest/v1/product_categories",
+      "sampleQueries": [
+        "GET /rest/v1/product_categories?select=*&limit=10",
+        "GET /rest/v1/product_categories?select=*&is_active=eq.true",
+        "POST /rest/v1/product_categories",
+        "PATCH /rest/v1/product_categories?id=eq.1",
+        "DELETE /rest/v1/product_categories?id=eq.1"
+      ]
+    },
+    {
+      "name": "product_units",
+      "description": "Bảng product_units",
+      "columns": [
+        {
+          "name": "product_unit_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "product_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "unit_id",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "conversion_rate",
+          "type": "numeric(10",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": "1.0"
+        },
+        {
+          "name": "selling_price",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "is_default",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "false"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [],
+      "apiEndpoint": "/rest/v1/product_units",
+      "sampleQueries": [
+        "GET /rest/v1/product_units?select=*&limit=10",
+        "GET /rest/v1/product_units?select=*&is_active=eq.true",
+        "POST /rest/v1/product_units",
+        "PATCH /rest/v1/product_units?id=eq.1",
+        "DELETE /rest/v1/product_units?id=eq.1"
+      ]
+    },
+    {
+      "name": "purchase_orders",
+      "description": "Bảng purchase_orders",
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "order_code",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "order_date",
+          "type": "timestamp",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_name",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "customer_debt",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "customer_paid",
+          "type": "numeric(15",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "status",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "'pending'::character"
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "now()"
+        }
+      ],
+      "constraints": [],
+      "apiEndpoint": "/rest/v1/purchase_orders",
+      "sampleQueries": [
+        "GET /rest/v1/purchase_orders?select=*&limit=10",
+        "GET /rest/v1/purchase_orders?select=*&is_active=eq.true",
+        "POST /rest/v1/purchase_orders",
+        "PATCH /rest/v1/purchase_orders?id=eq.1",
+        "DELETE /rest/v1/purchase_orders?id=eq.1"
+      ]
+    },
+    {
+      "name": "sales_channels",
+      "description": "Bảng sales_channels",
+      "columns": [
+        {
+          "name": "channel_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "channel_code",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "channel_name",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "is_active",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "true"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [],
+      "apiEndpoint": "/rest/v1/sales_channels",
+      "sampleQueries": [
+        "GET /rest/v1/sales_channels?select=*&limit=10",
+        "GET /rest/v1/sales_channels?select=*&is_active=eq.true",
+        "POST /rest/v1/sales_channels",
+        "PATCH /rest/v1/sales_channels?id=eq.1",
+        "DELETE /rest/v1/sales_channels?id=eq.1"
+      ]
+    },
+    {
+      "name": "suppliers",
+      "description": "Nhà cung cấp sản phẩm",
+      "columns": [
+        {
+          "name": "supplier_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "supplier_code",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "supplier_name",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "phone",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "email",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "contact_person",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "tax_code",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "payment_terms",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "0"
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "is_active",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "true"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [],
+      "apiEndpoint": "/rest/v1/suppliers",
+      "sampleQueries": [
+        "GET /rest/v1/suppliers?select=*&limit=10",
+        "GET /rest/v1/suppliers?select=*&is_active=eq.true",
+        "POST /rest/v1/suppliers",
+        "PATCH /rest/v1/suppliers?id=eq.1",
+        "DELETE /rest/v1/suppliers?id=eq.1"
+      ]
+    },
+    {
+      "name": "units",
+      "description": "Bảng units",
+      "columns": [
+        {
+          "name": "unit_id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "unit_code",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "unit_name",
+          "type": "character",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "unit_symbol",
+          "type": "character",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "is_base_unit",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "false"
+        },
+        {
+          "name": "conversion_rate",
+          "type": "numeric(10",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "1.0"
+        },
+        {
+          "name": "is_active",
+          "type": "boolean",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "true"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP"
+        }
+      ],
+      "constraints": [],
+      "apiEndpoint": "/rest/v1/units",
+      "sampleQueries": [
+        "GET /rest/v1/units?select=*&limit=10",
+        "GET /rest/v1/units?select=*&is_active=eq.true",
+        "POST /rest/v1/units",
+        "PATCH /rest/v1/units?id=eq.1",
+        "DELETE /rest/v1/units?id=eq.1"
+      ]
+    }
+  ],
+  "functions": [
+    {
+      "name": "get_financial_summary",
+      "description": "Báo cáo tài chính tổng quan theo khoảng thời gian",
+      "parameters": [
+        "date_from date DEFAULT (CURRENT_DATE - '30 days'::interval)",
+        "date_to date DEFAULT CURRENT_DATE"
+      ],
+      "returnType": "json",
+      "apiEndpoint": "/rest/v1/rpc/get_financial_summary",
+      "sampleCall": "POST /rest/v1/rpc/get_financial_summary\n{\n  \"date_from\": \"2025-07-01\",\n  \"date_to\": \"2025-07-31\"\n}"
+    },
+    {
+      "name": "get_inventory_alerts",
+      "description": "Function get_inventory_alerts",
+      "parameters": [],
+      "returnType": "TABLE(product_id",
+      "apiEndpoint": "/rest/v1/rpc/get_inventory_alerts",
+      "sampleCall": "POST /rest/v1/rpc/get_inventory_alerts\n{}"
+    },
+    {
+      "name": "get_medicine_analytics",
+      "description": "Function get_medicine_analytics",
+      "parameters": [
+        "date_from date DEFAULT (CURRENT_DATE - '30 days'::interval)"
+      ],
+      "returnType": "TABLE(product_id",
+      "apiEndpoint": "/rest/v1/rpc/get_medicine_analytics",
+      "sampleCall": "POST /rest/v1/rpc/get_medicine_analytics\n{}"
+    },
+    {
+      "name": "get_pharmacy_dashboard_stats",
+      "description": "Thống kê dashboard cho cửa hàng thú y",
+      "parameters": [
+        "date_from date DEFAULT (CURRENT_DATE - '30 days'::interval)",
+        "date_to date DEFAULT CURRENT_DATE"
+      ],
+      "returnType": "json",
+      "apiEndpoint": "/rest/v1/rpc/get_pharmacy_dashboard_stats",
+      "sampleCall": "POST /rest/v1/rpc/get_pharmacy_dashboard_stats\n{}"
+    },
+    {
+      "name": "search_customers_with_stats",
+      "description": "Tìm kiếm khách hàng kèm thống kê doanh thu và tần suất mua hàng",
+      "parameters": [
+        "search_term text DEFAULT ''::text",
+        "customer_type_filter integer DEFAULT NULL::integer",
+        "limit_count integer DEFAULT 50",
+        "date_from date DEFAULT (CURRENT_DATE - '90 days'::interval)"
+      ],
+      "returnType": "TABLE(customer_id",
+      "apiEndpoint": "/rest/v1/rpc/search_customers_with_stats",
+      "sampleCall": "POST /rest/v1/rpc/search_customers_with_stats\n{\n  \"search_term\": \"nguyen\",\n  \"customer_type_filter\": null,\n  \"limit_count\": 20\n}"
+    },
+    {
+      "name": "search_products_with_stats",
+      "description": "Tìm kiếm sản phẩm kèm thống kê bán hàng",
+      "parameters": [
+        "search_term text DEFAULT ''::text",
+        "category_filter integer DEFAULT NULL::integer",
+        "limit_count integer DEFAULT 50",
+        "date_from date DEFAULT (CURRENT_DATE - '30 days'::interval)"
+      ],
+      "returnType": "TABLE(product_id",
+      "apiEndpoint": "/rest/v1/rpc/search_products_with_stats",
+      "sampleCall": "POST /rest/v1/rpc/search_products_with_stats\n{}"
+    },
+    {
+      "name": "verify_public_schema_reset",
+      "description": "Function verify_public_schema_reset",
+      "parameters": [],
+      "returnType": "TABLE(object_type",
+      "apiEndpoint": "/rest/v1/rpc/verify_public_schema_reset",
+      "sampleCall": "POST /rest/v1/rpc/verify_public_schema_reset\n{}"
+    }
+  ],
+  "relationshipMap": {
+    "branches": [],
+    "customer_types": [],
+    "customers": [],
+    "invoices": [],
+    "financial_transactions": [],
+    "invoice_details": [],
+    "products": [],
+    "product_categories": [],
+    "product_units": [],
+    "purchase_orders": [],
+    "sales_channels": [],
+    "suppliers": [],
+    "units": []
+  },
+  "apiPatterns": {
+    "crud": {
+      "create": "POST /rest/v1/{table}",
+      "read": "GET /rest/v1/{table}",
+      "update": "PATCH /rest/v1/{table}",
+      "delete": "DELETE /rest/v1/{table}"
+    },
+    "filtering": {
+      "equals": "?column=eq.value",
+      "like": "?column=like.*pattern*",
+      "in": "?column=in.(value1,value2)",
+      "range": "?column=gte.min&column=lte.max"
+    },
+    "pagination": {
+      "limit": "?limit=20",
+      "offset": "?offset=40",
+      "range": "Range: 0-19"
+    }
+  },
+  "businessLogic": {
+    "customerManagement": {
+      "description": "Quản lý thông tin khách hàng, phân loại và theo dõi công nợ",
+      "keyTables": [
+        "customers",
+        "customer_types"
+      ],
+      "workflows": [
+        "Đăng ký khách hàng mới",
+        "Cập nhật thông tin khách hàng",
+        "Theo dõi công nợ và thanh toán",
+        "Phân loại khách hàng theo doanh thu"
+      ]
+    },
+    "orderProcessing": {
+      "description": "Xử lý đơn hàng từ tạo đến thanh toán",
+      "keyTables": [
+        "invoices",
+        "invoice_details",
+        "products"
+      ],
+      "workflows": [
+        "Tạo hóa đơn bán hàng",
+        "Thêm sản phẩm vào hóa đơn",
+        "Tính toán tổng tiền và thuế",
+        "Xử lý thanh toán"
+      ]
+    }
+  }
+}

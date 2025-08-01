@@ -1,0 +1,18 @@
+{
+  "name": "supabase-customer-analyzer",
+  "version": "1.0.0",
+  "description": "Script phân tích database và tạo tài liệu API cho customer management",
+  "main": "scripts/supabase-customer-analyzer.ts",
+  "scripts": {
+    "analyze": "tsx scripts/supabase-customer-analyzer.ts",
+    "analyze:dev": "tsx watch scripts/supabase-customer-analyzer.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.0.0"
+  }
+}

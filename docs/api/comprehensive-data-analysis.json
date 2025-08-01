@@ -1,0 +1,56 @@
+{
+  "title": "Xuân Thùy Pet Pharmacy - Comprehensive Data Analysis Report",
+  "generatedAt": "2025-08-01T06:43:45.886Z",
+  "version": "2.0.0",
+  "executive_summary": {
+    "total_tables_analyzed": 0,
+    "total_records": 0,
+    "overall_data_quality": {
+      "avg_completeness": null,
+      "avg_consistency": null,
+      "avg_validity": null
+    },
+    "critical_issues": 0,
+    "business_anomalies": 0
+  },
+  "detailed_analysis": {},
+  "recommendations": [
+    {
+      "priority": "HIGH",
+      "category": "Data Quality",
+      "issues": [],
+      "action": "Implement data validation rules and cleanup procedures"
+    },
+    {
+      "priority": "HIGH",
+      "category": "Business Logic",
+      "issues": [],
+      "action": "Review and fix business logic inconsistencies"
+    },
+    {
+      "priority": "MEDIUM",
+      "category": "Data Completeness",
+      "action": "Improve data collection processes for missing fields"
+    },
+    {
+      "priority": "LOW",
+      "category": "Performance",
+      "action": "Consider archiving old records and optimizing indexes"
+    }
+  ],
+  "action_items": [
+    "Fix negative stock levels in inventory",
+    "Resolve customer revenue calculation discrepancies",
+    "Update expired product records",
+    "Implement phone/email validation",
+    "Review debt limit policies",
+    "Setup automated data quality monitoring"
+  ],
+  "business_insights": [
+    "Customer data completeness varies significantly",
+    "Revenue patterns show seasonal trends",
+    "Inventory management needs attention",
+    "Payment status distribution is healthy",
+    "Product pricing margins are generally positive"
+  ]
+}
