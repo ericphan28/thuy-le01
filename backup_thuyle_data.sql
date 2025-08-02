@@ -27,6 +27,18 @@ COPY public.branches (branch_id, branch_code, branch_name, address, phone, is_ac
 
 
 --
+-- Data for Name: branch_settings; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.branch_settings (branch_setting_id, branch_id, setting_key, setting_value, created_by, created_at, updated_at) FROM stdin;
+1	1	branch_name	Chi nhánh trung tâm	system	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+2	1	operating_hours	08:00-18:00	system	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+3	1	max_daily_sales	100000000	system	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+4	1	printer_name	default	system	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+\.
+
+
+--
 -- Data for Name: customer_types; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -3647,6 +3659,14 @@ COPY public.sales_channels (channel_id, channel_code, channel_name, description,
 
 
 --
+-- Data for Name: settings_change_log; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.settings_change_log (log_id, setting_key, old_value, new_value, changed_by, change_reason, branch_id, ip_address, user_agent, created_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: suppliers; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -3703,6 +3723,76 @@ COPY public.suppliers (supplier_id, supplier_code, supplier_name, phone, email, 
 161	NCC000002	CÔNG TY AGRIVIET	1234567	\N	\N	\N	\N	30	\N	t	2024-12-10 09:51:41.213	2025-07-29 06:48:11.695348
 162	NCC000001	CÔNG TY VIETVET	123456	\N	\N	\N	\N	30	\N	t	2024-12-10 09:20:17.697	2025-07-29 06:48:11.790548
 \.
+
+
+--
+-- Data for Name: system_settings; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.system_settings (setting_id, setting_key, setting_value, setting_type, category, display_name, description, default_value, validation_rules, is_required, is_system, display_order, is_active, created_at, updated_at) FROM stdin;
+1	business_name	Xuân Thùy Veterinary Pharmacy	string	business	Tên doanh nghiệp	Tên chính thức của doanh nghiệp	Xuân Thùy Veterinary Pharmacy	{"maxLength": 200, "minLength": 3}	t	f	1	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+2	business_address		text	business	Địa chỉ doanh nghiệp	Địa chỉ trụ sở chính		{"maxLength": 500}	f	f	2	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+3	business_phone		string	business	Số điện thoại	Số điện thoại liên hệ chính		{"pattern": "^[0-9\\\\s\\\\-\\\\+\\\\(\\\\)]+$"}	f	f	3	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+4	business_email		email	business	Email doanh nghiệp	Email chính thức của doanh nghiệp		{"format": "email"}	f	f	4	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+5	tax_number		string	business	Mã số thuế	Mã số thuế của doanh nghiệp		{"pattern": "^[0-9\\\\-]+$"}	f	f	5	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+6	business_license		string	business	Số giấy phép kinh doanh	Số giấy phép kinh doanh thú y		{}	f	f	6	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+7	default_currency	VND	select	financial	Đơn vị tiền tệ	Đơn vị tiền tệ mặc định	VND	{"options": ["VND", "USD", "EUR"]}	t	f	10	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+8	currency_symbol	₫	string	financial	Ký hiệu tiền tệ	Ký hiệu hiển thị cho tiền tệ	₫	{"maxLength": 5}	t	f	11	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+9	currency_decimal_places	0	number	financial	Số chữ số thập phân	Số chữ số sau dấu phẩy cho tiền tệ	0	{"max": 4, "min": 0}	t	f	12	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+10	vat_rate	10.0	number	financial	Thuế VAT (%)	Tỷ lệ thuế VAT mặc định	10.0	{"max": 100, "min": 0, "step": 0.1}	t	f	13	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+11	discount_limit_percent	50.0	number	financial	Giới hạn giảm giá (%)	Mức giảm giá tối đa cho một giao dịch	50.0	{"max": 100, "min": 0, "step": 0.1}	t	f	14	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+12	payment_methods	["cash", "transfer", "card"]	json	financial	Phương thức thanh toán	Các phương thức thanh toán được chấp nhận	["cash", "transfer", "card"]	{}	t	f	15	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+13	credit_limit_default	5000000	number	financial	Hạn mức công nợ mặc định	Hạn mức công nợ mặc định cho khách hàng mới (VND)	5000000	{"min": 0}	t	f	16	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+14	invoice_due_days	30	number	financial	Thời hạn thanh toán	Số ngày thanh toán mặc định cho hóa đơn	30	{"max": 365, "min": 1}	t	f	17	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+15	low_stock_threshold	10	number	inventory	Ngưỡng cảnh báo tồn kho thấp	Số lượng tồn kho tối thiểu trước khi cảnh báo	10	{"min": 0}	t	f	20	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+16	expiry_warning_days	30	number	inventory	Cảnh báo hết hạn (ngày)	Số ngày trước khi cảnh báo sản phẩm hết hạn	30	{"max": 365, "min": 1}	t	f	21	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+17	auto_reorder_enabled	true	boolean	inventory	Tự động tạo đơn đặt hàng	Tự động tạo đơn đặt hàng khi hết tồn kho	true	{}	f	f	22	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+18	default_markup_percent	25.0	number	inventory	Tỷ lệ lãi mặc định (%)	Tỷ lệ lãi mặc định khi nhập sản phẩm mới	25.0	{"max": 1000, "min": 0, "step": 0.1}	t	f	23	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+19	track_expiry_medicines	true	boolean	inventory	Theo dõi hạn sử dụng thuốc	Bắt buộc theo dõi hạn sử dụng cho thuốc thú y	true	{}	t	f	24	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+20	batch_tracking_enabled	true	boolean	inventory	Theo dõi số lô	Theo dõi số lô sản xuất cho thuốc và vaccine	true	{}	f	f	25	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+21	allow_negative_stock	false	boolean	inventory	Cho phép bán âm kho	Cho phép bán khi tồn kho không đủ	false	{}	f	f	26	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+22	customer_code_prefix	KH	string	customer	Tiền tố mã khách hàng	Tiền tố cho mã khách hàng tự động	KH	{"maxLength": 10}	t	f	30	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+23	customer_code_length	6	number	customer	Độ dài mã khách hàng	Số chữ số trong mã khách hàng (không tính tiền tố)	6	{"max": 10, "min": 3}	t	f	31	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+24	auto_generate_customer_codes	true	boolean	customer	Tự động tạo mã khách hàng	Tự động tạo mã khách hàng khi thêm mới	true	{}	f	f	32	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+25	vip_threshold_amount	50000000	number	customer	Ngưỡng khách hàng VIP	Tổng mua hàng để trở thành khách VIP (VND)	50000000	{"min": 0}	t	f	33	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+26	loyal_customer_orders	20	number	customer	Số đơn hàng khách thân thiết	Số đơn hàng tối thiểu để trở thành khách thân thiết	20	{"min": 1}	t	f	34	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+27	new_customer_credit	1000000	number	customer	Hạn mức khách hàng mới	Hạn mức công nợ mặc định cho khách hàng mới (VND)	1000000	{"min": 0}	t	f	35	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+28	require_customer_phone	false	boolean	customer	Bắt buộc số điện thoại	Bắt buộc nhập số điện thoại khi tạo khách hàng	false	{}	f	f	36	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+29	invoice_code_prefix	HD	string	invoice	Tiền tố mã hóa đơn	Tiền tố cho mã hóa đơn tự động	HD	{"maxLength": 10}	t	f	40	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+30	invoice_code_length	6	number	invoice	Độ dài mã hóa đơn	Số chữ số trong mã hóa đơn (không tính tiền tố)	6	{"max": 10, "min": 3}	t	f	41	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+31	invoice_numbering_reset	yearly	select	invoice	Đặt lại số hóa đơn	Tần suất đặt lại số hóa đơn về 1	yearly	{"options": ["never", "daily", "monthly", "yearly"]}	t	f	42	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+32	auto_print_receipt	true	boolean	invoice	Tự động in hóa đơn	Tự động in hóa đơn sau khi lưu	true	{}	f	f	43	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+33	require_customer_info	false	boolean	invoice	Bắt buộc thông tin khách hàng	Bắt buộc chọn khách hàng khi tạo hóa đơn	false	{}	f	f	44	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+34	invoice_footer_text	Cảm ơn quý khách đã sử dụng dịch vụ!	text	invoice	Dòng chân hóa đơn	Nội dung hiển thị ở cuối hóa đơn	Cảm ơn quý khách đã sử dụng dịch vụ!	{"maxLength": 500}	f	f	45	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+35	show_cost_price_on_invoice	false	boolean	invoice	Hiển thị giá vốn	Hiển thị giá vốn trên hóa đơn (chỉ admin)	false	{}	f	f	46	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+36	items_per_page_default	20	select	ui	Số dòng mỗi trang	Số lượng items hiển thị mặc định trên mỗi trang	20	{"options": ["10", "20", "50", "100"]}	t	f	50	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+37	default_view_mode	grid	select	ui	Chế độ hiển thị mặc định	Chế độ hiển thị danh sách mặc định	grid	{"options": ["grid", "list", "table"]}	t	f	51	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+38	enable_animations	true	boolean	ui	Bật hiệu ứng động	Bật/tắt các hiệu ứng chuyển động trong giao diện	true	{}	f	f	52	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+39	theme_mode	light	select	ui	Chế độ màu sắc	Chế độ màu sắc giao diện	light	{"options": ["light", "dark", "auto"]}	f	f	53	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+40	compact_mode	false	boolean	ui	Chế độ gọn	Giao diện gọn gàng với khoảng cách nhỏ hơn	false	{}	f	f	54	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+41	show_tooltips	true	boolean	ui	Hiển thị gợi ý	Hiển thị tooltip khi hover vào các thành phần	true	{}	f	f	55	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+42	require_prescription_validation	true	boolean	veterinary	Kiểm tra đơn kê thuốc	Bắt buộc kiểm tra đơn kê thuốc cho thuốc kê đơn	true	{}	t	f	60	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+43	prescription_validity_days	30	number	veterinary	Hạn đơn thuốc (ngày)	Số ngày có hiệu lực của đơn kê thuốc	30	{"max": 365, "min": 1}	t	f	61	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+44	dosage_calculation_enabled	true	boolean	veterinary	Tính liều tự động	Tính toán liều thuốc theo cân nặng động vật	true	{}	f	f	62	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+45	drug_interaction_check	true	boolean	veterinary	Kiểm tra tương tác thuốc	Cảnh báo khi có tương tác giữa các loại thuốc	true	{}	f	f	63	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+46	vaccine_cold_chain_tracking	true	boolean	veterinary	Theo dõi chuỗi lạnh vaccine	Theo dõi điều kiện bảo quản vaccine	true	{}	t	f	64	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+47	email_notifications_enabled	true	boolean	notification	Bật thông báo email	Cho phép gửi thông báo qua email	true	{}	f	f	70	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+48	sms_notifications_enabled	false	boolean	notification	Bật thông báo SMS	Cho phép gửi thông báo qua SMS	false	{}	f	f	71	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+49	low_stock_notification	true	boolean	notification	Thông báo hết hàng	Thông báo khi sản phẩm sắp hết	true	{}	f	f	72	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+50	expiry_notification	true	boolean	notification	Thông báo hết hạn	Thông báo khi sản phẩm sắp hết hạn	true	{}	f	f	73	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+51	payment_reminder_enabled	true	boolean	notification	Nhắc nhở thanh toán	Gửi nhắc nhở thanh toán cho khách hàng	true	{}	f	f	74	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+52	auto_backup_enabled	true	boolean	security	Sao lưu tự động	Tự động sao lưu dữ liệu hàng ngày	true	{}	f	f	80	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+53	backup_retention_days	30	number	security	Lưu giữ sao lưu (ngày)	Số ngày lưu giữ file sao lưu	30	{"max": 365, "min": 7}	t	f	81	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+54	session_timeout_minutes	120	number	security	Thời gian phiên làm việc	Thời gian tự động đăng xuất (phút)	120	{"max": 480, "min": 15}	t	f	82	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+55	password_min_length	6	number	security	Độ dài mật khẩu tối thiểu	Số ký tự tối thiểu cho mật khẩu	6	{"max": 20, "min": 4}	t	f	83	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+\.
+
+
+--
+-- Name: branch_settings_branch_setting_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.branch_settings_branch_setting_id_seq', 4, true);
 
 
 --
@@ -3783,10 +3873,24 @@ SELECT pg_catalog.setval('public.sales_channels_channel_id_seq', 4, true);
 
 
 --
+-- Name: settings_change_log_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.settings_change_log_log_id_seq', 1, false);
+
+
+--
 -- Name: suppliers_supplier_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.suppliers_supplier_id_seq', 162, true);
+
+
+--
+-- Name: system_settings_setting_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.system_settings_setting_id_seq', 55, true);
 
 
 --

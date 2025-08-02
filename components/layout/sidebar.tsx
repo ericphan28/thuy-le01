@@ -128,7 +128,7 @@ const menuItems = [
   {
     title: "Cài Đặt",
     icon: Settings,
-    href: "/settings",
+    href: "/dashboard/settings",
     badge: null
   }
 ]

@@ -5,7 +5,7 @@
 -- Dumped from database version 17.4
 -- Dumped by pg_dump version 17.4
 
--- Started on 2025-07-31 00:00:46
+-- Started on 2025-08-02 15:16:01
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -28,7 +28,7 @@ CREATE SCHEMA public;
 
 
 --
--- TOC entry 4041 (class 0 OID 0)
+-- TOC entry 4102 (class 0 OID 0)
 -- Dependencies: 12
 -- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
 --
@@ -37,7 +37,7 @@ COMMENT ON SCHEMA public IS 'standard public schema';
 
 
 --
--- TOC entry 483 (class 1255 OID 27238)
+-- TOC entry 492 (class 1255 OID 27238)
 -- Name: get_financial_summary(date, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -133,7 +133,7 @@ $$;
 
 
 --
--- TOC entry 481 (class 1255 OID 27237)
+-- TOC entry 490 (class 1255 OID 27237)
 -- Name: get_inventory_alerts(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -191,7 +191,7 @@ $$;
 
 
 --
--- TOC entry 476 (class 1255 OID 27239)
+-- TOC entry 485 (class 1255 OID 27239)
 -- Name: get_medicine_analytics(date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -238,7 +238,7 @@ $$;
 
 
 --
--- TOC entry 431 (class 1255 OID 27234)
+-- TOC entry 439 (class 1255 OID 27234)
 -- Name: get_pharmacy_dashboard_stats(date, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -322,7 +322,75 @@ $$;
 
 
 --
--- TOC entry 440 (class 1255 OID 27236)
+-- TOC entry 440 (class 1255 OID 31286)
+-- Name: get_setting_value(character varying, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_setting_value(p_setting_key character varying, p_branch_id integer DEFAULT NULL::integer) RETURNS text
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    setting_value TEXT;
+BEGIN
+    -- Try to get branch-specific setting first
+    IF p_branch_id IS NOT NULL THEN
+        SELECT bs.setting_value INTO setting_value
+        FROM public.branch_settings bs
+        WHERE bs.setting_key = p_setting_key 
+        AND bs.branch_id = p_branch_id;
+        
+        IF setting_value IS NOT NULL THEN
+            RETURN setting_value;
+        END IF;
+    END IF;
+    
+    -- Fallback to system setting
+    SELECT COALESCE(ss.setting_value, ss.default_value) INTO setting_value
+    FROM public.system_settings ss
+    WHERE ss.setting_key = p_setting_key 
+    AND ss.is_active = true;
+    
+    RETURN setting_value;
+END;
+$$;
+
+
+--
+-- TOC entry 419 (class 1255 OID 31288)
+-- Name: get_settings_by_category(character varying, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_settings_by_category(p_category character varying, p_branch_id integer DEFAULT NULL::integer) RETURNS TABLE(setting_key character varying, setting_value text, setting_type character varying, display_name character varying, description text, validation_rules jsonb, is_required boolean, display_order integer)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        ss.setting_key,
+        COALESCE(
+            (SELECT bs.setting_value 
+             FROM public.branch_settings bs 
+             WHERE bs.setting_key = ss.setting_key 
+             AND bs.branch_id = p_branch_id),
+            ss.setting_value,
+            ss.default_value
+        ) as setting_value,
+        ss.setting_type,
+        ss.display_name,
+        ss.description,
+        ss.validation_rules,
+        ss.is_required,
+        ss.display_order
+    FROM public.system_settings ss
+    WHERE ss.category = p_category
+    AND ss.is_active = true
+    ORDER BY ss.display_order, ss.display_name;
+END;
+$$;
+
+
+--
+-- TOC entry 449 (class 1255 OID 27236)
 -- Name: search_customers_with_stats(text, integer, integer, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -384,7 +452,7 @@ $$;
 
 
 --
--- TOC entry 503 (class 1255 OID 27235)
+-- TOC entry 512 (class 1255 OID 27235)
 -- Name: search_products_with_stats(text, integer, integer, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -440,7 +508,127 @@ $$;
 
 
 --
--- TOC entry 449 (class 1255 OID 22432)
+-- TOC entry 528 (class 1255 OID 31287)
+-- Name: set_setting_value(character varying, text, integer, character varying, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_setting_value(p_setting_key character varying, p_new_value text, p_branch_id integer DEFAULT NULL::integer, p_changed_by character varying DEFAULT 'system'::character varying, p_change_reason text DEFAULT NULL::text) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    old_value TEXT;
+    is_valid BOOLEAN := true;
+BEGIN
+    -- Get current value for logging
+    old_value := public.get_setting_value(p_setting_key, p_branch_id);
+    
+    -- Update setting
+    IF p_branch_id IS NOT NULL THEN
+        -- Branch-specific setting
+        INSERT INTO public.branch_settings (branch_id, setting_key, setting_value, created_by)
+        VALUES (p_branch_id, p_setting_key, p_new_value, p_changed_by)
+        ON CONFLICT (branch_id, setting_key) 
+        DO UPDATE SET 
+            setting_value = p_new_value,
+            created_by = p_changed_by,
+            updated_at = CURRENT_TIMESTAMP;
+    ELSE
+        -- System setting
+        UPDATE public.system_settings
+        SET setting_value = p_new_value,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE setting_key = p_setting_key;
+    END IF;
+    
+    -- Log the change
+    INSERT INTO public.settings_change_log (
+        setting_key, old_value, new_value, changed_by, 
+        change_reason, branch_id
+    ) VALUES (
+        p_setting_key, old_value, p_new_value, p_changed_by,
+        p_change_reason, p_branch_id
+    );
+    
+    RETURN true;
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN false;
+END;
+$$;
+
+
+--
+-- TOC entry 513 (class 1255 OID 31291)
+-- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- TOC entry 527 (class 1255 OID 31294)
+-- Name: validate_setting_value(character varying, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.validate_setting_value(p_setting_key character varying, p_value text) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $_$
+DECLARE
+    setting_type VARCHAR(50);
+    validation_rules JSONB;
+    is_valid BOOLEAN := true;
+BEGIN
+    -- Get setting metadata
+    SELECT ss.setting_type, ss.validation_rules
+    INTO setting_type, validation_rules
+    FROM public.system_settings ss
+    WHERE ss.setting_key = p_setting_key;
+    
+    IF NOT FOUND THEN
+        RETURN false;
+    END IF;
+    
+    -- Basic type validation
+    CASE setting_type
+        WHEN 'number' THEN
+            BEGIN
+                PERFORM p_value::NUMERIC;
+            EXCEPTION WHEN OTHERS THEN
+                RETURN false;
+            END;
+        WHEN 'boolean' THEN
+            IF p_value NOT IN ('true', 'false') THEN
+                RETURN false;
+            END IF;
+        WHEN 'email' THEN
+            IF p_value !~ '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$' THEN
+                RETURN false;
+            END IF;
+        WHEN 'json' THEN
+            BEGIN
+                PERFORM p_value::JSONB;
+            EXCEPTION WHEN OTHERS THEN
+                RETURN false;
+            END;
+    END CASE;
+    
+    -- Additional validation rules can be added here
+    -- based on validation_rules JSONB field
+    
+    RETURN is_valid;
+END;
+$_$;
+
+
+--
+-- TOC entry 458 (class 1255 OID 22432)
 -- Name: verify_public_schema_reset(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -528,6 +716,45 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- TOC entry 412 (class 1259 OID 31250)
+-- Name: branch_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.branch_settings (
+    branch_setting_id integer NOT NULL,
+    branch_id integer NOT NULL,
+    setting_key character varying(100) NOT NULL,
+    setting_value text,
+    created_by character varying(100),
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- TOC entry 411 (class 1259 OID 31249)
+-- Name: branch_settings_branch_setting_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.branch_settings_branch_setting_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- TOC entry 4103 (class 0 OID 0)
+-- Dependencies: 411
+-- Name: branch_settings_branch_setting_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.branch_settings_branch_setting_id_seq OWNED BY public.branch_settings.branch_setting_id;
+
+
+--
 -- TOC entry 380 (class 1259 OID 22945)
 -- Name: branches; Type: TABLE; Schema: public; Owner: -
 --
@@ -559,7 +786,7 @@ CREATE SEQUENCE public.branches_branch_id_seq
 
 
 --
--- TOC entry 4042 (class 0 OID 0)
+-- TOC entry 4104 (class 0 OID 0)
 -- Dependencies: 379
 -- Name: branches_branch_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -597,7 +824,7 @@ CREATE SEQUENCE public.customer_types_type_id_seq
 
 
 --
--- TOC entry 4043 (class 0 OID 0)
+-- TOC entry 4105 (class 0 OID 0)
 -- Dependencies: 381
 -- Name: customer_types_type_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -654,7 +881,7 @@ CREATE SEQUENCE public.customers_customer_id_seq
 
 
 --
--- TOC entry 4044 (class 0 OID 0)
+-- TOC entry 4106 (class 0 OID 0)
 -- Dependencies: 389
 -- Name: customers_customer_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -732,7 +959,7 @@ CREATE SEQUENCE public.financial_transactions_transaction_id_seq
 
 
 --
--- TOC entry 4045 (class 0 OID 0)
+-- TOC entry 4107 (class 0 OID 0)
 -- Dependencies: 403
 -- Name: financial_transactions_transaction_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -833,7 +1060,7 @@ CREATE SEQUENCE public.invoice_details_detail_id_seq
 
 
 --
--- TOC entry 4046 (class 0 OID 0)
+-- TOC entry 4108 (class 0 OID 0)
 -- Dependencies: 399
 -- Name: invoice_details_detail_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -926,7 +1153,7 @@ CREATE SEQUENCE public.invoices_invoice_id_seq
 
 
 --
--- TOC entry 4047 (class 0 OID 0)
+-- TOC entry 4109 (class 0 OID 0)
 -- Dependencies: 397
 -- Name: invoices_invoice_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -1015,7 +1242,7 @@ CREATE SEQUENCE public.product_categories_category_id_seq
 
 
 --
--- TOC entry 4048 (class 0 OID 0)
+-- TOC entry 4110 (class 0 OID 0)
 -- Dependencies: 385
 -- Name: product_categories_category_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -1054,7 +1281,7 @@ CREATE SEQUENCE public.product_units_product_unit_id_seq
 
 
 --
--- TOC entry 4049 (class 0 OID 0)
+-- TOC entry 4111 (class 0 OID 0)
 -- Dependencies: 395
 -- Name: product_units_product_unit_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -1077,7 +1304,7 @@ CREATE SEQUENCE public.products_product_id_seq
 
 
 --
--- TOC entry 4050 (class 0 OID 0)
+-- TOC entry 4112 (class 0 OID 0)
 -- Dependencies: 393
 -- Name: products_product_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -1118,7 +1345,7 @@ CREATE SEQUENCE public.purchase_orders_order_id_seq
 
 
 --
--- TOC entry 4051 (class 0 OID 0)
+-- TOC entry 4113 (class 0 OID 0)
 -- Dependencies: 401
 -- Name: purchase_orders_order_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -1156,12 +1383,53 @@ CREATE SEQUENCE public.sales_channels_channel_id_seq
 
 
 --
--- TOC entry 4052 (class 0 OID 0)
+-- TOC entry 4114 (class 0 OID 0)
 -- Dependencies: 387
 -- Name: sales_channels_channel_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.sales_channels_channel_id_seq OWNED BY public.sales_channels.channel_id;
+
+
+--
+-- TOC entry 414 (class 1259 OID 31270)
+-- Name: settings_change_log; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.settings_change_log (
+    log_id bigint NOT NULL,
+    setting_key character varying(100) NOT NULL,
+    old_value text,
+    new_value text,
+    changed_by character varying(100),
+    change_reason text,
+    branch_id integer,
+    ip_address inet,
+    user_agent text,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- TOC entry 413 (class 1259 OID 31269)
+-- Name: settings_change_log_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.settings_change_log_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- TOC entry 4115 (class 0 OID 0)
+-- Dependencies: 413
+-- Name: settings_change_log_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.settings_change_log_log_id_seq OWNED BY public.settings_change_log.log_id;
 
 
 --
@@ -1201,12 +1469,86 @@ CREATE SEQUENCE public.suppliers_supplier_id_seq
 
 
 --
--- TOC entry 4053 (class 0 OID 0)
+-- TOC entry 4116 (class 0 OID 0)
 -- Dependencies: 391
 -- Name: suppliers_supplier_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.suppliers_supplier_id_seq OWNED BY public.suppliers.supplier_id;
+
+
+--
+-- TOC entry 410 (class 1259 OID 31229)
+-- Name: system_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.system_settings (
+    setting_id integer NOT NULL,
+    setting_key character varying(100) NOT NULL,
+    setting_value text,
+    setting_type character varying(50) DEFAULT 'string'::character varying,
+    category character varying(100) NOT NULL,
+    display_name character varying(200) NOT NULL,
+    description text,
+    default_value text,
+    validation_rules jsonb DEFAULT '{}'::jsonb,
+    is_required boolean DEFAULT false,
+    is_system boolean DEFAULT false,
+    display_order integer DEFAULT 0,
+    is_active boolean DEFAULT true,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- TOC entry 415 (class 1259 OID 31295)
+-- Name: system_info; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.system_info AS
+ SELECT 'database_version'::text AS info_key,
+    version() AS info_value,
+    'System'::text AS category
+UNION ALL
+ SELECT 'total_settings'::text AS info_key,
+    (count(*))::text AS info_value,
+    'Settings'::text AS category
+   FROM public.system_settings
+UNION ALL
+ SELECT 'active_branches'::text AS info_key,
+    (count(*))::text AS info_value,
+    'Branches'::text AS category
+   FROM public.branches
+  WHERE (branches.is_active = true)
+UNION ALL
+ SELECT 'setup_date'::text AS info_key,
+    (min(system_settings.created_at))::text AS info_value,
+    'System'::text AS category
+   FROM public.system_settings;
+
+
+--
+-- TOC entry 409 (class 1259 OID 31228)
+-- Name: system_settings_setting_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.system_settings_setting_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- TOC entry 4117 (class 0 OID 0)
+-- Dependencies: 409
+-- Name: system_settings_setting_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.system_settings_setting_id_seq OWNED BY public.system_settings.setting_id;
 
 
 --
@@ -1241,7 +1583,7 @@ CREATE SEQUENCE public.units_unit_id_seq
 
 
 --
--- TOC entry 4054 (class 0 OID 0)
+-- TOC entry 4118 (class 0 OID 0)
 -- Dependencies: 383
 -- Name: units_unit_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -1250,7 +1592,15 @@ ALTER SEQUENCE public.units_unit_id_seq OWNED BY public.units.unit_id;
 
 
 --
--- TOC entry 3660 (class 2604 OID 22948)
+-- TOC entry 3784 (class 2604 OID 31253)
+-- Name: branch_settings branch_setting_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.branch_settings ALTER COLUMN branch_setting_id SET DEFAULT nextval('public.branch_settings_branch_setting_id_seq'::regclass);
+
+
+--
+-- TOC entry 3684 (class 2604 OID 22948)
 -- Name: branches branch_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1258,7 +1608,7 @@ ALTER TABLE ONLY public.branches ALTER COLUMN branch_id SET DEFAULT nextval('pub
 
 
 --
--- TOC entry 3664 (class 2604 OID 22962)
+-- TOC entry 3688 (class 2604 OID 22962)
 -- Name: customer_types type_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1266,7 +1616,7 @@ ALTER TABLE ONLY public.customer_types ALTER COLUMN type_id SET DEFAULT nextval(
 
 
 --
--- TOC entry 3678 (class 2604 OID 23061)
+-- TOC entry 3702 (class 2604 OID 23061)
 -- Name: customers customer_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1274,7 +1624,7 @@ ALTER TABLE ONLY public.customers ALTER COLUMN customer_id SET DEFAULT nextval('
 
 
 --
--- TOC entry 3749 (class 2604 OID 25329)
+-- TOC entry 3773 (class 2604 OID 25329)
 -- Name: financial_transactions transaction_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1282,7 +1632,7 @@ ALTER TABLE ONLY public.financial_transactions ALTER COLUMN transaction_id SET D
 
 
 --
--- TOC entry 3725 (class 2604 OID 25260)
+-- TOC entry 3749 (class 2604 OID 25260)
 -- Name: invoice_details detail_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1290,7 +1640,7 @@ ALTER TABLE ONLY public.invoice_details ALTER COLUMN detail_id SET DEFAULT nextv
 
 
 --
--- TOC entry 3719 (class 2604 OID 25230)
+-- TOC entry 3743 (class 2604 OID 25230)
 -- Name: invoices invoice_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1298,7 +1648,7 @@ ALTER TABLE ONLY public.invoices ALTER COLUMN invoice_id SET DEFAULT nextval('pu
 
 
 --
--- TOC entry 3672 (class 2604 OID 22988)
+-- TOC entry 3696 (class 2604 OID 22988)
 -- Name: product_categories category_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1306,7 +1656,7 @@ ALTER TABLE ONLY public.product_categories ALTER COLUMN category_id SET DEFAULT 
 
 
 --
--- TOC entry 3715 (class 2604 OID 23160)
+-- TOC entry 3739 (class 2604 OID 23160)
 -- Name: product_units product_unit_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1314,7 +1664,7 @@ ALTER TABLE ONLY public.product_units ALTER COLUMN product_unit_id SET DEFAULT n
 
 
 --
--- TOC entry 3695 (class 2604 OID 23114)
+-- TOC entry 3719 (class 2604 OID 23114)
 -- Name: products product_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1322,7 +1672,7 @@ ALTER TABLE ONLY public.products ALTER COLUMN product_id SET DEFAULT nextval('pu
 
 
 --
--- TOC entry 3744 (class 2604 OID 25312)
+-- TOC entry 3768 (class 2604 OID 25312)
 -- Name: purchase_orders order_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1330,7 +1680,7 @@ ALTER TABLE ONLY public.purchase_orders ALTER COLUMN order_id SET DEFAULT nextva
 
 
 --
--- TOC entry 3675 (class 2604 OID 23006)
+-- TOC entry 3699 (class 2604 OID 23006)
 -- Name: sales_channels channel_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1338,7 +1688,15 @@ ALTER TABLE ONLY public.sales_channels ALTER COLUMN channel_id SET DEFAULT nextv
 
 
 --
--- TOC entry 3690 (class 2604 OID 23097)
+-- TOC entry 3787 (class 2604 OID 31273)
+-- Name: settings_change_log log_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settings_change_log ALTER COLUMN log_id SET DEFAULT nextval('public.settings_change_log_log_id_seq'::regclass);
+
+
+--
+-- TOC entry 3714 (class 2604 OID 23097)
 -- Name: suppliers supplier_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1346,7 +1704,15 @@ ALTER TABLE ONLY public.suppliers ALTER COLUMN supplier_id SET DEFAULT nextval('
 
 
 --
--- TOC entry 3667 (class 2604 OID 22975)
+-- TOC entry 3775 (class 2604 OID 31232)
+-- Name: system_settings setting_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.system_settings ALTER COLUMN setting_id SET DEFAULT nextval('public.system_settings_setting_id_seq'::regclass);
+
+
+--
+-- TOC entry 3691 (class 2604 OID 22975)
 -- Name: units unit_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1354,7 +1720,25 @@ ALTER TABLE ONLY public.units ALTER COLUMN unit_id SET DEFAULT nextval('public.u
 
 
 --
--- TOC entry 3767 (class 2606 OID 22957)
+-- TOC entry 3908 (class 2606 OID 31261)
+-- Name: branch_settings branch_settings_branch_id_setting_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.branch_settings
+    ADD CONSTRAINT branch_settings_branch_id_setting_key_key UNIQUE (branch_id, setting_key);
+
+
+--
+-- TOC entry 3910 (class 2606 OID 31259)
+-- Name: branch_settings branch_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.branch_settings
+    ADD CONSTRAINT branch_settings_pkey PRIMARY KEY (branch_setting_id);
+
+
+--
+-- TOC entry 3805 (class 2606 OID 22957)
 -- Name: branches branches_branch_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1363,7 +1747,7 @@ ALTER TABLE ONLY public.branches
 
 
 --
--- TOC entry 3769 (class 2606 OID 22955)
+-- TOC entry 3807 (class 2606 OID 22955)
 -- Name: branches branches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1372,7 +1756,7 @@ ALTER TABLE ONLY public.branches
 
 
 --
--- TOC entry 3771 (class 2606 OID 22968)
+-- TOC entry 3809 (class 2606 OID 22968)
 -- Name: customer_types customer_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1381,7 +1765,7 @@ ALTER TABLE ONLY public.customer_types
 
 
 --
--- TOC entry 3773 (class 2606 OID 22970)
+-- TOC entry 3811 (class 2606 OID 22970)
 -- Name: customer_types customer_types_type_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1390,7 +1774,7 @@ ALTER TABLE ONLY public.customer_types
 
 
 --
--- TOC entry 3787 (class 2606 OID 23078)
+-- TOC entry 3825 (class 2606 OID 23078)
 -- Name: customers customers_customer_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1399,7 +1783,7 @@ ALTER TABLE ONLY public.customers
 
 
 --
--- TOC entry 3789 (class 2606 OID 23076)
+-- TOC entry 3827 (class 2606 OID 23076)
 -- Name: customers customers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1408,7 +1792,7 @@ ALTER TABLE ONLY public.customers
 
 
 --
--- TOC entry 3856 (class 2606 OID 25334)
+-- TOC entry 3894 (class 2606 OID 25334)
 -- Name: financial_transactions financial_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1417,7 +1801,7 @@ ALTER TABLE ONLY public.financial_transactions
 
 
 --
--- TOC entry 3858 (class 2606 OID 25336)
+-- TOC entry 3896 (class 2606 OID 25336)
 -- Name: financial_transactions financial_transactions_transaction_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1426,7 +1810,7 @@ ALTER TABLE ONLY public.financial_transactions
 
 
 --
--- TOC entry 3848 (class 2606 OID 25287)
+-- TOC entry 3886 (class 2606 OID 25287)
 -- Name: invoice_details invoice_details_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1435,7 +1819,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3830 (class 2606 OID 25242)
+-- TOC entry 3868 (class 2606 OID 25242)
 -- Name: invoices invoices_invoice_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1444,7 +1828,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- TOC entry 3832 (class 2606 OID 25240)
+-- TOC entry 3870 (class 2606 OID 25240)
 -- Name: invoices invoices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1453,7 +1837,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- TOC entry 3779 (class 2606 OID 22996)
+-- TOC entry 3817 (class 2606 OID 22996)
 -- Name: product_categories product_categories_category_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1462,7 +1846,7 @@ ALTER TABLE ONLY public.product_categories
 
 
 --
--- TOC entry 3781 (class 2606 OID 22994)
+-- TOC entry 3819 (class 2606 OID 22994)
 -- Name: product_categories product_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1471,7 +1855,7 @@ ALTER TABLE ONLY public.product_categories
 
 
 --
--- TOC entry 3818 (class 2606 OID 23165)
+-- TOC entry 3856 (class 2606 OID 23165)
 -- Name: product_units product_units_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1480,7 +1864,7 @@ ALTER TABLE ONLY public.product_units
 
 
 --
--- TOC entry 3820 (class 2606 OID 23167)
+-- TOC entry 3858 (class 2606 OID 23167)
 -- Name: product_units product_units_product_id_unit_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1489,7 +1873,7 @@ ALTER TABLE ONLY public.product_units
 
 
 --
--- TOC entry 3812 (class 2606 OID 23137)
+-- TOC entry 3850 (class 2606 OID 23137)
 -- Name: products products_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1498,7 +1882,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- TOC entry 3814 (class 2606 OID 23139)
+-- TOC entry 3852 (class 2606 OID 23139)
 -- Name: products products_product_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1507,7 +1891,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- TOC entry 3852 (class 2606 OID 25322)
+-- TOC entry 3890 (class 2606 OID 25322)
 -- Name: purchase_orders purchase_orders_order_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1516,7 +1900,7 @@ ALTER TABLE ONLY public.purchase_orders
 
 
 --
--- TOC entry 3854 (class 2606 OID 25320)
+-- TOC entry 3892 (class 2606 OID 25320)
 -- Name: purchase_orders purchase_orders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1525,7 +1909,7 @@ ALTER TABLE ONLY public.purchase_orders
 
 
 --
--- TOC entry 3783 (class 2606 OID 23014)
+-- TOC entry 3821 (class 2606 OID 23014)
 -- Name: sales_channels sales_channels_channel_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1534,7 +1918,7 @@ ALTER TABLE ONLY public.sales_channels
 
 
 --
--- TOC entry 3785 (class 2606 OID 23012)
+-- TOC entry 3823 (class 2606 OID 23012)
 -- Name: sales_channels sales_channels_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1543,7 +1927,16 @@ ALTER TABLE ONLY public.sales_channels
 
 
 --
--- TOC entry 3800 (class 2606 OID 23105)
+-- TOC entry 3916 (class 2606 OID 31278)
+-- Name: settings_change_log settings_change_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settings_change_log
+    ADD CONSTRAINT settings_change_log_pkey PRIMARY KEY (log_id);
+
+
+--
+-- TOC entry 3838 (class 2606 OID 23105)
 -- Name: suppliers suppliers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1552,7 +1945,7 @@ ALTER TABLE ONLY public.suppliers
 
 
 --
--- TOC entry 3802 (class 2606 OID 23107)
+-- TOC entry 3840 (class 2606 OID 23107)
 -- Name: suppliers suppliers_supplier_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1561,7 +1954,25 @@ ALTER TABLE ONLY public.suppliers
 
 
 --
--- TOC entry 3775 (class 2606 OID 22981)
+-- TOC entry 3904 (class 2606 OID 31244)
+-- Name: system_settings system_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.system_settings
+    ADD CONSTRAINT system_settings_pkey PRIMARY KEY (setting_id);
+
+
+--
+-- TOC entry 3906 (class 2606 OID 31246)
+-- Name: system_settings system_settings_setting_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.system_settings
+    ADD CONSTRAINT system_settings_setting_key_key UNIQUE (setting_key);
+
+
+--
+-- TOC entry 3813 (class 2606 OID 22981)
 -- Name: units units_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1570,7 +1981,7 @@ ALTER TABLE ONLY public.units
 
 
 --
--- TOC entry 3777 (class 2606 OID 22983)
+-- TOC entry 3815 (class 2606 OID 22983)
 -- Name: units units_unit_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1579,7 +1990,23 @@ ALTER TABLE ONLY public.units
 
 
 --
--- TOC entry 3790 (class 1259 OID 23092)
+-- TOC entry 3911 (class 1259 OID 31267)
+-- Name: idx_branch_settings_branch; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_branch_settings_branch ON public.branch_settings USING btree (branch_id);
+
+
+--
+-- TOC entry 3912 (class 1259 OID 31268)
+-- Name: idx_branch_settings_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_branch_settings_key ON public.branch_settings USING btree (setting_key);
+
+
+--
+-- TOC entry 3828 (class 1259 OID 23092)
 -- Name: idx_customers_branch; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1587,7 +2014,7 @@ CREATE INDEX idx_customers_branch ON public.customers USING btree (branch_create
 
 
 --
--- TOC entry 3791 (class 1259 OID 26940)
+-- TOC entry 3829 (class 1259 OID 26940)
 -- Name: idx_customers_branch_created_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1595,7 +2022,7 @@ CREATE INDEX idx_customers_branch_created_id ON public.customers USING btree (br
 
 
 --
--- TOC entry 3792 (class 1259 OID 23089)
+-- TOC entry 3830 (class 1259 OID 23089)
 -- Name: idx_customers_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1603,7 +2030,7 @@ CREATE INDEX idx_customers_code ON public.customers USING btree (customer_code);
 
 
 --
--- TOC entry 3793 (class 1259 OID 26938)
+-- TOC entry 3831 (class 1259 OID 26938)
 -- Name: idx_customers_customer_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1611,7 +2038,7 @@ CREATE INDEX idx_customers_customer_code ON public.customers USING btree (custom
 
 
 --
--- TOC entry 3794 (class 1259 OID 26939)
+-- TOC entry 3832 (class 1259 OID 26939)
 -- Name: idx_customers_customer_type_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1619,7 +2046,7 @@ CREATE INDEX idx_customers_customer_type_id ON public.customers USING btree (cus
 
 
 --
--- TOC entry 3795 (class 1259 OID 23090)
+-- TOC entry 3833 (class 1259 OID 23090)
 -- Name: idx_customers_phone; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1627,7 +2054,7 @@ CREATE INDEX idx_customers_phone ON public.customers USING btree (phone);
 
 
 --
--- TOC entry 3796 (class 1259 OID 23091)
+-- TOC entry 3834 (class 1259 OID 23091)
 -- Name: idx_customers_type; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1635,7 +2062,7 @@ CREATE INDEX idx_customers_type ON public.customers USING btree (customer_type_i
 
 
 --
--- TOC entry 3859 (class 1259 OID 25337)
+-- TOC entry 3897 (class 1259 OID 25337)
 -- Name: idx_financial_transactions_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1643,7 +2070,7 @@ CREATE INDEX idx_financial_transactions_date ON public.financial_transactions US
 
 
 --
--- TOC entry 3860 (class 1259 OID 25338)
+-- TOC entry 3898 (class 1259 OID 25338)
 -- Name: idx_financial_transactions_type; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1651,7 +2078,7 @@ CREATE INDEX idx_financial_transactions_type ON public.financial_transactions US
 
 
 --
--- TOC entry 3833 (class 1259 OID 25305)
+-- TOC entry 3871 (class 1259 OID 25305)
 -- Name: idx_invoice_details_customer; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1659,7 +2086,7 @@ CREATE INDEX idx_invoice_details_customer ON public.invoice_details USING btree 
 
 
 --
--- TOC entry 3834 (class 1259 OID 26931)
+-- TOC entry 3872 (class 1259 OID 26931)
 -- Name: idx_invoice_details_customer_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1667,7 +2094,7 @@ CREATE INDEX idx_invoice_details_customer_code ON public.invoice_details USING b
 
 
 --
--- TOC entry 3835 (class 1259 OID 25624)
+-- TOC entry 3873 (class 1259 OID 25624)
 -- Name: idx_invoice_details_customer_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1675,7 +2102,7 @@ CREATE INDEX idx_invoice_details_customer_id ON public.invoice_details USING btr
 
 
 --
--- TOC entry 3836 (class 1259 OID 26934)
+-- TOC entry 3874 (class 1259 OID 26934)
 -- Name: idx_invoice_details_customer_product; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1683,7 +2110,7 @@ CREATE INDEX idx_invoice_details_customer_product ON public.invoice_details USIN
 
 
 --
--- TOC entry 3837 (class 1259 OID 25306)
+-- TOC entry 3875 (class 1259 OID 25306)
 -- Name: idx_invoice_details_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1691,7 +2118,7 @@ CREATE INDEX idx_invoice_details_date ON public.invoice_details USING btree (inv
 
 
 --
--- TOC entry 3838 (class 1259 OID 26932)
+-- TOC entry 3876 (class 1259 OID 26932)
 -- Name: idx_invoice_details_date_customer; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1699,7 +2126,7 @@ CREATE INDEX idx_invoice_details_date_customer ON public.invoice_details USING b
 
 
 --
--- TOC entry 3839 (class 1259 OID 26933)
+-- TOC entry 3877 (class 1259 OID 26933)
 -- Name: idx_invoice_details_date_product; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1707,7 +2134,7 @@ CREATE INDEX idx_invoice_details_date_product ON public.invoice_details USING bt
 
 
 --
--- TOC entry 3840 (class 1259 OID 25303)
+-- TOC entry 3878 (class 1259 OID 25303)
 -- Name: idx_invoice_details_invoice; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1715,7 +2142,7 @@ CREATE INDEX idx_invoice_details_invoice ON public.invoice_details USING btree (
 
 
 --
--- TOC entry 3841 (class 1259 OID 25307)
+-- TOC entry 3879 (class 1259 OID 25307)
 -- Name: idx_invoice_details_invoice_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1723,7 +2150,7 @@ CREATE INDEX idx_invoice_details_invoice_code ON public.invoice_details USING bt
 
 
 --
--- TOC entry 3842 (class 1259 OID 26929)
+-- TOC entry 3880 (class 1259 OID 26929)
 -- Name: idx_invoice_details_invoice_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1731,7 +2158,7 @@ CREATE INDEX idx_invoice_details_invoice_date ON public.invoice_details USING bt
 
 
 --
--- TOC entry 3843 (class 1259 OID 26928)
+-- TOC entry 3881 (class 1259 OID 26928)
 -- Name: idx_invoice_details_invoice_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1739,7 +2166,7 @@ CREATE INDEX idx_invoice_details_invoice_id ON public.invoice_details USING btre
 
 
 --
--- TOC entry 3844 (class 1259 OID 25304)
+-- TOC entry 3882 (class 1259 OID 25304)
 -- Name: idx_invoice_details_product; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1747,7 +2174,7 @@ CREATE INDEX idx_invoice_details_product ON public.invoice_details USING btree (
 
 
 --
--- TOC entry 3845 (class 1259 OID 26930)
+-- TOC entry 3883 (class 1259 OID 26930)
 -- Name: idx_invoice_details_product_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1755,7 +2182,7 @@ CREATE INDEX idx_invoice_details_product_code ON public.invoice_details USING bt
 
 
 --
--- TOC entry 3846 (class 1259 OID 25625)
+-- TOC entry 3884 (class 1259 OID 25625)
 -- Name: idx_invoice_details_product_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1763,7 +2190,7 @@ CREATE INDEX idx_invoice_details_product_id ON public.invoice_details USING btre
 
 
 --
--- TOC entry 3821 (class 1259 OID 25255)
+-- TOC entry 3859 (class 1259 OID 25255)
 -- Name: idx_invoices_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1771,7 +2198,7 @@ CREATE INDEX idx_invoices_code ON public.invoices USING btree (invoice_code);
 
 
 --
--- TOC entry 3822 (class 1259 OID 25254)
+-- TOC entry 3860 (class 1259 OID 25254)
 -- Name: idx_invoices_customer; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1779,7 +2206,7 @@ CREATE INDEX idx_invoices_customer ON public.invoices USING btree (customer_id);
 
 
 --
--- TOC entry 3823 (class 1259 OID 25623)
+-- TOC entry 3861 (class 1259 OID 25623)
 -- Name: idx_invoices_customer_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1787,7 +2214,7 @@ CREATE INDEX idx_invoices_customer_id ON public.invoices USING btree (customer_i
 
 
 --
--- TOC entry 3824 (class 1259 OID 25253)
+-- TOC entry 3862 (class 1259 OID 25253)
 -- Name: idx_invoices_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1795,7 +2222,7 @@ CREATE INDEX idx_invoices_date ON public.invoices USING btree (invoice_date);
 
 
 --
--- TOC entry 3825 (class 1259 OID 25626)
+-- TOC entry 3863 (class 1259 OID 25626)
 -- Name: idx_invoices_date_customer; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1803,7 +2230,7 @@ CREATE INDEX idx_invoices_date_customer ON public.invoices USING btree (invoice_
 
 
 --
--- TOC entry 3826 (class 1259 OID 26935)
+-- TOC entry 3864 (class 1259 OID 26935)
 -- Name: idx_invoices_invoice_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1811,7 +2238,7 @@ CREATE INDEX idx_invoices_invoice_code ON public.invoices USING btree (invoice_c
 
 
 --
--- TOC entry 3827 (class 1259 OID 26936)
+-- TOC entry 3865 (class 1259 OID 26936)
 -- Name: idx_invoices_invoice_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1819,7 +2246,7 @@ CREATE INDEX idx_invoices_invoice_date ON public.invoices USING btree (invoice_d
 
 
 --
--- TOC entry 3828 (class 1259 OID 26937)
+-- TOC entry 3866 (class 1259 OID 26937)
 -- Name: idx_invoices_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1827,7 +2254,7 @@ CREATE INDEX idx_invoices_status ON public.invoices USING btree (status);
 
 
 --
--- TOC entry 3815 (class 1259 OID 23178)
+-- TOC entry 3853 (class 1259 OID 23178)
 -- Name: idx_product_units_product; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1835,7 +2262,7 @@ CREATE INDEX idx_product_units_product ON public.product_units USING btree (prod
 
 
 --
--- TOC entry 3816 (class 1259 OID 23179)
+-- TOC entry 3854 (class 1259 OID 23179)
 -- Name: idx_product_units_unit; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1843,7 +2270,7 @@ CREATE INDEX idx_product_units_unit ON public.product_units USING btree (unit_id
 
 
 --
--- TOC entry 3803 (class 1259 OID 23154)
+-- TOC entry 3841 (class 1259 OID 23154)
 -- Name: idx_products_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1851,7 +2278,7 @@ CREATE INDEX idx_products_active ON public.products USING btree (is_active);
 
 
 --
--- TOC entry 3804 (class 1259 OID 23155)
+-- TOC entry 3842 (class 1259 OID 23155)
 -- Name: idx_products_allow_sale; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1859,7 +2286,7 @@ CREATE INDEX idx_products_allow_sale ON public.products USING btree (allow_sale)
 
 
 --
--- TOC entry 3805 (class 1259 OID 23151)
+-- TOC entry 3843 (class 1259 OID 23151)
 -- Name: idx_products_barcode; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1867,7 +2294,7 @@ CREATE INDEX idx_products_barcode ON public.products USING btree (barcode);
 
 
 --
--- TOC entry 3806 (class 1259 OID 23153)
+-- TOC entry 3844 (class 1259 OID 23153)
 -- Name: idx_products_category; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1875,7 +2302,7 @@ CREATE INDEX idx_products_category ON public.products USING btree (category_id);
 
 
 --
--- TOC entry 3807 (class 1259 OID 26942)
+-- TOC entry 3845 (class 1259 OID 26942)
 -- Name: idx_products_category_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1883,7 +2310,7 @@ CREATE INDEX idx_products_category_id ON public.products USING btree (category_i
 
 
 --
--- TOC entry 3808 (class 1259 OID 23150)
+-- TOC entry 3846 (class 1259 OID 23150)
 -- Name: idx_products_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1891,7 +2318,7 @@ CREATE INDEX idx_products_code ON public.products USING btree (product_code);
 
 
 --
--- TOC entry 3809 (class 1259 OID 23152)
+-- TOC entry 3847 (class 1259 OID 23152)
 -- Name: idx_products_name; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1899,7 +2326,7 @@ CREATE INDEX idx_products_name ON public.products USING btree (product_name);
 
 
 --
--- TOC entry 3810 (class 1259 OID 26941)
+-- TOC entry 3848 (class 1259 OID 26941)
 -- Name: idx_products_product_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1907,7 +2334,7 @@ CREATE INDEX idx_products_product_code ON public.products USING btree (product_c
 
 
 --
--- TOC entry 3849 (class 1259 OID 25324)
+-- TOC entry 3887 (class 1259 OID 25324)
 -- Name: idx_purchase_orders_customer; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1915,7 +2342,7 @@ CREATE INDEX idx_purchase_orders_customer ON public.purchase_orders USING btree 
 
 
 --
--- TOC entry 3850 (class 1259 OID 25323)
+-- TOC entry 3888 (class 1259 OID 25323)
 -- Name: idx_purchase_orders_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1923,7 +2350,23 @@ CREATE INDEX idx_purchase_orders_date ON public.purchase_orders USING btree (ord
 
 
 --
--- TOC entry 3797 (class 1259 OID 23108)
+-- TOC entry 3913 (class 1259 OID 31285)
+-- Name: idx_settings_log_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_settings_log_date ON public.settings_change_log USING btree (created_at);
+
+
+--
+-- TOC entry 3914 (class 1259 OID 31284)
+-- Name: idx_settings_log_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_settings_log_key ON public.settings_change_log USING btree (setting_key);
+
+
+--
+-- TOC entry 3835 (class 1259 OID 23108)
 -- Name: idx_suppliers_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1931,7 +2374,7 @@ CREATE INDEX idx_suppliers_code ON public.suppliers USING btree (supplier_code);
 
 
 --
--- TOC entry 3798 (class 1259 OID 23109)
+-- TOC entry 3836 (class 1259 OID 23109)
 -- Name: idx_suppliers_name; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1939,7 +2382,64 @@ CREATE INDEX idx_suppliers_name ON public.suppliers USING btree (supplier_name);
 
 
 --
--- TOC entry 3862 (class 2606 OID 23084)
+-- TOC entry 3899 (class 1259 OID 31289)
+-- Name: idx_system_settings_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_system_settings_active ON public.system_settings USING btree (is_active) WHERE (is_active = true);
+
+
+--
+-- TOC entry 3900 (class 1259 OID 31247)
+-- Name: idx_system_settings_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_system_settings_category ON public.system_settings USING btree (category);
+
+
+--
+-- TOC entry 3901 (class 1259 OID 31248)
+-- Name: idx_system_settings_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_system_settings_key ON public.system_settings USING btree (setting_key);
+
+
+--
+-- TOC entry 3902 (class 1259 OID 31290)
+-- Name: idx_system_settings_required; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_system_settings_required ON public.system_settings USING btree (is_required) WHERE (is_required = true);
+
+
+--
+-- TOC entry 3942 (class 2620 OID 31293)
+-- Name: branch_settings update_branch_settings_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_branch_settings_updated_at BEFORE UPDATE ON public.branch_settings FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- TOC entry 3941 (class 2620 OID 31292)
+-- Name: system_settings update_system_settings_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_system_settings_updated_at BEFORE UPDATE ON public.system_settings FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- TOC entry 3939 (class 2606 OID 31262)
+-- Name: branch_settings branch_settings_branch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.branch_settings
+    ADD CONSTRAINT branch_settings_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(branch_id) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 3918 (class 2606 OID 23084)
 -- Name: customers customers_branch_created_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1948,7 +2448,7 @@ ALTER TABLE ONLY public.customers
 
 
 --
--- TOC entry 3863 (class 2606 OID 23079)
+-- TOC entry 3919 (class 2606 OID 23079)
 -- Name: customers customers_customer_type_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1957,7 +2457,7 @@ ALTER TABLE ONLY public.customers
 
 
 --
--- TOC entry 3864 (class 2606 OID 26918)
+-- TOC entry 3920 (class 2606 OID 26918)
 -- Name: customers fk_customers_branch_created_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1966,7 +2466,7 @@ ALTER TABLE ONLY public.customers
 
 
 --
--- TOC entry 3865 (class 2606 OID 26913)
+-- TOC entry 3921 (class 2606 OID 26913)
 -- Name: customers fk_customers_customer_type_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1975,7 +2475,7 @@ ALTER TABLE ONLY public.customers
 
 
 --
--- TOC entry 3875 (class 2606 OID 25613)
+-- TOC entry 3931 (class 2606 OID 25613)
 -- Name: invoice_details fk_invoice_details_customer; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1984,7 +2484,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3876 (class 2606 OID 26903)
+-- TOC entry 3932 (class 2606 OID 26903)
 -- Name: invoice_details fk_invoice_details_customer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1993,7 +2493,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3877 (class 2606 OID 26893)
+-- TOC entry 3933 (class 2606 OID 26893)
 -- Name: invoice_details fk_invoice_details_invoice_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2002,7 +2502,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3878 (class 2606 OID 25618)
+-- TOC entry 3934 (class 2606 OID 25618)
 -- Name: invoice_details fk_invoice_details_product; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2011,7 +2511,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3879 (class 2606 OID 26898)
+-- TOC entry 3935 (class 2606 OID 26898)
 -- Name: invoice_details fk_invoice_details_product_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2020,7 +2520,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3871 (class 2606 OID 25608)
+-- TOC entry 3927 (class 2606 OID 25608)
 -- Name: invoices fk_invoices_customer; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2029,7 +2529,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- TOC entry 3872 (class 2606 OID 26908)
+-- TOC entry 3928 (class 2606 OID 26908)
 -- Name: invoices fk_invoices_customer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2038,7 +2538,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- TOC entry 3866 (class 2606 OID 26923)
+-- TOC entry 3922 (class 2606 OID 26923)
 -- Name: products fk_products_category_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2047,7 +2547,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- TOC entry 3880 (class 2606 OID 25298)
+-- TOC entry 3936 (class 2606 OID 25298)
 -- Name: invoice_details invoice_details_branch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2056,7 +2556,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3881 (class 2606 OID 25288)
+-- TOC entry 3937 (class 2606 OID 25288)
 -- Name: invoice_details invoice_details_invoice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2065,7 +2565,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3882 (class 2606 OID 25293)
+-- TOC entry 3938 (class 2606 OID 25293)
 -- Name: invoice_details invoice_details_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2074,7 +2574,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3873 (class 2606 OID 25248)
+-- TOC entry 3929 (class 2606 OID 25248)
 -- Name: invoices invoices_branch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2083,7 +2583,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- TOC entry 3874 (class 2606 OID 25243)
+-- TOC entry 3930 (class 2606 OID 25243)
 -- Name: invoices invoices_customer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2092,7 +2592,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- TOC entry 3861 (class 2606 OID 22997)
+-- TOC entry 3917 (class 2606 OID 22997)
 -- Name: product_categories product_categories_parent_category_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2101,7 +2601,7 @@ ALTER TABLE ONLY public.product_categories
 
 
 --
--- TOC entry 3869 (class 2606 OID 23168)
+-- TOC entry 3925 (class 2606 OID 23168)
 -- Name: product_units product_units_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2110,7 +2610,7 @@ ALTER TABLE ONLY public.product_units
 
 
 --
--- TOC entry 3870 (class 2606 OID 23173)
+-- TOC entry 3926 (class 2606 OID 23173)
 -- Name: product_units product_units_unit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2119,7 +2619,7 @@ ALTER TABLE ONLY public.product_units
 
 
 --
--- TOC entry 3867 (class 2606 OID 23145)
+-- TOC entry 3923 (class 2606 OID 23145)
 -- Name: products products_base_unit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2128,7 +2628,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- TOC entry 3868 (class 2606 OID 23140)
+-- TOC entry 3924 (class 2606 OID 23140)
 -- Name: products products_category_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2136,7 +2636,16 @@ ALTER TABLE ONLY public.products
     ADD CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.product_categories(category_id);
 
 
--- Completed on 2025-07-31 00:00:53
+--
+-- TOC entry 3940 (class 2606 OID 31279)
+-- Name: settings_change_log settings_change_log_branch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settings_change_log
+    ADD CONSTRAINT settings_change_log_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(branch_id);
+
+
+-- Completed on 2025-08-02 15:16:10
 
 --
 -- PostgreSQL database dump complete

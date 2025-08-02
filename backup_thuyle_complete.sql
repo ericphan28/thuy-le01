@@ -313,6 +313,72 @@ $$;
 
 
 --
+-- Name: get_setting_value(character varying, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_setting_value(p_setting_key character varying, p_branch_id integer DEFAULT NULL::integer) RETURNS text
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    setting_value TEXT;
+BEGIN
+    -- Try to get branch-specific setting first
+    IF p_branch_id IS NOT NULL THEN
+        SELECT bs.setting_value INTO setting_value
+        FROM public.branch_settings bs
+        WHERE bs.setting_key = p_setting_key 
+        AND bs.branch_id = p_branch_id;
+        
+        IF setting_value IS NOT NULL THEN
+            RETURN setting_value;
+        END IF;
+    END IF;
+    
+    -- Fallback to system setting
+    SELECT COALESCE(ss.setting_value, ss.default_value) INTO setting_value
+    FROM public.system_settings ss
+    WHERE ss.setting_key = p_setting_key 
+    AND ss.is_active = true;
+    
+    RETURN setting_value;
+END;
+$$;
+
+
+--
+-- Name: get_settings_by_category(character varying, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_settings_by_category(p_category character varying, p_branch_id integer DEFAULT NULL::integer) RETURNS TABLE(setting_key character varying, setting_value text, setting_type character varying, display_name character varying, description text, validation_rules jsonb, is_required boolean, display_order integer)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        ss.setting_key,
+        COALESCE(
+            (SELECT bs.setting_value 
+             FROM public.branch_settings bs 
+             WHERE bs.setting_key = ss.setting_key 
+             AND bs.branch_id = p_branch_id),
+            ss.setting_value,
+            ss.default_value
+        ) as setting_value,
+        ss.setting_type,
+        ss.display_name,
+        ss.description,
+        ss.validation_rules,
+        ss.is_required,
+        ss.display_order
+    FROM public.system_settings ss
+    WHERE ss.category = p_category
+    AND ss.is_active = true
+    ORDER BY ss.display_order, ss.display_name;
+END;
+$$;
+
+
+--
 -- Name: search_customers_with_stats(text, integer, integer, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -429,6 +495,123 @@ $$;
 
 
 --
+-- Name: set_setting_value(character varying, text, integer, character varying, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_setting_value(p_setting_key character varying, p_new_value text, p_branch_id integer DEFAULT NULL::integer, p_changed_by character varying DEFAULT 'system'::character varying, p_change_reason text DEFAULT NULL::text) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    old_value TEXT;
+    is_valid BOOLEAN := true;
+BEGIN
+    -- Get current value for logging
+    old_value := public.get_setting_value(p_setting_key, p_branch_id);
+    
+    -- Update setting
+    IF p_branch_id IS NOT NULL THEN
+        -- Branch-specific setting
+        INSERT INTO public.branch_settings (branch_id, setting_key, setting_value, created_by)
+        VALUES (p_branch_id, p_setting_key, p_new_value, p_changed_by)
+        ON CONFLICT (branch_id, setting_key) 
+        DO UPDATE SET 
+            setting_value = p_new_value,
+            created_by = p_changed_by,
+            updated_at = CURRENT_TIMESTAMP;
+    ELSE
+        -- System setting
+        UPDATE public.system_settings
+        SET setting_value = p_new_value,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE setting_key = p_setting_key;
+    END IF;
+    
+    -- Log the change
+    INSERT INTO public.settings_change_log (
+        setting_key, old_value, new_value, changed_by, 
+        change_reason, branch_id
+    ) VALUES (
+        p_setting_key, old_value, p_new_value, p_changed_by,
+        p_change_reason, p_branch_id
+    );
+    
+    RETURN true;
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN false;
+END;
+$$;
+
+
+--
+-- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: validate_setting_value(character varying, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.validate_setting_value(p_setting_key character varying, p_value text) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $_$
+DECLARE
+    setting_type VARCHAR(50);
+    validation_rules JSONB;
+    is_valid BOOLEAN := true;
+BEGIN
+    -- Get setting metadata
+    SELECT ss.setting_type, ss.validation_rules
+    INTO setting_type, validation_rules
+    FROM public.system_settings ss
+    WHERE ss.setting_key = p_setting_key;
+    
+    IF NOT FOUND THEN
+        RETURN false;
+    END IF;
+    
+    -- Basic type validation
+    CASE setting_type
+        WHEN 'number' THEN
+            BEGIN
+                PERFORM p_value::NUMERIC;
+            EXCEPTION WHEN OTHERS THEN
+                RETURN false;
+            END;
+        WHEN 'boolean' THEN
+            IF p_value NOT IN ('true', 'false') THEN
+                RETURN false;
+            END IF;
+        WHEN 'email' THEN
+            IF p_value !~ '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$' THEN
+                RETURN false;
+            END IF;
+        WHEN 'json' THEN
+            BEGIN
+                PERFORM p_value::JSONB;
+            EXCEPTION WHEN OTHERS THEN
+                RETURN false;
+            END;
+    END CASE;
+    
+    -- Additional validation rules can be added here
+    -- based on validation_rules JSONB field
+    
+    RETURN is_valid;
+END;
+$_$;
+
+
+--
 -- Name: verify_public_schema_reset(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -514,6 +697,41 @@ $$;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: branch_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.branch_settings (
+    branch_setting_id integer NOT NULL,
+    branch_id integer NOT NULL,
+    setting_key character varying(100) NOT NULL,
+    setting_value text,
+    created_by character varying(100),
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: branch_settings_branch_setting_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.branch_settings_branch_setting_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: branch_settings_branch_setting_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.branch_settings_branch_setting_id_seq OWNED BY public.branch_settings.branch_setting_id;
+
 
 --
 -- Name: branches; Type: TABLE; Schema: public; Owner: -
@@ -1105,6 +1323,43 @@ ALTER SEQUENCE public.sales_channels_channel_id_seq OWNED BY public.sales_channe
 
 
 --
+-- Name: settings_change_log; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.settings_change_log (
+    log_id bigint NOT NULL,
+    setting_key character varying(100) NOT NULL,
+    old_value text,
+    new_value text,
+    changed_by character varying(100),
+    change_reason text,
+    branch_id integer,
+    ip_address inet,
+    user_agent text,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: settings_change_log_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.settings_change_log_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: settings_change_log_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.settings_change_log_log_id_seq OWNED BY public.settings_change_log.log_id;
+
+
+--
 -- Name: suppliers; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1146,6 +1401,75 @@ ALTER SEQUENCE public.suppliers_supplier_id_seq OWNED BY public.suppliers.suppli
 
 
 --
+-- Name: system_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.system_settings (
+    setting_id integer NOT NULL,
+    setting_key character varying(100) NOT NULL,
+    setting_value text,
+    setting_type character varying(50) DEFAULT 'string'::character varying,
+    category character varying(100) NOT NULL,
+    display_name character varying(200) NOT NULL,
+    description text,
+    default_value text,
+    validation_rules jsonb DEFAULT '{}'::jsonb,
+    is_required boolean DEFAULT false,
+    is_system boolean DEFAULT false,
+    display_order integer DEFAULT 0,
+    is_active boolean DEFAULT true,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: system_info; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.system_info AS
+ SELECT 'database_version'::text AS info_key,
+    version() AS info_value,
+    'System'::text AS category
+UNION ALL
+ SELECT 'total_settings'::text AS info_key,
+    (count(*))::text AS info_value,
+    'Settings'::text AS category
+   FROM public.system_settings
+UNION ALL
+ SELECT 'active_branches'::text AS info_key,
+    (count(*))::text AS info_value,
+    'Branches'::text AS category
+   FROM public.branches
+  WHERE (branches.is_active = true)
+UNION ALL
+ SELECT 'setup_date'::text AS info_key,
+    (min(system_settings.created_at))::text AS info_value,
+    'System'::text AS category
+   FROM public.system_settings;
+
+
+--
+-- Name: system_settings_setting_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.system_settings_setting_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: system_settings_setting_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.system_settings_setting_id_seq OWNED BY public.system_settings.setting_id;
+
+
+--
 -- Name: units; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1179,6 +1503,13 @@ CREATE SEQUENCE public.units_unit_id_seq
 --
 
 ALTER SEQUENCE public.units_unit_id_seq OWNED BY public.units.unit_id;
+
+
+--
+-- Name: branch_settings branch_setting_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.branch_settings ALTER COLUMN branch_setting_id SET DEFAULT nextval('public.branch_settings_branch_setting_id_seq'::regclass);
 
 
 --
@@ -1259,6 +1590,13 @@ ALTER TABLE ONLY public.sales_channels ALTER COLUMN channel_id SET DEFAULT nextv
 
 
 --
+-- Name: settings_change_log log_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settings_change_log ALTER COLUMN log_id SET DEFAULT nextval('public.settings_change_log_log_id_seq'::regclass);
+
+
+--
 -- Name: suppliers supplier_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1266,10 +1604,29 @@ ALTER TABLE ONLY public.suppliers ALTER COLUMN supplier_id SET DEFAULT nextval('
 
 
 --
+-- Name: system_settings setting_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.system_settings ALTER COLUMN setting_id SET DEFAULT nextval('public.system_settings_setting_id_seq'::regclass);
+
+
+--
 -- Name: units unit_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.units ALTER COLUMN unit_id SET DEFAULT nextval('public.units_unit_id_seq'::regclass);
+
+
+--
+-- Data for Name: branch_settings; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.branch_settings (branch_setting_id, branch_id, setting_key, setting_value, created_by, created_at, updated_at) FROM stdin;
+1	1	branch_name	Chi nhánh trung tâm	system	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+2	1	operating_hours	08:00-18:00	system	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+3	1	max_daily_sales	100000000	system	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+4	1	printer_name	default	system	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+\.
 
 
 --
@@ -4886,6 +5243,14 @@ COPY public.sales_channels (channel_id, channel_code, channel_name, description,
 
 
 --
+-- Data for Name: settings_change_log; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.settings_change_log (log_id, setting_key, old_value, new_value, changed_by, change_reason, branch_id, ip_address, user_agent, created_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: suppliers; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -4945,6 +5310,69 @@ COPY public.suppliers (supplier_id, supplier_code, supplier_name, phone, email, 
 
 
 --
+-- Data for Name: system_settings; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.system_settings (setting_id, setting_key, setting_value, setting_type, category, display_name, description, default_value, validation_rules, is_required, is_system, display_order, is_active, created_at, updated_at) FROM stdin;
+1	business_name	Xuân Thùy Veterinary Pharmacy	string	business	Tên doanh nghiệp	Tên chính thức của doanh nghiệp	Xuân Thùy Veterinary Pharmacy	{"maxLength": 200, "minLength": 3}	t	f	1	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+2	business_address		text	business	Địa chỉ doanh nghiệp	Địa chỉ trụ sở chính		{"maxLength": 500}	f	f	2	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+3	business_phone		string	business	Số điện thoại	Số điện thoại liên hệ chính		{"pattern": "^[0-9\\\\s\\\\-\\\\+\\\\(\\\\)]+$"}	f	f	3	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+4	business_email		email	business	Email doanh nghiệp	Email chính thức của doanh nghiệp		{"format": "email"}	f	f	4	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+5	tax_number		string	business	Mã số thuế	Mã số thuế của doanh nghiệp		{"pattern": "^[0-9\\\\-]+$"}	f	f	5	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+6	business_license		string	business	Số giấy phép kinh doanh	Số giấy phép kinh doanh thú y		{}	f	f	6	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+7	default_currency	VND	select	financial	Đơn vị tiền tệ	Đơn vị tiền tệ mặc định	VND	{"options": ["VND", "USD", "EUR"]}	t	f	10	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+8	currency_symbol	₫	string	financial	Ký hiệu tiền tệ	Ký hiệu hiển thị cho tiền tệ	₫	{"maxLength": 5}	t	f	11	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+9	currency_decimal_places	0	number	financial	Số chữ số thập phân	Số chữ số sau dấu phẩy cho tiền tệ	0	{"max": 4, "min": 0}	t	f	12	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+10	vat_rate	10.0	number	financial	Thuế VAT (%)	Tỷ lệ thuế VAT mặc định	10.0	{"max": 100, "min": 0, "step": 0.1}	t	f	13	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+11	discount_limit_percent	50.0	number	financial	Giới hạn giảm giá (%)	Mức giảm giá tối đa cho một giao dịch	50.0	{"max": 100, "min": 0, "step": 0.1}	t	f	14	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+12	payment_methods	["cash", "transfer", "card"]	json	financial	Phương thức thanh toán	Các phương thức thanh toán được chấp nhận	["cash", "transfer", "card"]	{}	t	f	15	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+13	credit_limit_default	5000000	number	financial	Hạn mức công nợ mặc định	Hạn mức công nợ mặc định cho khách hàng mới (VND)	5000000	{"min": 0}	t	f	16	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+14	invoice_due_days	30	number	financial	Thời hạn thanh toán	Số ngày thanh toán mặc định cho hóa đơn	30	{"max": 365, "min": 1}	t	f	17	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+15	low_stock_threshold	10	number	inventory	Ngưỡng cảnh báo tồn kho thấp	Số lượng tồn kho tối thiểu trước khi cảnh báo	10	{"min": 0}	t	f	20	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+16	expiry_warning_days	30	number	inventory	Cảnh báo hết hạn (ngày)	Số ngày trước khi cảnh báo sản phẩm hết hạn	30	{"max": 365, "min": 1}	t	f	21	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+17	auto_reorder_enabled	true	boolean	inventory	Tự động tạo đơn đặt hàng	Tự động tạo đơn đặt hàng khi hết tồn kho	true	{}	f	f	22	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+18	default_markup_percent	25.0	number	inventory	Tỷ lệ lãi mặc định (%)	Tỷ lệ lãi mặc định khi nhập sản phẩm mới	25.0	{"max": 1000, "min": 0, "step": 0.1}	t	f	23	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+19	track_expiry_medicines	true	boolean	inventory	Theo dõi hạn sử dụng thuốc	Bắt buộc theo dõi hạn sử dụng cho thuốc thú y	true	{}	t	f	24	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+20	batch_tracking_enabled	true	boolean	inventory	Theo dõi số lô	Theo dõi số lô sản xuất cho thuốc và vaccine	true	{}	f	f	25	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+21	allow_negative_stock	false	boolean	inventory	Cho phép bán âm kho	Cho phép bán khi tồn kho không đủ	false	{}	f	f	26	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+22	customer_code_prefix	KH	string	customer	Tiền tố mã khách hàng	Tiền tố cho mã khách hàng tự động	KH	{"maxLength": 10}	t	f	30	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+23	customer_code_length	6	number	customer	Độ dài mã khách hàng	Số chữ số trong mã khách hàng (không tính tiền tố)	6	{"max": 10, "min": 3}	t	f	31	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+24	auto_generate_customer_codes	true	boolean	customer	Tự động tạo mã khách hàng	Tự động tạo mã khách hàng khi thêm mới	true	{}	f	f	32	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+25	vip_threshold_amount	50000000	number	customer	Ngưỡng khách hàng VIP	Tổng mua hàng để trở thành khách VIP (VND)	50000000	{"min": 0}	t	f	33	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+26	loyal_customer_orders	20	number	customer	Số đơn hàng khách thân thiết	Số đơn hàng tối thiểu để trở thành khách thân thiết	20	{"min": 1}	t	f	34	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+27	new_customer_credit	1000000	number	customer	Hạn mức khách hàng mới	Hạn mức công nợ mặc định cho khách hàng mới (VND)	1000000	{"min": 0}	t	f	35	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+28	require_customer_phone	false	boolean	customer	Bắt buộc số điện thoại	Bắt buộc nhập số điện thoại khi tạo khách hàng	false	{}	f	f	36	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+29	invoice_code_prefix	HD	string	invoice	Tiền tố mã hóa đơn	Tiền tố cho mã hóa đơn tự động	HD	{"maxLength": 10}	t	f	40	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+30	invoice_code_length	6	number	invoice	Độ dài mã hóa đơn	Số chữ số trong mã hóa đơn (không tính tiền tố)	6	{"max": 10, "min": 3}	t	f	41	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+31	invoice_numbering_reset	yearly	select	invoice	Đặt lại số hóa đơn	Tần suất đặt lại số hóa đơn về 1	yearly	{"options": ["never", "daily", "monthly", "yearly"]}	t	f	42	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+32	auto_print_receipt	true	boolean	invoice	Tự động in hóa đơn	Tự động in hóa đơn sau khi lưu	true	{}	f	f	43	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+33	require_customer_info	false	boolean	invoice	Bắt buộc thông tin khách hàng	Bắt buộc chọn khách hàng khi tạo hóa đơn	false	{}	f	f	44	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+34	invoice_footer_text	Cảm ơn quý khách đã sử dụng dịch vụ!	text	invoice	Dòng chân hóa đơn	Nội dung hiển thị ở cuối hóa đơn	Cảm ơn quý khách đã sử dụng dịch vụ!	{"maxLength": 500}	f	f	45	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+35	show_cost_price_on_invoice	false	boolean	invoice	Hiển thị giá vốn	Hiển thị giá vốn trên hóa đơn (chỉ admin)	false	{}	f	f	46	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+36	items_per_page_default	20	select	ui	Số dòng mỗi trang	Số lượng items hiển thị mặc định trên mỗi trang	20	{"options": ["10", "20", "50", "100"]}	t	f	50	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+37	default_view_mode	grid	select	ui	Chế độ hiển thị mặc định	Chế độ hiển thị danh sách mặc định	grid	{"options": ["grid", "list", "table"]}	t	f	51	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+38	enable_animations	true	boolean	ui	Bật hiệu ứng động	Bật/tắt các hiệu ứng chuyển động trong giao diện	true	{}	f	f	52	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+39	theme_mode	light	select	ui	Chế độ màu sắc	Chế độ màu sắc giao diện	light	{"options": ["light", "dark", "auto"]}	f	f	53	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+40	compact_mode	false	boolean	ui	Chế độ gọn	Giao diện gọn gàng với khoảng cách nhỏ hơn	false	{}	f	f	54	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+41	show_tooltips	true	boolean	ui	Hiển thị gợi ý	Hiển thị tooltip khi hover vào các thành phần	true	{}	f	f	55	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+42	require_prescription_validation	true	boolean	veterinary	Kiểm tra đơn kê thuốc	Bắt buộc kiểm tra đơn kê thuốc cho thuốc kê đơn	true	{}	t	f	60	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+43	prescription_validity_days	30	number	veterinary	Hạn đơn thuốc (ngày)	Số ngày có hiệu lực của đơn kê thuốc	30	{"max": 365, "min": 1}	t	f	61	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+44	dosage_calculation_enabled	true	boolean	veterinary	Tính liều tự động	Tính toán liều thuốc theo cân nặng động vật	true	{}	f	f	62	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+45	drug_interaction_check	true	boolean	veterinary	Kiểm tra tương tác thuốc	Cảnh báo khi có tương tác giữa các loại thuốc	true	{}	f	f	63	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+46	vaccine_cold_chain_tracking	true	boolean	veterinary	Theo dõi chuỗi lạnh vaccine	Theo dõi điều kiện bảo quản vaccine	true	{}	t	f	64	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+47	email_notifications_enabled	true	boolean	notification	Bật thông báo email	Cho phép gửi thông báo qua email	true	{}	f	f	70	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+48	sms_notifications_enabled	false	boolean	notification	Bật thông báo SMS	Cho phép gửi thông báo qua SMS	false	{}	f	f	71	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+49	low_stock_notification	true	boolean	notification	Thông báo hết hàng	Thông báo khi sản phẩm sắp hết	true	{}	f	f	72	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+50	expiry_notification	true	boolean	notification	Thông báo hết hạn	Thông báo khi sản phẩm sắp hết hạn	true	{}	f	f	73	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+51	payment_reminder_enabled	true	boolean	notification	Nhắc nhở thanh toán	Gửi nhắc nhở thanh toán cho khách hàng	true	{}	f	f	74	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+52	auto_backup_enabled	true	boolean	security	Sao lưu tự động	Tự động sao lưu dữ liệu hàng ngày	true	{}	f	f	80	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+53	backup_retention_days	30	number	security	Lưu giữ sao lưu (ngày)	Số ngày lưu giữ file sao lưu	30	{"max": 365, "min": 7}	t	f	81	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+54	session_timeout_minutes	120	number	security	Thời gian phiên làm việc	Thời gian tự động đăng xuất (phút)	120	{"max": 480, "min": 15}	t	f	82	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+55	password_min_length	6	number	security	Độ dài mật khẩu tối thiểu	Số ký tự tối thiểu cho mật khẩu	6	{"max": 20, "min": 4}	t	f	83	t	2025-08-02 08:15:14.800227	2025-08-02 08:15:14.800227
+\.
+
+
+--
 -- Data for Name: units; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -4958,6 +5386,13 @@ COPY public.units (unit_id, unit_code, unit_name, unit_symbol, is_base_unit, con
 7	BOTTLE	Lọ	lọ	f	1.0000	t	2025-07-28 19:04:40.502926
 8	TIME	Lần	lần	f	1.0000	t	2025-07-28 19:04:40.502926
 \.
+
+
+--
+-- Name: branch_settings_branch_setting_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.branch_settings_branch_setting_id_seq', 4, true);
 
 
 --
@@ -5038,6 +5473,13 @@ SELECT pg_catalog.setval('public.sales_channels_channel_id_seq', 4, true);
 
 
 --
+-- Name: settings_change_log_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.settings_change_log_log_id_seq', 1, false);
+
+
+--
 -- Name: suppliers_supplier_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -5045,10 +5487,33 @@ SELECT pg_catalog.setval('public.suppliers_supplier_id_seq', 162, true);
 
 
 --
+-- Name: system_settings_setting_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.system_settings_setting_id_seq', 55, true);
+
+
+--
 -- Name: units_unit_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.units_unit_id_seq', 40, true);
+
+
+--
+-- Name: branch_settings branch_settings_branch_id_setting_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.branch_settings
+    ADD CONSTRAINT branch_settings_branch_id_setting_key_key UNIQUE (branch_id, setting_key);
+
+
+--
+-- Name: branch_settings branch_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.branch_settings
+    ADD CONSTRAINT branch_settings_pkey PRIMARY KEY (branch_setting_id);
 
 
 --
@@ -5220,6 +5685,14 @@ ALTER TABLE ONLY public.sales_channels
 
 
 --
+-- Name: settings_change_log settings_change_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settings_change_log
+    ADD CONSTRAINT settings_change_log_pkey PRIMARY KEY (log_id);
+
+
+--
 -- Name: suppliers suppliers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5236,6 +5709,22 @@ ALTER TABLE ONLY public.suppliers
 
 
 --
+-- Name: system_settings system_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.system_settings
+    ADD CONSTRAINT system_settings_pkey PRIMARY KEY (setting_id);
+
+
+--
+-- Name: system_settings system_settings_setting_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.system_settings
+    ADD CONSTRAINT system_settings_setting_key_key UNIQUE (setting_key);
+
+
+--
 -- Name: units units_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5249,6 +5738,20 @@ ALTER TABLE ONLY public.units
 
 ALTER TABLE ONLY public.units
     ADD CONSTRAINT units_unit_code_key UNIQUE (unit_code);
+
+
+--
+-- Name: idx_branch_settings_branch; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_branch_settings_branch ON public.branch_settings USING btree (branch_id);
+
+
+--
+-- Name: idx_branch_settings_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_branch_settings_key ON public.branch_settings USING btree (setting_key);
 
 
 --
@@ -5553,6 +6056,20 @@ CREATE INDEX idx_purchase_orders_date ON public.purchase_orders USING btree (ord
 
 
 --
+-- Name: idx_settings_log_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_settings_log_date ON public.settings_change_log USING btree (created_at);
+
+
+--
+-- Name: idx_settings_log_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_settings_log_key ON public.settings_change_log USING btree (setting_key);
+
+
+--
 -- Name: idx_suppliers_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5564,6 +6081,56 @@ CREATE INDEX idx_suppliers_code ON public.suppliers USING btree (supplier_code);
 --
 
 CREATE INDEX idx_suppliers_name ON public.suppliers USING btree (supplier_name);
+
+
+--
+-- Name: idx_system_settings_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_system_settings_active ON public.system_settings USING btree (is_active) WHERE (is_active = true);
+
+
+--
+-- Name: idx_system_settings_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_system_settings_category ON public.system_settings USING btree (category);
+
+
+--
+-- Name: idx_system_settings_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_system_settings_key ON public.system_settings USING btree (setting_key);
+
+
+--
+-- Name: idx_system_settings_required; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_system_settings_required ON public.system_settings USING btree (is_required) WHERE (is_required = true);
+
+
+--
+-- Name: branch_settings update_branch_settings_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_branch_settings_updated_at BEFORE UPDATE ON public.branch_settings FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: system_settings update_system_settings_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_system_settings_updated_at BEFORE UPDATE ON public.system_settings FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: branch_settings branch_settings_branch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.branch_settings
+    ADD CONSTRAINT branch_settings_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(branch_id) ON DELETE CASCADE;
 
 
 --
@@ -5740,6 +6307,14 @@ ALTER TABLE ONLY public.products
 
 ALTER TABLE ONLY public.products
     ADD CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.product_categories(category_id);
+
+
+--
+-- Name: settings_change_log settings_change_log_branch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settings_change_log
+    ADD CONSTRAINT settings_change_log_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(branch_id);
 
 
 --
