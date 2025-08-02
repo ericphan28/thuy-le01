@@ -65,6 +65,17 @@ const menuItems = [
     ]
   },
   {
+    title: "Hóa Đơn",
+    icon: Receipt,
+    href: "/dashboard/invoices",
+    badge: null,
+    children: [
+      { title: "Danh Sách", href: "/dashboard/invoices" },
+      { title: "Tạo Mới", href: "/dashboard/invoices/create" },
+      { title: "Báo Cáo", href: "/dashboard/invoices/reports" }
+    ]
+  },
+  {
     title: "Kho Hàng",
     icon: Warehouse,
     href: "/inventory",
