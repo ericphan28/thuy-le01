@@ -7,18 +7,17 @@ import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { 
   Search, 
-  ShoppingCart, 
   ChevronLeft,
   ChevronRight
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ProductCard } from '@/components/pos/product-card'
-import { CustomerSelector } from '@/components/pos/customer-selector'
+import { CustomerSelector } from '@/components/pos/customer-selector-ultra'
 import { CartSummary } from '@/components/pos/cart-summary'
 import { CheckoutPanel } from '@/components/pos/checkout-panel'
 import type { Product, Customer, CartItem } from '@/lib/types/pos'
 
-const ITEMS_PER_PAGE = 16
+const ITEMS_PER_PAGE = 20
 
 export default function POSPage() {
   // State management
@@ -280,24 +279,10 @@ export default function POSPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="supabase-container">
-        <div className="supabase-page-header">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-brand rounded-xl shadow-lg">
-                <ShoppingCart className="h-8 w-8 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Point of Sale</h1>
-                <p className="text-muted-foreground">Thú Y Xuân Thùy - Hệ thống bán hàng chuyên nghiệp</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-3 pt-2">
           {/* Products Section - Left Side */}
-          <div className="xl:col-span-3 space-y-4">
-            {/* Customer Selection */}
+          <div className="xl:col-span-3 space-y-2">
+            {/* Ultra Compact Customer Selection */}
             <CustomerSelector
               customers={customers}
               selectedCustomer={selectedCustomer}
@@ -310,48 +295,45 @@ export default function POSPage() {
             {/* Product Search */}
             <Card className="supabase-card">
               <CardHeader className="pb-3 border-b border-border">
-                <CardTitle className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-lg text-foreground">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <CardTitle className="flex items-center gap-2 text-lg text-foreground">
                     <div className="p-1.5 bg-brand rounded-lg shadow-sm">
                       <Search className="h-4 w-4 text-white" />
                     </div>
-                    Tìm Sản Phẩm
-                  </span>
-                  <Badge variant="secondary" className="bg-brand/10 text-brand border-brand/20">
-                    {totalCount} sản phẩm
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-foreground/60" />
-                  <input
-                    placeholder="Tìm sản phẩm theo tên hoặc mã..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value)
-                      setCurrentPage(1) // Reset to first page when searching
-                    }}
-                    className="supabase-input pl-10"
-                  />
+                    Sản Phẩm
+                    <Badge variant="secondary" className="bg-brand/10 text-brand border-brand/20 ml-2">
+                      {totalCount}
+                    </Badge>
+                  </CardTitle>
+                  
+                  {/* Integrated Search Input */}
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-foreground/60" />
+                    <input
+                      placeholder="Tìm sản phẩm theo tên hoặc mã..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value)
+                        setCurrentPage(1)
+                      }}
+                      className="supabase-input pl-10 h-10"
+                    />
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Products Grid */}
-            <Card className="supabase-card">
-              <CardContent className="p-6">
+              </CardHeader>
+              
+              <CardContent className="p-4">
                 {loading ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                    {Array.from({ length: 12 }).map((_, i) => (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+                    {Array.from({ length: 20 }).map((_, i) => (
                       <div key={i} className="animate-pulse">
-                        <div className="bg-muted h-48 rounded-xl"></div>
+                        <div className="bg-muted h-32 rounded-lg"></div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                       {products.map((product) => (
                         <ProductCard
                           key={product.product_id}
@@ -361,24 +343,23 @@ export default function POSPage() {
                       ))}
                     </div>
 
-                    {/* Pagination */}
+                    {/* Pagination - compact but readable */}
                     {totalPages > 1 && (
-                      <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-border gap-4">
-                        <div className="text-sm text-muted-foreground order-2 sm:order-1">
-                          Trang {currentPage} / {totalPages} - {totalCount} sản phẩm
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t text-sm">
+                        <div className="text-gray-600">
+                          {currentPage}/{totalPages} - {totalCount} sản phẩm
                         </div>
-                        <div className="flex items-center gap-2 order-1 sm:order-2">
+                        <div className="flex items-center gap-2">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                             disabled={currentPage === 1}
-                            className="supabase-button-secondary"
+                            className="h-8 w-8 p-0"
                           >
                             <ChevronLeft className="h-4 w-4" />
-                            <span className="hidden sm:inline">Trước</span>
                           </Button>
-                          <div className="px-4 py-2 text-sm bg-brand text-primary-foreground rounded-lg font-medium shadow-lg">
+                          <div className="px-3 py-1 text-sm bg-brand text-primary-foreground rounded font-medium min-w-[32px] text-center">
                             {currentPage}
                           </div>
                           <Button
@@ -386,9 +367,8 @@ export default function POSPage() {
                             size="sm"
                             onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                             disabled={currentPage === totalPages}
-                            className="supabase-button-secondary"
+                            className="h-8 w-8 p-0"
                           >
-                            <span className="hidden sm:inline">Sau</span>
                             <ChevronRight className="h-4 w-4" />
                           </Button>
                         </div>
