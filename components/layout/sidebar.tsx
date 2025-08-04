@@ -34,10 +34,10 @@ const menuItems = [
   {
     title: "Bán Hàng",
     icon: ShoppingCart,
-    href: "/sales",
-    badge: null,
+    href: "/dashboard/pos",
+    badge: "NEW",
     children: [
-      { title: "Tạo Hóa Đơn", href: "/sales/invoice" },
+      { title: "Point of Sale", href: "/dashboard/pos" },
       { title: "Đơn Hàng", href: "/sales/orders" },
       { title: "Trả Hàng", href: "/sales/returns" }
     ]

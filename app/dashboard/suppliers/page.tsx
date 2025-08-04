@@ -1,575 +1,461 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { 
-  Plus, 
-  Download, 
   Search, 
-  AlertTriangle,
+  Building2, 
+  Plus,
+  Download,
+  Edit2,
+  Trash2,
   Phone,
   Mail,
-  ChevronsLeft,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsRight,
-  Filter,
-  Truck,
-  UserCheck
+  MapPin,
+  User,
+  Calendar,
+  CreditCard
 } from 'lucide-react'
 
-// 🐾 Supplier interface matching database schema and analytics insights
-interface VeterinarySupplier {
+interface Supplier {
   supplier_id: number
   supplier_code: string
   supplier_name: string
-  phone: string | null
-  email: string | null
-  address: string | null
-  contact_person: string | null
-  tax_code: string | null
-  payment_terms: number | null
-  notes: string | null
+  contact_person?: string
+  phone?: string
+  email?: string
+  address?: string
+  tax_code?: string
+  payment_terms?: number
+  notes?: string
   is_active: boolean
   created_at: string
+  updated_at: string
 }
 
-export default function VeterinarySuppliersPage() {
-  const [suppliers, setSuppliers] = useState<VeterinarySupplier[]>([])
+export default function SuppliersPage() {
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterType, setFilterType] = useState<'all' | 'complete' | 'incomplete' | 'standard_terms' | 'custom_terms'>('all')
-  const [totalCount, setTotalCount] = useState<number>(0)
-  
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 20
-  
-  // Sorting states
-  const [sortBy, setSortBy] = useState<'name' | 'created' | 'terms' | 'contact'>('name')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
+  const [sortBy, setSortBy] = useState<'name' | 'code' | 'created'>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(24) // Tăng số lượng hiển thị
 
   const supabase = createClient()
 
-  // 🐾 Core API Call: Fetch veterinary suppliers with analytics insights
+  // Fetch suppliers từ Supabase
   const fetchSuppliers = useCallback(async () => {
     try {
       setLoading(true)
-      setError(null)
-
-      // First, get total count for filtered suppliers
-      let countQuery = supabase
-        .from('suppliers')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
-
-      // Apply same filters to count query
-      if (filterType === 'complete') {
-        countQuery = countQuery.not('phone', 'is', null).not('email', 'is', null).not('address', 'is', null)
-      } else if (filterType === 'incomplete') {
-        countQuery = countQuery.or('phone.is.null,email.is.null,address.is.null')
-      } else if (filterType === 'standard_terms') {
-        countQuery = countQuery.eq('payment_terms', 30)
-      } else if (filterType === 'custom_terms') {
-        countQuery = countQuery.neq('payment_terms', 30)
-      }
-
-      // Apply search to count query
-      if (searchTerm) {
-        countQuery = countQuery.or(`supplier_name.ilike.%${searchTerm}%,supplier_code.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
-      }
-
-      const { count: filteredCount } = await countQuery
-      setTotalCount(filteredCount || 0)
-
-      // Main query with pagination and sorting
-      let query = supabase
+      
+      const { data, error } = await supabase
         .from('suppliers')
         .select(`
           supplier_id,
           supplier_code,
           supplier_name,
+          contact_person,
           phone,
           email,
           address,
-          contact_person,
           tax_code,
           payment_terms,
           notes,
           is_active,
-          created_at
+          created_at,
+          updated_at  
         `)
-        .eq('is_active', true)
+        .order('supplier_name', { ascending: true })
 
-      // Apply sorting based on business insights
-      const sortColumn = sortBy === 'name' ? 'supplier_name' 
-                       : sortBy === 'created' ? 'created_at'
-                       : sortBy === 'terms' ? 'payment_terms'
-                       : sortBy === 'contact' ? 'contact_person'
-                       : 'supplier_name'
-      
-      query = query.order(sortColumn, { ascending: sortOrder === 'asc' })
-
-      // Apply veterinary business filters based on analytics insights
-      if (filterType === 'complete') {
-        // Complete suppliers: have phone, email, and address
-        query = query.not('phone', 'is', null).not('email', 'is', null).not('address', 'is', null)
-      } else if (filterType === 'incomplete') {
-        // Incomplete data: missing critical contact info
-        query = query.or('phone.is.null,email.is.null,address.is.null')
-      } else if (filterType === 'standard_terms') {
-        // Standard payment terms: 30 days (100% of suppliers based on analytics)
-        query = query.eq('payment_terms', 30)
-      } else if (filterType === 'custom_terms') {
-        // Custom payment terms: not 30 days
-        query = query.neq('payment_terms', 30)
-      }
-
-      // Search functionality - veterinary specific
-      if (searchTerm) {
-        query = query.or(`supplier_name.ilike.%${searchTerm}%,supplier_code.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%,contact_person.ilike.%${searchTerm}%`)
-      }
-
-      // Apply pagination
-      const startIndex = (currentPage - 1) * itemsPerPage
-      query = query.range(startIndex, startIndex + itemsPerPage - 1)
-
-      const { data, error: fetchError } = await query
-
-      if (fetchError) {
-        console.error('Supabase error:', fetchError)
-        setError(`Lỗi database: ${fetchError.message}`)
+      if (error) {
+        console.error('Error fetching suppliers:', error)
         return
       }
 
       setSuppliers(data || [])
-    } catch (err) {
-      console.error('Suppliers fetch error:', err)
-      setError('Không thể tải danh sách nhà cung cấp')
+    } catch (error) {
+      console.error('Error:', error)
     } finally {
       setLoading(false)
     }
-  }, [filterType, searchTerm, supabase, currentPage, itemsPerPage, sortBy, sortOrder])
-
-  // Load suppliers on component mount and when filters change
+  }, [supabase])
+  
   useEffect(() => {
     fetchSuppliers()
   }, [fetchSuppliers])
 
-  // Reset to first page when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [filterType, searchTerm, sortBy, sortOrder])
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('vi-VN')
+  }
 
-  // Pagination calculations
-  const totalPages = Math.ceil(totalCount / itemsPerPage)
-  const startItem = (currentPage - 1) * itemsPerPage + 1
-  const endItem = Math.min(currentPage * itemsPerPage, totalCount)
+  const getPaymentTermsText = (days?: number) => {
+    if (!days || days === 0) return 'Thanh toán ngay'
+    return `${days} ngày`
+  }
 
-  // Sorting handler
-  const handleSort = (column: 'name' | 'created' | 'terms' | 'contact') => {
-    if (sortBy === column) {
+  const filteredSuppliers = suppliers.filter(supplier => {
+    const matchesSearch = supplier.supplier_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         supplier.supplier_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (supplier.contact_person?.toLowerCase().includes(searchTerm.toLowerCase()) || false)
+    
+    if (filterStatus === 'active') return matchesSearch && supplier.is_active
+    if (filterStatus === 'inactive') return matchesSearch && !supplier.is_active
+    
+    return matchesSearch
+  })
+
+  const sortedSuppliers = [...filteredSuppliers].sort((a, b) => {
+    let aVal: string | number, bVal: string | number
+    
+    switch (sortBy) {
+      case 'code':
+        aVal = a.supplier_code
+        bVal = b.supplier_code
+        break
+      case 'created':
+        aVal = new Date(a.created_at).getTime()
+        bVal = new Date(b.created_at).getTime()
+        break
+      default:
+        aVal = a.supplier_name
+        bVal = b.supplier_name
+    }
+    
+    if (sortOrder === 'asc') {
+      return aVal > bVal ? 1 : -1
+    } else {
+      return aVal < bVal ? 1 : -1
+    }
+  })
+
+  const totalPages = Math.ceil(sortedSuppliers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedSuppliers = sortedSuppliers.slice(startIndex, startIndex + itemsPerPage)
+
+  const handleSort = (field: 'name' | 'code' | 'created') => {
+    if (sortBy === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
     } else {
-      setSortBy(column)
+      setSortBy(field)
       setSortOrder('asc')
     }
   }
 
-  // 🚨 Veterinary business logic functions based on analytics insights
-  const getDataCompleteness = (supplier: VeterinarySupplier) => {
-    const fields = [supplier.phone, supplier.email, supplier.address, supplier.contact_person, supplier.tax_code]
-    const completedFields = fields.filter(field => field && field.toString().trim() !== '').length
-    const percentage = (completedFields / fields.length) * 100
-    
-    if (percentage >= 80) return { label: 'Complete', color: 'default' as const }
-    if (percentage >= 60) return { label: 'Good', color: 'secondary' as const }
-    if (percentage >= 40) return { label: 'Partial', color: 'outline' as const }
-    return { label: 'Incomplete', color: 'destructive' as const }
+  const handleEdit = (supplier: Supplier) => {
+    console.log('Edit supplier:', supplier)
   }
 
-  // Payment terms assessment
-  const getPaymentTermsStatus = (terms: number | null) => {
-    if (!terms) return { label: 'Not Set', color: 'destructive' as const }
-    if (terms === 30) return { label: 'Standard', color: 'default' as const }
-    if (terms < 30) return { label: 'Fast', color: 'secondary' as const }
-    return { label: 'Extended', color: 'outline' as const }
+  const handleDelete = (id: number) => {
+    console.log('Delete supplier:', id)
   }
 
-  // Statistics for dashboard based on analytics insights
+  // Calculate stats from real data
   const stats = {
     total: suppliers.length,
-    complete: suppliers.filter(s => s.phone && s.email && s.address).length,
-    incomplete: suppliers.filter(s => !s.phone || !s.email || !s.address).length,
-    standardTerms: suppliers.filter(s => s.payment_terms === 30).length,
-    customTerms: suppliers.filter(s => s.payment_terms && s.payment_terms !== 30).length
+    active: suppliers.filter(s => s.is_active).length,
+    inactive: suppliers.filter(s => !s.is_active).length,
+    hasEmail: suppliers.filter(s => s.email && s.email.trim() !== '').length
   }
 
-  if (error) {
+  if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-green-600 bg-clip-text text-transparent">🐾 Quản lý Nhà cung cấp Thú y</h1>
-        </div>
-        
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-red-50 via-red-50 to-rose-50 ring-2 ring-red-200/50 rounded-xl backdrop-blur-xl">
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-gradient-to-br from-red-500 to-rose-600 rounded-full shadow-lg">
-                <AlertTriangle className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-red-800">Lỗi tải dữ liệu</h3>
-                <p className="text-red-600">{error}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2 text-gray-600 dark:text-gray-400">Đang tải nhà cung cấp...</span>
       </div>
     )
   }
 
   return (
-    <div className="space-y-3">
-      {/* Ultra Compact Header with Inline Stats */}
-      <div className="bg-white/80 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 p-3 ring-1 ring-gray-100/50">
-        <div className="flex flex-col gap-3">
+    <div className="space-y-6">
+      {/* Header with Stats */}
+      <div className="supabase-card">
+        <div className="flex flex-col gap-4">
           {/* Title and Actions */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="p-1 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-lg shadow-lg">
-                <Truck className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-green-600 bg-clip-text text-transparent">Nhà cung cấp</h1>
-                <p className="text-xs text-gray-500">{totalCount} nhà cung cấp</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 h-6 px-1.5 text-xs">
-                <Plus className="h-3 w-3 mr-1" />
-                Thêm
-              </Button>
-              <Button variant="outline" size="sm" className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700 h-6 px-1.5 text-xs">
-                <Download className="h-3 w-3 mr-1" />
-                Xuất
-              </Button>
-            </div>
-          </div>
-
-          {/* Inline Stats - Based on Real Analytics Data */}
-          <div className="grid grid-cols-4 gap-2">
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg p-2 text-center">
-              <div className="text-lg font-bold">{stats.total}</div>
-              <div className="text-xs opacity-90">Tổng NCC</div>
-            </div>
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg p-2 text-center">
-              <div className="text-lg font-bold">{stats.complete}</div>
-              <div className="text-xs opacity-90">Đầy đủ</div>
-            </div>
-            <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-lg p-2 text-center">
-              <div className="text-lg font-bold">{stats.incomplete}</div>
-              <div className="text-xs opacity-90">Thiếu TT</div>
-            </div>
-            <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg p-2 text-center">
-              <div className="text-lg font-bold">{stats.standardTerms}</div>
-              <div className="text-xs opacity-90">TT chuẩn</div>
-            </div>
-          </div>
-
-          {/* Compact Search and Controls */}
-          <div className="flex flex-col lg:flex-row gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Tìm nhà cung cấp..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-8 border-white/30 bg-white/60 backdrop-blur-sm focus:border-blue-400 focus:ring-blue-400/30 rounded-lg shadow-sm text-sm"
-              />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Quản lý Nhà cung cấp</h1>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Quản lý {stats.total} nhà cung cấp</p>
             </div>
             
             <div className="flex items-center gap-2">
-              {/* Filter Buttons */}
-              <div className="flex gap-1">
-                <Button 
-                  variant={filterType === 'all' ? 'default' : 'outline'} 
-                  size="sm" 
-                  onClick={() => setFilterType('all')}
-                  className="h-6 px-1.5 text-xs"
+              <Button className="bg-green-600 hover:bg-green-700 text-white font-medium text-sm px-3 py-2">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Thêm nhà cung cấp</span>
+                <span className="sm:hidden">Thêm</span>
+              </Button>
+              <Button variant="outline" className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-sm px-3 py-2">
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Xuất Excel</span>
+                <span className="sm:hidden">Xuất</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Real Stats Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg p-3 sm:p-4 text-center">
+              <div className="text-lg sm:text-2xl font-bold">{stats.total}</div>
+              <div className="text-xs sm:text-sm opacity-90">Tổng nhà cung cấp</div>
+            </div>
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg p-3 sm:p-4 text-center">
+              <div className="text-lg sm:text-2xl font-bold">{stats.active}</div>
+              <div className="text-xs sm:text-sm opacity-90">Đang hoạt động</div>
+            </div>
+            <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-lg p-3 sm:p-4 text-center">
+              <div className="text-lg sm:text-2xl font-bold">{stats.inactive}</div>
+              <div className="text-xs sm:text-sm opacity-90">Ngừng hoạt động</div>
+            </div>
+            <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-lg p-3 sm:p-4 text-center">
+              <div className="text-lg sm:text-2xl font-bold">{stats.hasEmail}</div>
+              <div className="text-xs sm:text-sm opacity-90">Có email</div>
+            </div>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Tìm nhà cung cấp theo tên, mã hoặc người liên hệ..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 supabase-input"
+              />
+            </div>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2">
+              {/* Filter Badges */}
+              <div className="flex gap-2 flex-wrap">
+                <Badge 
+                  variant={filterStatus === 'all' ? 'default' : 'outline'}
+                  className={`cursor-pointer text-xs ${filterStatus === 'all' ? 'bg-blue-600 text-white' : ''}`}
+                  onClick={() => setFilterStatus('all')}
                 >
                   Tất cả
-                </Button>
-                <Button 
-                  variant={filterType === 'complete' ? 'default' : 'outline'} 
-                  size="sm" 
-                  onClick={() => setFilterType('complete')}
-                  className="h-6 px-1.5 text-xs"
+                </Badge>
+                <Badge 
+                  variant={filterStatus === 'active' ? 'default' : 'outline'}
+                  className={`cursor-pointer text-xs ${filterStatus === 'active' ? 'bg-green-600 text-white' : ''}`}
+                  onClick={() => setFilterStatus('active')}
                 >
-                  Đầy đủ
-                </Button>
-                <Button 
-                  variant={filterType === 'incomplete' ? 'default' : 'outline'} 
-                  size="sm" 
-                  onClick={() => setFilterType('incomplete')}
-                  className="h-6 px-1.5 text-xs"
+                  Hoạt động
+                </Badge>
+                <Badge 
+                  variant={filterStatus === 'inactive' ? 'default' : 'outline'}
+                  className={`cursor-pointer text-xs ${filterStatus === 'inactive' ? 'bg-gray-600 text-white' : ''}`}
+                  onClick={() => setFilterStatus('inactive')}
                 >
-                  Thiếu TT
-                </Button>
-                <Button 
-                  variant={filterType === 'standard_terms' ? 'default' : 'outline'} 
-                  size="sm" 
-                  onClick={() => setFilterType('standard_terms')}
-                  className="h-6 px-1.5 text-xs"
-                >
-                  TT chuẩn
-                </Button>
+                  Ngưng hoạt động
+                </Badge>
               </div>
               
-              {/* Sort Controls */}
-              <div className="flex items-center gap-1">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+              {/* Sort Options */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant={sortBy === 'name' ? 'default' : 'outline'}
+                  size="sm"
                   onClick={() => handleSort('name')}
-                  className="h-6 px-1.5 text-xs"
+                  className={`min-w-[50px] sm:min-w-[60px] font-medium text-xs sm:text-sm ${
+                    sortBy === 'name' 
+                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
                 >
                   Tên {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => handleSort('terms')}
-                  className="h-6 px-1.5 text-xs"
+                <Button
+                  variant={sortBy === 'code' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleSort('code')}
+                  className={`min-w-[50px] sm:min-w-[60px] font-medium text-xs sm:text-sm ${
+                    sortBy === 'code' 
+                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
                 >
-                  TT {sortBy === 'terms' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  Mã {sortBy === 'code' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant={sortBy === 'created' ? 'default' : 'outline'}
+                  size="sm"
                   onClick={() => handleSort('created')}
-                  className="h-6 px-1.5 text-xs"
+                  className={`min-w-[70px] sm:min-w-[80px] font-medium text-xs sm:text-sm ${
+                    sortBy === 'created' 
+                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
                 >
-                  Ngày {sortBy === 'created' && (sortOrder === 'asc' ? '↑' : '↓')}
+                  <span className="hidden sm:inline">Ngày tạo</span>
+                  <span className="sm:hidden">Ngày</span>
+                  {sortBy === 'created' && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
                 </Button>
+                
+                <select 
+                  value={itemsPerPage.toString()} 
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  className="h-8 px-2 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded focus:border-blue-400"
+                >
+                  <option value="24">24</option>
+                  <option value="48">48</option>
+                  <option value="96">96</option>
+                  <option value="192">192</option>
+                </select>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Suppliers Grid */}
-      {loading ? (
-        // Ultra Compact Loading State
-        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          {[...Array(10)].map((_, i) => (
-            <Card key={i} className="animate-pulse border-0 shadow-md bg-white/95 backdrop-blur-lg rounded-lg overflow-hidden">
-              <CardContent className="p-2">
-                <div className="space-y-2">
-                  <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded w-3/4"></div>
-                  <div className="h-3 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded w-1/2"></div>
-                  <div className="h-8 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded w-full"></div>
-                  <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded w-2/3"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        // Ultra Dense Suppliers Grid - Veterinary Business Focus
-        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          {suppliers.map((supplier) => {
-            const dataCompletion = getDataCompleteness(supplier)
-            const paymentTermsStatus = getPaymentTermsStatus(supplier.payment_terms)
-            
-            return (
-              <Card 
-                key={supplier.supplier_id} 
-                className="group border-0 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 bg-white/95 backdrop-blur-lg overflow-hidden rounded-lg ring-1 ring-gray-100/50 hover:ring-blue-200/50"
-              >
-                <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-green-500"></div>
-                
-                <CardHeader className="pb-1 pt-2 px-2">
-                  <div className="flex items-start justify-between gap-1">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm text-gray-900 truncate">{supplier.supplier_name}</h3>
-                      <p className="text-xs text-gray-500 truncate">{supplier.supplier_code}</p>
-                    </div>
-                    <Badge variant={dataCompletion.color} className="text-xs h-4 px-1">
-                      {dataCompletion.label}
-                    </Badge>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="p-2 pt-1 space-y-2">
-                  {/* Contact Information */}
-                  <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-green-50 rounded-md p-2">
-                    <div className="space-y-1">
-                      {supplier.contact_person && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
-                          <UserCheck className="h-3 w-3" />
-                          <span className="truncate">{supplier.contact_person}</span>
-                        </div>
-                      )}
-                      {supplier.phone && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
-                          <Phone className="h-3 w-3" />
-                          <span className="truncate">{supplier.phone}</span>
-                        </div>
-                      )}
-                      {supplier.email && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
-                          <Mail className="h-3 w-3" />
-                          <span className="truncate">{supplier.email}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Payment Terms */}
-                  <div className="bg-white/60 rounded-md p-1.5 text-center">
-                    <Badge variant={paymentTermsStatus.color} className="text-xs h-4 px-2">
-                      {supplier.payment_terms ? `${supplier.payment_terms} ngày` : 'Chưa set'}
-                    </Badge>
-                    <p className="text-xs text-gray-500 mt-0.5">{paymentTermsStatus.label}</p>
-                  </div>
-
-                  {/* Quick Info Tags */}
-                  <div className="flex flex-wrap gap-0.5">
-                    {supplier.tax_code && (
-                      <Badge variant="outline" className="text-xs h-4 px-1">MST</Badge>
-                    )}
-                    {supplier.address && (
-                      <Badge variant="outline" className="text-xs h-4 px-1">Địa chỉ</Badge>
-                    )}
-                    {supplier.notes && (
-                      <Badge variant="outline" className="text-xs h-4 px-1">Ghi chú</Badge>
-                    )}
-                  </div>
-
-                  {/* Creation Date */}
-                  <div className="border-t border-gray-100 pt-1.5 mt-1.5">
-                    <p className="text-xs text-gray-400 text-center">
-                      {new Date(supplier.created_at).toLocaleDateString('vi-VN')}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Professional Pagination */}
-      {!loading && suppliers.length > 0 && totalPages > 1 && (
-        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-xl rounded-xl ring-1 ring-gray-100/50">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-gray-600">
-                Hiển thị <span className="font-semibold">{startItem}</span> đến{' '}
-                <span className="font-semibold">{endItem}</span> trong tổng số{' '}
-                <span className="font-semibold">{totalCount}</span> nhà cung cấp
+      {/* Suppliers Grid - Compact Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
+        {paginatedSuppliers.map((supplier) => (
+          <div key={supplier.supplier_id} className="supabase-card p-3 sm:p-4 hover:shadow-lg transition-shadow">
+            {/* Supplier Avatar */}
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xs sm:text-sm">
+                <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               
-              <div className="flex items-center space-x-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8 p-0"
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8 p-0"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                
-                <span className="px-4 py-2 text-sm font-medium">
-                  {currentPage} / {totalPages}
-                </span>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8 p-0"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8 p-0"
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-xs sm:text-sm leading-tight text-gray-900 dark:text-white line-clamp-2">
+                  {supplier.supplier_name}
+                </h3>
+                <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-600 dark:text-gray-400">
+                  <span className="truncate">#{supplier.supplier_code}</span>
+                  <Badge 
+                    variant={supplier.is_active ? 'default' : 'secondary'}
+                    className={`text-xs px-1.5 py-0.5 ${supplier.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : ''}`}
+                  >
+                    {supplier.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Enhanced Analytics Summary */}
-      {!loading && suppliers.length > 0 && suppliers.length < totalCount && totalPages <= 1 && (
-        <Card className="text-center py-6 border-0 shadow-lg bg-gradient-to-r from-blue-50 via-indigo-50 to-green-50 backdrop-blur-xl rounded-xl ring-1 ring-blue-100/50">
-          <CardContent>
-            <div className="flex flex-col items-center space-y-2">
-              <div className="p-2 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full">
-                <Truck className="h-8 w-8 text-blue-600" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-semibold text-blue-800">Hiển thị {suppliers.length} nhà cung cấp</h3>
-                <p className="text-sm text-blue-600">Tổng cộng có {totalCount} nhà cung cấp trong hệ thống</p>
-              </div>
+            {/* Contact Info - Compact */}
+            <div className="space-y-1.5 sm:space-y-2 text-xs">
+              {supplier.contact_person && (
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <User className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                  <span className="truncate">{supplier.contact_person}</span>
+                </div>
+              )}
+              
+              {supplier.phone && (
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <Phone className="h-3 w-3 text-green-500 flex-shrink-0" />
+                  <span className="truncate">{supplier.phone}</span>
+                </div>
+              )}
+              
+              {supplier.email && (
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <Mail className="h-3 w-3 text-orange-500 flex-shrink-0" />
+                  <span className="truncate">{supplier.email}</span>
+                </div>
+              )}
+              
+              {supplier.address && (
+                <div className="flex items-start gap-2 text-gray-600 dark:text-gray-400">
+                  <MapPin className="h-3 w-3 text-red-500 mt-0.5 flex-shrink-0" />
+                  <span className="line-clamp-2 text-xs leading-relaxed">{supplier.address}</span>
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Enhanced Empty State */}
-      {!loading && suppliers.length === 0 && (
-        <Card className="text-center py-16 border-0 shadow-lg bg-white/80 backdrop-blur-xl rounded-xl ring-1 ring-gray-100/50">
-          <CardContent>
-            <div className="flex flex-col items-center space-y-4">
-              <div className="p-4 bg-gradient-to-br from-gray-100 to-slate-100 rounded-full shadow-inner">
-                <Truck className="h-12 w-12 text-gray-400" />
+            {/* Additional Info */}
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-0 text-xs text-gray-500 dark:text-gray-400">
+                {supplier.payment_terms !== undefined && (
+                  <div className="flex items-center gap-1">
+                    <CreditCard className="h-3 w-3" />
+                    <span className="truncate">{getPaymentTermsText(supplier.payment_terms)}</span>
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  <span className="text-xs">{formatDate(supplier.created_at)}</span>
+                </div>
               </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold text-gray-700">Không tìm thấy nhà cung cấp</h3>
-                <p className="text-gray-500">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSearchTerm('')
-                  setFilterType('all')
-                }}
-                className="mt-4 bg-white/60 backdrop-blur-sm border-blue-200 hover:bg-blue-50 transition-all duration-300 h-10 px-6 rounded-lg shadow-sm"
+              
+              {/* Tax Code */}
+              {supplier.tax_code && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+                  MST: {supplier.tax_code}
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-1 mt-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleEdit(supplier)}
+                className="h-6 w-6 sm:h-7 sm:w-7 p-0 hover:bg-blue-50 dark:hover:bg-blue-900"
               >
-                <Filter className="h-4 w-4 mr-2" />
-                Xóa bộ lọc
+                <Edit2 className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDelete(supplier.supplier_id)}
+                className="h-6 w-6 sm:h-7 sm:w-7 p-0 hover:bg-red-50 dark:hover:bg-red-900"
+              >
+                <Trash2 className="h-3 w-3 text-red-600 dark:text-red-400" />
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        ))}
+      </div>
+
+      {/* Empty State */}
+      {paginatedSuppliers.length === 0 && !loading && (
+        <div className="text-center py-6 sm:py-8">
+          <Building2 className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+          <p className="text-sm sm:text-base text-gray-500">
+            {searchTerm ? `Không tìm thấy nhà cung cấp cho "${searchTerm}"` : 'Không có nhà cung cấp nào'}
+          </p>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 text-center sm:text-left">
+            Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, sortedSuppliers.length)} trên {sortedSuppliers.length} nhà cung cấp
+          </div>
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 text-xs sm:text-sm px-3 py-2"
+            >
+              Trước
+            </Button>
+            <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 px-2">
+              {currentPage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 text-xs sm:text-sm px-3 py-2"
+            >
+              Sau
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   )

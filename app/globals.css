@@ -4,65 +4,349 @@
 
 @layer base {
   :root {
+    /* Supabase Light Theme */
     --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 142 76% 36%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 142 76% 36%;
     --radius: 0.5rem;
+    
+    /* Brand Colors - Supabase Green */
+    --brand: 142 76% 36%;
+    --brand-foreground: 0 0% 100%;
   }
+
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    /* Supabase Dark Theme */
+    --background: 220 13% 18%;
+    --foreground: 210 40% 98%;
+    --card: 224 71.4% 4.1%;
+    --card-foreground: 210 40% 98%;
+    --popover: 224 71.4% 4.1%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 142 76% 36%;
+    --primary-foreground: 220 13% 18%;
+    --secondary: 215 27.9% 16.9%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 215 27.9% 16.9%;
+    --muted-foreground: 217.9 10.6% 64.9%;
+    --accent: 215 27.9% 16.9%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 215 27.9% 16.9%;
+    --input: 215 27.9% 16.9%;
+    --ring: 142 76% 36%;
+    
+    /* Brand Colors - Supabase Green for Dark Mode */
+    --brand: 142 76% 36%;
+    --brand-foreground: 210 40% 98%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    min-height: 100vh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Force all elements to respect dark mode */
+  .dark * {
+    border-color: hsl(var(--border)) !important;
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
+@layer components {
+  /* Supabase Card Component */
+  .supabase-card {
+    background-color: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    transition: all 0.2s ease-in-out;
   }
-  body {
-    @apply bg-background text-foreground;
+
+  .supabase-card:hover {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  }
+
+  /* Supabase Input Component */
+  .supabase-input {
+    width: 100%;
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid hsl(var(--border));
+    background-color: hsl(var(--background));
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease-in-out;
+    height: 2.5rem;
+    color: hsl(var(--foreground));
+  }
+
+  .supabase-input:focus {
+    outline: none;
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+  }
+
+  .supabase-input::placeholder {
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Supabase Button Component */
+  .supabase-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: calc(var(--radius) - 2px);
+    font-size: 0.875rem;
+    font-weight: 500;
+    height: 2.5rem;
+    padding: 0 1rem;
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    border: 1px solid hsl(var(--primary));
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+  }
+
+  .supabase-button:hover {
+    background-color: hsl(var(--primary) / 0.9);
+  }
+
+  .supabase-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+  }
+
+  /* Supabase Secondary Button */
+  .supabase-button-secondary {
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+    border: 1px solid hsl(var(--border));
+  }
+
+  .supabase-button-secondary:hover {
+    background-color: hsl(var(--secondary) / 0.8);
+  }
+
+  /* Supabase Search Container */
+  .supabase-search-container {
+    background-color: hsl(var(--muted) / 0.3);
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    padding: 1rem;
+    backdrop-filter: blur(8px);
+  }
+
+  /* Supabase Product Grid */
+  .supabase-product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .supabase-product-card {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    padding: 1rem;
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+  }
+
+  .supabase-product-card:hover {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 4px 12px hsl(var(--primary) / 0.15);
+    transform: translateY(-2px);
+  }
+
+  /* Supabase Layout Classes */
+  .supabase-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+
+  .supabase-page-header {
+    border-bottom: 1px solid hsl(var(--border));
+    background-color: hsl(var(--card));
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+  }
+
+  .supabase-sidebar {
+    background-color: hsl(var(--card));
+    border-right: 1px solid hsl(var(--border));
+    height: 100vh;
+    position: sticky;
+    top: 0;
+  }
+
+  /* Utility Classes */
+  .text-brand {
+    color: hsl(var(--primary));
+  }
+
+  .bg-brand {
+    background-color: hsl(var(--primary));
+  }
+
+  .border-brand {
+    border-color: hsl(var(--primary));
+  }
+
+  .text-muted {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .bg-muted {
+    background-color: hsl(var(--muted));
+  }
+
+  /* Dark Mode Specific Improvements */
+  .dark .supabase-search-container {
+    background-color: hsl(var(--muted) / 0.5);
+    backdrop-filter: blur(12px);
+  }
+
+  .dark .supabase-product-card {
+    background-color: hsl(var(--card));
+    border-color: hsl(var(--border));
+  }
+
+  .dark .supabase-product-card:hover {
+    background-color: hsl(var(--accent));
+    border-color: hsl(var(--primary));
+  }
+
+  /* Professional Dark Theme Typography */
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+    color: hsl(var(--foreground)) !important;
+    font-weight: 600;
+  }
+
+  .dark .supabase-input {
+    background-color: hsl(var(--background));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+  }
+
+  .dark .supabase-input:focus {
+    background-color: hsl(var(--background));
+    border-color: hsl(var(--primary));
+  }
+
+  /* Override hardcoded colors in dark mode */
+  .dark .text-gray-400 {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  .dark .text-gray-500 {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  /* Force dark mode background colors */
+  @media (prefers-color-scheme: dark) {
+    .dark [class*="bg-white"] {
+      background-color: hsl(var(--card)) !important;
+    }
+
+    .dark [class*="text-gray"] {
+      color: hsl(var(--muted-foreground)) !important;
+    }
+
+    .dark [class*="border-white"] {
+      border-color: hsl(var(--border)) !important;
+    }
+
+    /* Force dark mode text colors */
+    .dark .text-transparent {
+      color: hsl(var(--foreground)) !important;
+      background: none !important;
+      -webkit-background-clip: unset !important;
+      background-clip: unset !important;
+    }
+
+    .dark .bg-gradient-to-r {
+      background: hsl(var(--card)) !important;
+    }
+  }
+
+  /* Responsive Improvements */
+  @media (max-width: 768px) {
+    .supabase-container {
+      padding: 0 0.75rem;
+    }
+    
+    .supabase-product-grid {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.75rem;
+      padding: 0.75rem;
+    }
+  }
+}
+
+@layer utilities {
+  /* Brand Color Utilities */
+  .bg-brand {
+    background-color: hsl(var(--brand));
+  }
+  
+  .text-brand {
+    color: hsl(var(--brand));
+  }
+  
+  .text-brand-foreground {
+    color: hsl(var(--brand-foreground));
+  }
+  
+  .text-primary-foreground {
+    color: hsl(var(--primary-foreground));
+  }
+  
+  .border-brand {
+    border-color: hsl(var(--brand));
+  }
+  
+  .bg-brand\/10 {
+    background-color: hsl(var(--brand) / 0.1);
+  }
+  
+  .bg-brand\/20 {
+    background-color: hsl(var(--brand) / 0.2);
+  }
+  
+  .border-brand\/20 {
+    border-color: hsl(var(--brand) / 0.2);
   }
 }

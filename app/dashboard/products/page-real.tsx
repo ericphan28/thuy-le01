@@ -47,7 +47,7 @@ export default function ProductsPage() {
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'stock'>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(24) // Tối ưu cho grid 6 cột
+  const [itemsPerPage, setItemsPerPage] = useState(20)
 
   const supabase = createClient()
 
@@ -75,7 +75,7 @@ export default function ProductsPage() {
           is_active,
           allow_sale,
           storage_condition,
-          product_categories:product_categories!fk_products_category_id (
+          product_categories!fk_products_category_id (
             category_id,
             category_name
           )
@@ -201,43 +201,41 @@ export default function ProductsPage() {
       <div className="supabase-card">
         <div className="flex flex-col gap-4">
           {/* Title and Actions */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Quản lý Sản phẩm</h1>
-              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Quản lý {stats.total} sản phẩm thú y</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Quản lý Sản phẩm</h1>
+              <p className="text-gray-600 dark:text-gray-400">Quản lý {stats.total} sản phẩm thú y</p>
             </div>
             
             <div className="flex items-center gap-2">
-              <Button className="bg-green-600 hover:bg-green-700 text-white font-medium text-sm px-3 py-2">
-                <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Thêm sản phẩm</span>
-                <span className="sm:hidden">Thêm</span>
+              <Button className="supabase-button">
+                <Plus className="h-4 w-4 mr-2" />
+                Thêm sản phẩm
               </Button>
-              <Button variant="outline" className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-sm px-3 py-2">
-                <Download className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Xuất Excel</span>
-                <span className="sm:hidden">Xuất</span>
+              <Button variant="outline" className="supabase-button">
+                <Download className="h-4 w-4 mr-2" />
+                Xuất Excel
               </Button>
             </div>
           </div>
 
           {/* Real Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg p-3 sm:p-4 text-center">
-              <div className="text-lg sm:text-2xl font-bold">{stats.total}</div>
-              <div className="text-xs sm:text-sm opacity-90">Tổng sản phẩm</div>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold">{stats.total}</div>
+              <div className="text-sm opacity-90">Tổng sản phẩm</div>
             </div>
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg p-3 sm:p-4 text-center">
-              <div className="text-lg sm:text-2xl font-bold">{stats.medicines}</div>
-              <div className="text-xs sm:text-sm opacity-90">Thuốc thú y</div>
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold">{stats.medicines}</div>
+              <div className="text-sm opacity-90">Thuốc thú y</div>
             </div>
-            <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-lg p-3 sm:p-4 text-center">
-              <div className="text-lg sm:text-2xl font-bold">{stats.prescriptionRequired}</div>
-              <div className="text-xs sm:text-sm opacity-90">Cần kê đơn</div>
+            <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold">{stats.prescriptionRequired}</div>
+              <div className="text-sm opacity-90">Cần kê đơn</div>
             </div>
-            <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-lg p-3 sm:p-4 text-center">
-              <div className="text-lg sm:text-2xl font-bold">{stats.lowStock}</div>
-              <div className="text-xs sm:text-sm opacity-90">Sắp hết hàng</div>
+            <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold">{stats.lowStock}</div>
+              <div className="text-sm opacity-90">Sắp hết hàng</div>
             </div>
           </div>
 
@@ -253,26 +251,26 @@ export default function ProductsPage() {
               />
             </div>
             
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2">
+            <div className="flex items-center gap-2">
               {/* Filter Badges */}
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2">
                 <Badge 
                   variant={filterType === 'all' ? 'default' : 'outline'}
-                  className={`cursor-pointer text-xs ${filterType === 'all' ? 'bg-blue-600 text-white' : ''}`}
+                  className={`cursor-pointer ${filterType === 'all' ? 'bg-blue-600 text-white' : ''}`}
                   onClick={() => setFilterType('all')}
                 >
                   Tất cả
                 </Badge>
                 <Badge 
                   variant={filterType === 'prescription' ? 'default' : 'outline'}
-                  className={`cursor-pointer text-xs ${filterType === 'prescription' ? 'bg-orange-600 text-white' : ''}`}
+                  className={`cursor-pointer ${filterType === 'prescription' ? 'bg-orange-600 text-white' : ''}`}
                   onClick={() => setFilterType('prescription')}
                 >
                   Kê đơn
                 </Badge>
                 <Badge 
                   variant={filterType === 'low_stock' ? 'default' : 'outline'}
-                  className={`cursor-pointer text-xs ${filterType === 'low_stock' ? 'bg-red-600 text-white' : ''}`}
+                  className={`cursor-pointer ${filterType === 'low_stock' ? 'bg-red-600 text-white' : ''}`}
                   onClick={() => setFilterType('low_stock')}
                 >
                   Sắp hết
@@ -280,16 +278,12 @@ export default function ProductsPage() {
               </div>
               
               {/* Sort Options */}
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
                 <Button
                   variant={sortBy === 'name' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => handleSort('name')}
-                  className={`min-w-[50px] sm:min-w-[60px] font-medium text-xs sm:text-sm ${
-                    sortBy === 'name' 
-                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
+                  className="supabase-button"
                 >
                   Tên {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </Button>
@@ -297,11 +291,7 @@ export default function ProductsPage() {
                   variant={sortBy === 'price' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => handleSort('price')}
-                  className={`min-w-[50px] sm:min-w-[60px] font-medium text-xs sm:text-sm ${
-                    sortBy === 'price' 
-                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
+                  className="supabase-button"
                 >
                   Giá {sortBy === 'price' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </Button>
@@ -309,11 +299,7 @@ export default function ProductsPage() {
                   variant={sortBy === 'stock' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => handleSort('stock')}
-                  className={`min-w-[50px] sm:min-w-[60px] font-medium text-xs sm:text-sm ${
-                    sortBy === 'stock' 
-                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
+                  className="supabase-button"
                 >
                   Kho {sortBy === 'stock' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </Button>
@@ -321,12 +307,11 @@ export default function ProductsPage() {
                 <select 
                   value={itemsPerPage.toString()} 
                   onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                  className="h-8 px-2 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded focus:border-blue-400"
+                  className="h-8 px-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded focus:border-blue-400"
                 >
-                  <option value="24">24</option>
-                  <option value="48">48</option>
-                  <option value="96">96</option>
-                  <option value="192">192</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
                 </select>
               </div>
             </div>
@@ -335,14 +320,14 @@ export default function ProductsPage() {
       </div>
 
       {/* Products Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {paginatedProducts.map((product) => {
           const stockStatus = getStockStatus(product.current_stock, product.min_stock)
           
           return (
             <div
               key={product.product_id}
-              className="supabase-card p-3 sm:p-4 hover:shadow-lg transition-shadow"
+              className="supabase-card p-4 hover:shadow-lg transition-shadow"
             >
               {/* Product Image */}
               <div className="relative w-full h-32 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-lg mb-3 flex items-center justify-center">
@@ -461,29 +446,29 @@ export default function ProductsPage() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 text-center sm:text-left">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-700 dark:text-gray-300">
             Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, sortedProducts.length)} trên {sortedProducts.length} sản phẩm
           </div>
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 text-xs sm:text-sm px-3 py-2"
+              className="supabase-button"
             >
               Trước
             </Button>
-            <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 px-2">
-              {currentPage} / {totalPages}
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Trang {currentPage} / {totalPages}
             </span>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 text-xs sm:text-sm px-3 py-2"
+              className="supabase-button"
             >
               Sau
             </Button>
