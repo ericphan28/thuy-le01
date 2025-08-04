@@ -33,8 +33,30 @@ export default function POSPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [showCheckout, setShowCheckout] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
+  
+  // Optimistic stock management
+  const [optimisticStockUpdates, setOptimisticStockUpdates] = useState<Record<number, number>>({})
 
   const supabase = createClient()
+
+  // Helper function to get current stock with optimistic updates
+  const getCurrentStock = (product: Product): number => {
+    const optimisticChange = optimisticStockUpdates[product.product_id] || 0
+    return Math.max(0, product.current_stock + optimisticChange)
+  }
+
+  // Helper function to update optimistic stock
+  const updateOptimisticStock = (productId: number, change: number) => {
+    setOptimisticStockUpdates(prev => ({
+      ...prev,
+      [productId]: (prev[productId] || 0) + change
+    }))
+  }
+
+  // Helper function to clear optimistic updates (after successful DB update)
+  const clearOptimisticUpdates = () => {
+    setOptimisticStockUpdates({})
+  }
 
   // Fetch products với pagination và search
   const fetchProducts = useCallback(async () => {
@@ -138,15 +160,18 @@ export default function POSPage() {
       return
     }
 
+    // Get current stock with optimistic updates
+    const currentStock = getCurrentStock(product)
     const existingItem = cart.find(item => item.product.product_id === product.product_id)
+    const currentCartQuantity = existingItem?.quantity || 0
+    
+    // Check if we can add one more item
+    if (currentCartQuantity >= currentStock) {
+      toast.error(`Không đủ hàng trong kho. Còn lại: ${currentStock}`)
+      return
+    }
     
     if (existingItem) {
-      // Kiểm tra stock
-      if (existingItem.quantity >= product.current_stock) {
-        toast.error(`Không đủ hàng trong kho. Còn lại: ${product.current_stock}`)
-        return
-      }
-      
       updateQuantity(product.product_id, existingItem.quantity + 1)
     } else {
       const newItem: CartItem = {
@@ -156,12 +181,21 @@ export default function POSPage() {
         line_total: product.sale_price
       }
       setCart([...cart, newItem])
+      
+      // Optimistic update: decrease stock by 1
+      updateOptimisticStock(product.product_id, -1)
     }
 
     toast.success(`Đã thêm ${product.product_name} vào giỏ hàng`)
   }
 
   const removeFromCart = (productId: number) => {
+    const removedItem = cart.find(item => item.product.product_id === productId)
+    if (removedItem) {
+      // Optimistic update: increase stock back
+      updateOptimisticStock(productId, removedItem.quantity)
+    }
+    
     setCart(cart.filter(item => item.product.product_id !== productId))
     toast.success('Đã xóa sản phẩm khỏi giỏ hàng')
   }
@@ -172,11 +206,22 @@ export default function POSPage() {
       return
     }
 
-    const product = cart.find(item => item.product.product_id === productId)?.product
-    if (product && newQuantity > product.current_stock) {
-      toast.error(`Không đủ hàng trong kho. Còn lại: ${product.current_stock}`)
+    const cartItem = cart.find(item => item.product.product_id === productId)
+    if (!cartItem) return
+
+    const product = cartItem.product
+    const currentStock = getCurrentStock(product)
+    const oldQuantity = cartItem.quantity
+    const quantityDiff = newQuantity - oldQuantity
+
+    // Check if we have enough stock for the new quantity
+    if (newQuantity > currentStock + oldQuantity) {
+      toast.error(`Không đủ hàng trong kho. Còn lại: ${currentStock + oldQuantity}`)
       return
     }
+
+    // Optimistic update: adjust stock based on quantity change
+    updateOptimisticStock(productId, -quantityDiff)
 
     setCart(cart.map(item =>
       item.product.product_id === productId
@@ -263,14 +308,20 @@ export default function POSPage() {
       setCustomerSearch('')
       setShowCheckout(false)
       
+      // Clear optimistic updates and refresh products
+      clearOptimisticUpdates()
+      
       toast.success(`Hóa đơn ${invoiceCode} đã được tạo thành công!`)
       
-      // Refresh products để cập nhật stock
+      // Refresh products để cập nhật stock từ database
       fetchProducts()
       
     } catch (error) {
       console.error('Checkout error:', error)
       toast.error('Lỗi khi tạo hóa đơn')
+      
+      // Don't clear optimistic updates on error - let user retry
+      // The optimistic updates will be cleared on successful checkout or page refresh
     } finally {
       setCheckoutLoading(false)
     }
@@ -279,9 +330,9 @@ export default function POSPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="supabase-container">
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-3 pt-2">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-3 pt-3">
           {/* Products Section - Left Side */}
-          <div className="xl:col-span-3 space-y-2">
+          <div className="xl:col-span-3 space-y-3">
             {/* Ultra Compact Customer Selection */}
             <CustomerSelector
               customers={customers}
@@ -292,13 +343,13 @@ export default function POSPage() {
               onClearCustomer={() => setSelectedCustomer(null)}
             />
 
-            {/* Product Search */}
+            {/* Product Search and Grid */}
             <Card className="supabase-card">
               <CardHeader className="pb-3 border-b border-border">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <CardTitle className="flex items-center gap-2 text-lg text-foreground">
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
                     <div className="p-1.5 bg-brand rounded-lg shadow-sm">
-                      <Search className="h-4 w-4 text-white" />
+                      <Search className="h-4 w-4 text-brand-foreground" />
                     </div>
                     Sản Phẩm
                     <Badge variant="secondary" className="bg-brand/10 text-brand border-brand/20 ml-2">
@@ -308,7 +359,7 @@ export default function POSPage() {
                   
                   {/* Integrated Search Input */}
                   <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-foreground/60" />
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <input
                       placeholder="Tìm sản phẩm theo tên hoặc mã..."
                       value={searchTerm}
@@ -316,7 +367,7 @@ export default function POSPage() {
                         setSearchTerm(e.target.value)
                         setCurrentPage(1)
                       }}
-                      className="supabase-input pl-10 h-10"
+                      className="supabase-input pl-10"
                     />
                   </div>
                 </div>
@@ -334,19 +385,27 @@ export default function POSPage() {
                 ) : (
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-                      {products.map((product) => (
-                        <ProductCard
-                          key={product.product_id}
-                          product={product}
-                          onAddToCart={addToCart}
-                        />
-                      ))}
+                      {products.map((product) => {
+                        // Create product with optimistic stock
+                        const productWithOptimisticStock = {
+                          ...product,
+                          current_stock: getCurrentStock(product)
+                        }
+                        
+                        return (
+                          <ProductCard
+                            key={product.product_id}
+                            product={productWithOptimisticStock}
+                            onAddToCart={addToCart}
+                          />
+                        )
+                      })}
                     </div>
 
-                    {/* Pagination - compact but readable */}
+                    {/* Pagination - compact but Supabase colors */}
                     {totalPages > 1 && (
-                      <div className="flex items-center justify-between mt-4 pt-3 border-t text-sm">
-                        <div className="text-gray-600">
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+                        <div className="text-sm text-muted-foreground">
                           {currentPage}/{totalPages} - {totalCount} sản phẩm
                         </div>
                         <div className="flex items-center gap-2">
@@ -355,11 +414,11 @@ export default function POSPage() {
                             size="sm"
                             onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                             disabled={currentPage === 1}
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 supabase-button-secondary"
                           >
                             <ChevronLeft className="h-4 w-4" />
                           </Button>
-                          <div className="px-3 py-1 text-sm bg-brand text-primary-foreground rounded font-medium min-w-[32px] text-center">
+                          <div className="px-3 py-1 text-sm bg-brand text-brand-foreground rounded font-medium min-w-[32px] text-center">
                             {currentPage}
                           </div>
                           <Button
@@ -367,7 +426,7 @@ export default function POSPage() {
                             size="sm"
                             onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                             disabled={currentPage === totalPages}
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 supabase-button-secondary"
                           >
                             <ChevronRight className="h-4 w-4" />
                           </Button>
@@ -378,11 +437,11 @@ export default function POSPage() {
                 )}
 
                 {!loading && products.length === 0 && (
-                  <div className="text-center py-16">
-                    <div className="p-4 bg-muted rounded-2xl w-fit mx-auto mb-6">
-                      <Search className="h-16 w-16 mx-auto text-muted-foreground opacity-50" />
+                  <div className="text-center py-12">
+                    <div className="p-4 bg-muted rounded-2xl w-fit mx-auto mb-4">
+                      <Search className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
                     </div>
-                    <p className="text-xl font-medium text-foreground mb-2">Không tìm thấy sản phẩm</p>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Không tìm thấy sản phẩm</h3>
                     <p className="text-sm text-muted-foreground">Thử tìm kiếm với từ khóa khác hoặc kiểm tra kho hàng</p>
                   </div>
                 )}

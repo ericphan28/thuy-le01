@@ -1,7 +1,6 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { useSidebar } from "@/lib/store"
 import { 
@@ -25,7 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { motion } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { User as SupabaseUser } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 
@@ -34,6 +33,7 @@ export function Header() {
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const router = useRouter()
   const supabase = createClient()
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const getUser = async () => {
@@ -51,6 +51,25 @@ export function Header() {
 
     return () => subscription.unsubscribe()
   }, [supabase.auth])
+
+  // Keyboard shortcut effect
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check for Ctrl+K (Windows) or Cmd+K (Mac)
+      if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+        event.preventDefault() // Prevent default browser behavior
+        searchInputRef.current?.focus()
+      }
+    }
+
+    // Add event listener
+    document.addEventListener('keydown', handleKeyDown)
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -72,7 +91,7 @@ export function Header() {
     <motion.header 
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-white/20 bg-white/80 backdrop-blur-xl px-4 shadow-lg dark:border-gray-700/30 dark:bg-gray-800/80"
+      className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-border bg-background/95 backdrop-blur-xl px-4 shadow-sm"
     >
       {/* Left Side */}
       <div className="flex items-center gap-4">
@@ -80,18 +99,24 @@ export function Header() {
           variant="ghost"
           size="sm"
           onClick={toggle}
-          className="h-9 w-9 p-0 lg:hidden"
+          className="h-9 w-9 p-0 lg:hidden hover:bg-muted/30"
         >
           <Menu className="h-5 w-5" />
         </Button>
 
-        {/* Search */}
+        {/* Professional Search - Supabase Style */}
         <div className="relative hidden sm:block">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Tìm kiếm sản phẩm, khách hàng..."
-            className="w-64 pl-10 lg:w-80 bg-white/60 border-white/30 backdrop-blur-sm focus:bg-white/80 focus:border-blue-300 transition-all"
-          />
+          <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border border-border rounded-lg hover:border-brand/30 focus-within:border-brand transition-colors w-64 lg:w-80">
+            <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <input
+              ref={searchInputRef}
+              placeholder="Tìm kiếm sản phẩm, khách hàng..."
+              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
+            <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded border border-border">
+              ⌘K
+            </div>
+          </div>
         </div>
       </div>
 
@@ -101,7 +126,8 @@ export function Header() {
         <Button
           variant="ghost"
           size="sm"
-          className="h-9 w-9 p-0 sm:hidden"
+          className="h-9 w-9 p-0 sm:hidden hover:bg-muted/30"
+          onClick={() => searchInputRef.current?.focus()}
         >
           <Search className="h-5 w-5" />
         </Button>
@@ -109,7 +135,7 @@ export function Header() {
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="relative h-9 w-9 p-0">
+            <Button variant="ghost" size="sm" className="relative h-9 w-9 p-0 hover:bg-muted/30">
               <Bell className="h-5 w-5" />
               <Badge 
                 variant="destructive" 
@@ -119,36 +145,36 @@ export function Header() {
               </Badge>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 bg-white/95 backdrop-blur-xl border-white/20 shadow-2xl">
+          <DropdownMenuContent align="end" className="w-80 bg-card border-border shadow-lg">
             <DropdownMenuLabel className="flex items-center justify-between">
               Thông báo
-              <Badge variant="secondary" className="bg-blue-100 text-blue-700">3 mới</Badge>
+              <Badge variant="secondary" className="bg-brand/10 text-brand">3 mới</Badge>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="flex flex-col items-start gap-1 p-4">
+            <DropdownMenuItem className="flex flex-col items-start gap-1 p-4 hover:bg-muted/30">
               <div className="flex w-full items-center justify-between">
-                <span className="font-medium">Hàng sắp hết</span>
-                <span className="text-xs text-gray-500">2 phút trước</span>
+                <span className="font-medium text-foreground">Hàng sắp hết</span>
+                <span className="text-xs text-muted-foreground">2 phút trước</span>
               </div>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-muted-foreground">
                 5 sản phẩm có số lượng tồn kho thấp hơn mức tối thiểu
               </span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-1 p-4">
+            <DropdownMenuItem className="flex flex-col items-start gap-1 p-4 hover:bg-muted/30">
               <div className="flex w-full items-center justify-between">
-                <span className="font-medium">Đơn hàng mới</span>
-                <span className="text-xs text-gray-500">5 phút trước</span>
+                <span className="font-medium text-foreground">Đơn hàng mới</span>
+                <span className="text-xs text-muted-foreground">5 phút trước</span>
               </div>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-muted-foreground">
                 Khách hàng Nguyễn Văn A vừa đặt đơn hàng mới
               </span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-1 p-4">
+            <DropdownMenuItem className="flex flex-col items-start gap-1 p-4 hover:bg-muted/30">
               <div className="flex w-full items-center justify-between">
-                <span className="font-medium">Thanh toán</span>
-                <span className="text-xs text-gray-500">10 phút trước</span>
+                <span className="font-medium text-foreground">Thanh toán</span>
+                <span className="text-xs text-muted-foreground">10 phút trước</span>
               </div>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-muted-foreground">
                 Nhận được thanh toán ₫1,250,000 từ khách hàng
               </span>
             </DropdownMenuItem>
@@ -156,7 +182,7 @@ export function Header() {
         </DropdownMenu>
 
         {/* Messages */}
-        <Button variant="ghost" size="sm" className="relative h-9 w-9 p-0">
+        <Button variant="ghost" size="sm" className="relative h-9 w-9 p-0 hover:bg-muted/30">
           <Mail className="h-5 w-5" />
           <Badge 
             variant="destructive" 
@@ -172,30 +198,30 @@ export function Header() {
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 px-3 hover:bg-white/60 transition-all">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 text-white font-medium text-sm shadow-lg">
+            <Button variant="ghost" className="flex items-center gap-2 px-3 hover:bg-muted/30 transition-colors">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-brand-foreground font-medium text-sm shadow-sm">
                 {getUserInitials()}
               </div>
               <div className="hidden text-left sm:block">
-                <p className="text-sm font-medium">{getUserDisplayName()}</p>
-                <p className="text-xs text-gray-500">{user?.email}</p>
+                <p className="text-sm font-medium text-foreground">{getUserDisplayName()}</p>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
               </div>
               <ChevronDown className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 bg-white/95 backdrop-blur-xl border-white/20 shadow-2xl">
-            <DropdownMenuLabel>Tài khoản của tôi</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-56 bg-card border-border shadow-lg">
+            <DropdownMenuLabel className="text-foreground">Tài khoản của tôi</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="hover:bg-blue-50 transition-colors">
+            <DropdownMenuItem className="hover:bg-muted/30 transition-colors text-foreground">
               <User className="mr-2 h-4 w-4" />
               Hồ sơ cá nhân
             </DropdownMenuItem>
-            <DropdownMenuItem className="hover:bg-blue-50 transition-colors">
+            <DropdownMenuItem className="hover:bg-muted/30 transition-colors text-foreground">
               <Settings className="mr-2 h-4 w-4" />
               Cài đặt
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-red-600 hover:bg-red-50 transition-colors">
+            <DropdownMenuItem onClick={handleLogout} className="text-destructive hover:bg-destructive/10 transition-colors">
               <LogOut className="mr-2 h-4 w-4" />
               Đăng xuất
             </DropdownMenuItem>

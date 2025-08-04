@@ -167,12 +167,42 @@
     backdrop-filter: blur(8px);
   }
 
-  /* Supabase Product Grid */
+  /* Supabase Product Grid - POS optimized */
   .supabase-product-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
-    padding: 1rem;
+    padding: 0;
+  }
+
+  @media (min-width: 640px) {
+    .supabase-product-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (min-width: 768px) {
+    .supabase-product-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .supabase-product-grid {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .supabase-product-grid {
+      grid-template-columns: repeat(4, 1fr); /* 4 columns when cart is visible */
+    }
+  }
+
+  @media (min-width: 1536px) {
+    .supabase-product-grid {
+      grid-template-columns: repeat(5, 1fr);
+    }
   }
 
   .supabase-product-card {

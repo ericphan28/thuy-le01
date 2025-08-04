@@ -39,91 +39,136 @@ export function CustomerSelector({
   return (
     <div className="relative">
       {selectedCustomer ? (
-        // Ultra minimal selected customer - inline style
-        <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg border border-border">
-          <Avatar className="h-6 w-6">
-            <AvatarFallback className="bg-brand text-white text-xs font-medium">
-              {selectedCustomer.customer_name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-            </AvatarFallback>
-          </Avatar>
-          
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium text-foreground truncate">
-              {selectedCustomer.customer_name}
-            </span>
-            <span className="text-xs text-muted-foreground ml-2 font-mono">
-              {selectedCustomer.customer_code}
-            </span>
+        // Professional selected customer display - Supabase style
+        <div className="supabase-card p-3 bg-card border border-border hover:border-brand/30 transition-colors">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8 border-2 border-brand/20">
+              <AvatarFallback className="bg-brand text-brand-foreground text-sm font-semibold">
+                {selectedCustomer.customer_name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-foreground truncate">
+                  {selectedCustomer.customer_name}
+                </span>
+                <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded">
+                  {selectedCustomer.customer_code}
+                </span>
+              </div>
+              <div className="flex items-center gap-4 mt-1">
+                <div className="flex items-center gap-1 text-xs">
+                  <span className="text-muted-foreground">Nợ hiện tại:</span>
+                  <span className={`font-bold ${selectedCustomer.current_debt > 0 ? 'text-destructive' : 'text-brand'}`}>
+                    {formatCurrency(selectedCustomer.current_debt)}
+                  </span>
+                </div>
+                {selectedCustomer.phone && (
+                  <div className="text-xs text-muted-foreground font-mono">
+                    📞 {selectedCustomer.phone}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearCustomer}
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-          
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground">Nợ:</span>
-            <span className="font-bold text-destructive">
-              {formatCurrency(selectedCustomer.current_debt)}
-            </span>
-          </div>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClearCustomer}
-            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-          >
-            <X className="h-3 w-3" />
-          </Button>
         </div>
       ) : (
-        // Ultra minimal search - inline style
+        // Professional search input - Supabase style
         <div className="relative">
-          <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg border border-border">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <input
-              placeholder="Tìm khách hàng..."
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-              onFocus={() => setIsExpanded(true)}
-              onBlur={() => setTimeout(() => setIsExpanded(false), 200)}
-              className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
-            />
-            <Search className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="supabase-card p-0 bg-card border border-border hover:border-brand/30 focus-within:border-brand transition-colors">
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="p-1.5 bg-brand/10 rounded-lg">
+                <Users className="h-4 w-4 text-brand flex-shrink-0" />
+              </div>
+              <div className="flex-1">
+                <input
+                  placeholder="Tìm khách hàng theo tên, mã hoặc số điện thoại..."
+                  value={searchTerm}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  onFocus={() => setIsExpanded(true)}
+                  onBlur={() => setTimeout(() => setIsExpanded(false), 200)}
+                  className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                />
+                {!searchTerm && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Nhập tên hoặc mã khách hàng để tìm kiếm
+                  </div>
+                )}
+              </div>
+              <div className="p-1 bg-muted/30 rounded">
+                <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              </div>
+            </div>
           </div>
 
-          {/* Dropdown results */}
+          {/* Professional dropdown results - Supabase style */}
           {isExpanded && searchTerm && (
-            <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+            <div className="absolute z-50 top-full mt-2 left-0 right-0 supabase-card bg-card border border-border shadow-lg max-h-64 overflow-y-auto">
               {customers.length > 0 ? (
-                customers.map((customer) => (
-                  <div
-                    key={customer.customer_id}
-                    onClick={() => {
-                      onSelectCustomer(customer)
-                      setIsExpanded(false)
-                    }}
-                    className="flex items-center gap-2 p-2 hover:bg-muted/50 cursor-pointer transition-colors border-b border-border last:border-b-0"
-                  >
-                    <Avatar className="h-5 w-5">
-                      <AvatarFallback className="bg-brand text-white text-xs">
-                        {customer.customer_name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {customer.customer_name}
-                      </p>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {customer.customer_code}
-                      </p>
-                    </div>
-                    
-                    <div className="text-xs text-destructive font-medium">
-                      {formatCurrency(customer.current_debt)}
-                    </div>
+                <div className="p-2">
+                  <div className="text-xs text-muted-foreground mb-2 px-2 font-medium">
+                    Tìm thấy {customers.length} khách hàng
                   </div>
-                ))
+                  {customers.map((customer, index) => (
+                    <div
+                      key={customer.customer_id}
+                      onClick={() => {
+                        onSelectCustomer(customer)
+                        setIsExpanded(false)
+                      }}
+                      className={`flex items-center gap-3 p-3 hover:bg-muted/30 cursor-pointer transition-colors rounded-lg ${
+                        index < customers.length - 1 ? 'border-b border-border/50' : ''
+                      }`}
+                    >
+                      <Avatar className="h-8 w-8 border border-border">
+                        <AvatarFallback className="bg-brand text-brand-foreground text-xs font-semibold">
+                          {customer.customer_name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {customer.customer_name}
+                          </p>
+                          <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
+                            {customer.customer_code}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1">
+                          {customer.phone && (
+                            <p className="text-xs text-muted-foreground font-mono">
+                              📞 {customer.phone}
+                            </p>
+                          )}
+                          <div className="text-xs">
+                            <span className="text-muted-foreground">Nợ: </span>
+                            <span className={`font-medium ${customer.current_debt > 0 ? 'text-destructive' : 'text-brand'}`}>
+                              {formatCurrency(customer.current_debt)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <div className="text-center py-3 text-muted-foreground">
-                  <p className="text-xs">Không tìm thấy</p>
+                <div className="text-center py-8 px-4">
+                  <div className="p-3 bg-muted/30 rounded-lg w-fit mx-auto mb-3">
+                    <Users className="h-8 w-8 text-muted-foreground opacity-50" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground mb-1">Không tìm thấy khách hàng</p>
+                  <p className="text-xs text-muted-foreground">Thử tìm kiếm với từ khóa khác</p>
                 </div>
               )}
             </div>
