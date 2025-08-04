@@ -2,23 +2,19 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { 
   Search, 
   Receipt, 
-  AlertTriangle, 
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
+  AlertTriangle,
   Plus,
   Download,
   User,
   Calendar,
-  DollarSign
+  Clock,
+  CheckCircle
 } from 'lucide-react'
 
 // Invoice interface matching database schema
@@ -40,11 +36,13 @@ export default function InvoicesPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'completed' | 'pending'>('all')
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'customer'>('date')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [totalCount, setTotalCount] = useState<number>(0)
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(20)
+  const [itemsPerPage, setItemsPerPage] = useState(24)
 
   const supabase = createClient()
 
@@ -72,11 +70,10 @@ export default function InvoicesPage() {
       const { count } = await countQuery
       setTotalCount(count || 0)
 
-      // Main query
+      // Main query with sorting
       let query = supabase
         .from('invoices')
         .select('*')
-        .order('invoice_date', { ascending: false })
 
       // Apply filters
       if (filterType === 'completed') {
@@ -89,6 +86,10 @@ export default function InvoicesPage() {
       if (searchTerm) {
         query = query.or(`invoice_code.ilike.%${searchTerm}%,customer_name.ilike.%${searchTerm}%`)
       }
+
+      // Sorting
+      const sortField = sortBy === 'date' ? 'invoice_date' : sortBy === 'amount' ? 'total_amount' : 'customer_name'
+      query = query.order(sortField, { ascending: sortOrder === 'asc' })
 
       // Pagination
       const startIndex = (currentPage - 1) * itemsPerPage
@@ -107,7 +108,7 @@ export default function InvoicesPage() {
     } finally {
       setLoading(false)
     }
-  }, [filterType, searchTerm, supabase, currentPage, itemsPerPage])
+  }, [filterType, searchTerm, supabase, currentPage, itemsPerPage, sortBy, sortOrder])
 
   useEffect(() => {
     fetchInvoices()
@@ -140,329 +141,320 @@ export default function InvoicesPage() {
     }
   }
 
-  // Statistics
+  const handleSort = (field: 'date' | 'amount' | 'customer') => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(field)
+      setSortOrder('asc')
+    }
+  }
+
+  // Calculate stats from real data
   const stats = {
     total: totalCount,
     completed: invoices.filter(i => i.status === 'completed').length,
-    pending: invoices.filter(i => i.status === 'pending').length
+    pending: invoices.filter(i => i.status === 'pending').length,
+    totalRevenue: invoices.reduce((sum, inv) => sum + (inv.customer_paid || 0), 0)
   }
 
   // Pagination calculations
   const totalPages = Math.ceil(totalCount / itemsPerPage)
-  const startItem = (currentPage - 1) * itemsPerPage + 1
-  const endItem = Math.min(currentPage * itemsPerPage, totalCount)
+  const startIndex = (currentPage - 1) * itemsPerPage
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2 text-gray-600 dark:text-gray-400">Đang tải hóa đơn...</span>
+      </div>
+    )
+  }
 
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-green-600 bg-clip-text text-transparent">
-          🧾 Quản lý Hóa đơn
-        </h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Quản lý Hóa đơn</h1>
         
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-red-50 via-red-50 to-rose-50 ring-2 ring-red-200/50 rounded-xl backdrop-blur-xl">
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-4">
-              <AlertTriangle className="h-6 w-6 text-red-500" />
-              <div>
-                <h3 className="text-lg font-semibold text-red-800">Có lỗi xảy ra</h3>
-                <p className="text-red-600">{error}</p>
-              </div>
+        <div className="supabase-card p-6">
+          <div className="flex items-center space-x-4">
+            <AlertTriangle className="h-6 w-6 text-red-500" />
+            <div>
+              <h3 className="text-lg font-semibold text-red-800 dark:text-red-300">Có lỗi xảy ra</h3>
+              <p className="text-red-600 dark:text-red-400">{error}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-green-600 bg-clip-text text-transparent">
-          🧾 Quản lý Hóa đơn
-        </h1>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-8 px-3 text-xs">
-            <Download className="h-3 w-3 mr-1" />
-            Xuất Excel
-          </Button>
-          <Button size="sm" className="h-8 px-3 text-xs">
-            <Plus className="h-3 w-3 mr-1" />
-            Tạo hóa đơn
-          </Button>
-        </div>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50 via-blue-50 to-cyan-50 ring-2 ring-blue-200/50 rounded-xl backdrop-blur-xl">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-blue-700">Tổng hóa đơn</p>
-                <p className="text-lg font-bold text-blue-900">{stats.total.toLocaleString('vi-VN')}</p>
-              </div>
-              <Receipt className="h-4 w-4 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md bg-gradient-to-br from-green-50 via-green-50 to-emerald-50 ring-2 ring-green-200/50 rounded-xl backdrop-blur-xl">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-green-700">Hoàn thành</p>
-                <p className="text-lg font-bold text-green-900">{stats.completed.toLocaleString('vi-VN')}</p>
-              </div>
-              <DollarSign className="h-4 w-4 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md bg-gradient-to-br from-yellow-50 via-yellow-50 to-orange-50 ring-2 ring-yellow-200/50 rounded-xl backdrop-blur-xl">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-yellow-700">Chờ xử lý</p>
-                <p className="text-lg font-bold text-yellow-900">{stats.pending.toLocaleString('vi-VN')}</p>
-              </div>
-              <Calendar className="h-4 w-4 text-yellow-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search & Filter Controls */}
-      <div className="bg-gradient-to-r from-white/80 via-white/90 to-white/80 backdrop-blur-xl rounded-xl border-0 shadow-lg ring-2 ring-white/50">
-        <div className="p-3">
-          <div className="flex flex-col lg:flex-row gap-3">
-            {/* Search Input */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-2 top-1.5 h-3 w-3 text-gray-400" />
-                <Input
-                  placeholder="Tìm mã hóa đơn, khách hàng..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-6 pl-7 pr-3 text-xs"
-                />
-              </div>
+    <div className="space-y-6">
+      {/* Header with Stats */}
+      <div className="supabase-card">
+        <div className="flex flex-col gap-4">
+          {/* Title and Actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Quản lý Hóa đơn</h1>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Quản lý {stats.total} hóa đơn bán hàng</p>
             </div>
             
-            {/* Filter Pills */}
-            <div className="flex items-center gap-1">
-              <Badge 
-                variant={filterType === 'all' ? 'default' : 'outline'}
-                className="cursor-pointer px-1.5 py-0.5 text-xs"
-                onClick={() => setFilterType('all')}
-              >
-                Tất cả
-              </Badge>
-              <Badge 
-                variant={filterType === 'completed' ? 'default' : 'outline'}
-                className="cursor-pointer px-1.5 py-0.5 text-xs"
-                onClick={() => setFilterType('completed')}
-              >
-                Hoàn thành
-              </Badge>
-              <Badge 
-                variant={filterType === 'pending' ? 'default' : 'outline'}
-                className="cursor-pointer px-1.5 py-0.5 text-xs"
-                onClick={() => setFilterType('pending')}
-              >
-                Chờ xử lý
-              </Badge>
+            <div className="flex items-center gap-2">
+              <Button className="bg-green-600 hover:bg-green-700 text-white font-medium text-sm px-3 py-2">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Tạo hóa đơn</span>
+                <span className="sm:hidden">Tạo</span>
+              </Button>
+              <Button variant="outline" className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-sm px-3 py-2">
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Xuất Excel</span>
+                <span className="sm:hidden">Xuất</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Real Stats Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg p-3 sm:p-4 text-center">
+              <div className="text-lg sm:text-2xl font-bold">{stats.total}</div>
+              <div className="text-xs sm:text-sm opacity-90">Tổng hóa đơn</div>
+            </div>
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg p-3 sm:p-4 text-center">
+              <div className="text-lg sm:text-2xl font-bold">{stats.completed}</div>
+              <div className="text-xs sm:text-sm opacity-90">Hoàn thành</div>
+            </div>
+            <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-lg p-3 sm:p-4 text-center">
+              <div className="text-lg sm:text-2xl font-bold">{stats.pending}</div>
+              <div className="text-xs sm:text-sm opacity-90">Chờ xử lý</div>
+            </div>
+            <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-lg p-3 sm:p-4 text-center">
+              <div className="text-lg sm:text-2xl font-bold">{formatPrice(stats.totalRevenue).replace('₫', '')}</div>
+              <div className="text-xs sm:text-sm opacity-90">Doanh thu</div>
+            </div>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Tìm hóa đơn theo mã hoặc khách hàng..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 supabase-input"
+              />
+            </div>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2">
+              {/* Filter Badges */}
+              <div className="flex gap-2 flex-wrap">
+                <Badge 
+                  variant={filterType === 'all' ? 'default' : 'outline'}
+                  className={`cursor-pointer text-xs ${filterType === 'all' ? 'bg-blue-600 text-white' : ''}`}
+                  onClick={() => setFilterType('all')}
+                >
+                  Tất cả
+                </Badge>
+                <Badge 
+                  variant={filterType === 'completed' ? 'default' : 'outline'}
+                  className={`cursor-pointer text-xs ${filterType === 'completed' ? 'bg-green-600 text-white' : ''}`}
+                  onClick={() => setFilterType('completed')}
+                >
+                  Hoàn thành
+                </Badge>
+                <Badge 
+                  variant={filterType === 'pending' ? 'default' : 'outline'}
+                  className={`cursor-pointer text-xs ${filterType === 'pending' ? 'bg-orange-600 text-white' : ''}`}
+                  onClick={() => setFilterType('pending')}
+                >
+                  Chờ xử lý
+                </Badge>
+              </div>
               
-              <select 
-                value={itemsPerPage} 
-                onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                className="h-6 px-1 text-xs border rounded"
-              >
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
+              {/* Sort Options */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant={sortBy === 'date' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleSort('date')}
+                  className={`min-w-[50px] sm:min-w-[60px] font-medium text-xs sm:text-sm ${
+                    sortBy === 'date' 
+                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Ngày {sortBy === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </Button>
+                <Button
+                  variant={sortBy === 'amount' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleSort('amount')}
+                  className={`min-w-[50px] sm:min-w-[60px] font-medium text-xs sm:text-sm ${
+                    sortBy === 'amount' 
+                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Tiền {sortBy === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </Button>
+                <Button
+                  variant={sortBy === 'customer' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleSort('customer')}
+                  className={`min-w-[50px] sm:min-w-[60px] font-medium text-xs sm:text-sm ${
+                    sortBy === 'customer' 
+                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  KH {sortBy === 'customer' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </Button>
+                
+                <select 
+                  value={itemsPerPage.toString()} 
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  className="h-8 px-2 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded focus:border-blue-400"
+                >
+                  <option value="24">24</option>
+                  <option value="48">48</option>
+                  <option value="96">96</option>
+                  <option value="192">192</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Invoices Grid */}
-      {loading ? (
-        <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-          {[...Array(12)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="p-2">
-                <div className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                  <div className="h-8 bg-gray-200 rounded w-full"></div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
+        {invoices.map((invoice) => {
+          const statusBadge = getStatusBadge(invoice.status)
+          const remainingAmount = invoice.total_amount - invoice.customer_paid
+          const isFullyPaid = remainingAmount === 0
+          
+          return (
+            <div
+              key={invoice.invoice_id}
+              className="supabase-card p-3 sm:p-4 hover:shadow-lg transition-shadow"
+            >
+              {/* Invoice Header */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm leading-tight text-gray-900 dark:text-white truncate">
+                    {invoice.invoice_code}
+                  </h3>
+                  <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    <Calendar className="h-3 w-3" />
+                    {formatDate(invoice.invoice_date)}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-          {invoices.map((invoice) => {
-            const statusBadge = getStatusBadge(invoice.status)
-            const remainingAmount = invoice.total_amount - invoice.customer_paid
-            
-            return (
-              <Card 
-                key={invoice.invoice_id} 
-                className="group border-0 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 bg-white/95 backdrop-blur-lg overflow-hidden rounded-lg"
-              >
-                <CardHeader className="pb-1 pt-2 px-2">
-                  <div className="flex items-start justify-between gap-1">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-sm font-bold text-gray-900 truncate">
-                        {invoice.invoice_code}
-                      </CardTitle>
-                      <p className="text-xs text-gray-500 truncate">
-                        <Calendar className="inline h-3 w-3 mr-1" />
-                        {formatDate(invoice.invoice_date)}
-                      </p>
-                    </div>
-                    <Badge variant={statusBadge.color} className="text-xs px-1.5 py-0.5">
-                      {statusBadge.label}
-                    </Badge>
-                  </div>
-                </CardHeader>
+                <Badge variant={statusBadge.color} className="text-xs px-2 py-1">
+                  {statusBadge.label}
+                </Badge>
+              </div>
 
-                <CardContent className="px-2 pb-2 pt-0">
-                  {/* Customer Info */}
-                  <div className="flex items-center gap-1 mb-2">
-                    <User className="h-3 w-3 text-gray-400" />
-                    <span className="text-xs text-gray-600 truncate font-medium">
-                      {invoice.customer_name}
-                    </span>
-                  </div>
+              {/* Customer Info */}
+              <div className="flex items-center gap-1 mb-3">
+                <User className="h-3 w-3 text-gray-400" />
+                <span className="text-xs text-gray-600 dark:text-gray-400 truncate font-medium">
+                  {invoice.customer_name}
+                </span>
+              </div>
 
-                  {/* Financial Info */}
-                  <div className="space-y-1 mb-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500">Tổng tiền:</span>
-                      <span className="text-xs font-bold text-green-600">
-                        {formatPrice(invoice.total_amount)}
-                      </span>
+              {/* Financial Info */}
+              <div className="space-y-2 mb-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm">
+                    <div className="font-bold text-green-600 dark:text-green-400">
+                      {formatPrice(invoice.total_amount)}
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500">Đã trả:</span>
-                      <span className="text-xs font-semibold text-blue-600">
-                        {formatPrice(invoice.customer_paid)}
-                      </span>
+                    <div className="text-xs text-gray-500">
+                      Đã trả: {formatPrice(invoice.customer_paid)}
                     </div>
                     {remainingAmount > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-gray-500">Còn lại:</span>
-                        <span className="text-xs font-semibold text-red-600">
-                          {formatPrice(remainingAmount)}
-                        </span>
+                      <div className="text-xs text-red-600 dark:text-red-400">
+                        Còn lại: {formatPrice(remainingAmount)}
                       </div>
                     )}
                   </div>
-
-                  {/* Branch Info */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Chi nhánh: {invoice.branch_id}</span>
-                    {remainingAmount === 0 ? (
-                      <Badge variant="default" className="text-xs px-1.5 py-0.5">
-                        Đã thanh toán
-                      </Badge>
+                  
+                  {/* Payment Status Icon */}
+                  <div className="flex items-center gap-1">
+                    {isFullyPaid ? (
+                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                     ) : (
-                      <Badge variant="destructive" className="text-xs px-1.5 py-0.5">
-                        Chưa thanh toán
-                      </Badge>
+                      <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                     )}
                   </div>
+                </div>
+              </div>
 
-                  {/* Notes */}
-                  {invoice.notes && (
-                    <div className="mt-2 pt-2 border-t border-gray-100">
-                      <p className="text-xs text-gray-500 line-clamp-2">
-                        {invoice.notes}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
+              {/* Branch & Payment Status */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Chi nhánh: {invoice.branch_id}
+                </span>
+                <Badge 
+                  variant={isFullyPaid ? 'default' : 'destructive'} 
+                  className="text-xs px-2 py-1"
+                >
+                  {isFullyPaid ? 'Đã TT' : 'Chưa TT'}
+                </Badge>
+              </div>
+
+              {/* Notes */}
+              {invoice.notes && (
+                <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                    {invoice.notes}
+                  </p>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Empty State */}
+      {invoices.length === 0 && !loading && (
+        <div className="text-center py-8">
+          <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-400">
+            {searchTerm ? `Không tìm thấy hóa đơn cho "${searchTerm}"` : 'Không có hóa đơn nào'}
+          </p>
         </div>
       )}
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between bg-white/80 backdrop-blur-xl rounded-xl border-0 shadow-lg ring-2 ring-white/50 p-3">
-          <div className="text-xs text-gray-600">
-            Hiển thị {startItem} - {endItem} / {totalCount} hóa đơn
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 text-center sm:text-left">
+            Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, totalCount)} trên {totalCount} hóa đơn
           </div>
-          
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center justify-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(1)}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="h-7 w-7 p-0"
+              className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 text-xs sm:text-sm px-3 py-2"
             >
-              <ChevronsLeft className="h-3 w-3" />
+              Trước
             </Button>
+            <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 px-2">
+              {currentPage} / {totalPages}
+            </span>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="h-7 w-7 p-0"
-            >
-              <ChevronLeft className="h-3 w-3" />
-            </Button>
-            
-            <div className="flex items-center space-x-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum
-                if (totalPages <= 5) {
-                  pageNum = i + 1
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i
-                } else {
-                  pageNum = currentPage - 2 + i
-                }
-                
-                return (
-                  <Button
-                    key={pageNum}
-                    variant={currentPage === pageNum ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCurrentPage(pageNum)}
-                    className="h-7 w-7 p-0 text-xs"
-                  >
-                    {pageNum}
-                  </Button>
-                )
-              })}
-            </div>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(currentPage + 1)}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="h-7 w-7 p-0"
+              className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 text-xs sm:text-sm px-3 py-2"
             >
-              <ChevronRight className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
-              className="h-7 w-7 p-0"
-            >
-              <ChevronsRight className="h-3 w-3" />
+              Sau
             </Button>
           </div>
         </div>
