@@ -2,21 +2,44 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ShoppingCart, X, Plus, Minus, CreditCard } from 'lucide-react'
+import { ShoppingCart, X, Plus, Minus, CreditCard, Percent, DollarSign } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import type { CartItem } from '@/lib/types/pos'
 
 interface CartSummaryProps {
   cart: CartItem[]
+  subtotal: number
+  discountAmount: number
+  tax: number
+  total: number
+  vatRate: number
+  discountType: 'percentage' | 'amount'
+  discountValue: number
   onUpdateQuantity: (productId: number, quantity: number) => void
   onRemoveItem: (productId: number) => void
+  onVatChange: (rate: number) => void
+  onDiscountTypeChange: (type: 'percentage' | 'amount') => void
+  onDiscountValueChange: (value: number) => void
   onCheckout: () => void
   disabled?: boolean
 }
 
 export function CartSummary({ 
   cart, 
+  subtotal,
+  discountAmount,
+  tax,
+  total,
+  vatRate,
+  discountType,
+  discountValue,
   onUpdateQuantity, 
-  onRemoveItem, 
+  onRemoveItem,
+  onVatChange,
+  onDiscountTypeChange,
+  onDiscountValueChange,
   onCheckout,
   disabled = false
 }: CartSummaryProps) {
@@ -26,10 +49,6 @@ export function CartSummary({
       currency: 'VND'
     }).format(price)
   }
-
-  const subtotal = cart.reduce((sum, item) => sum + item.line_total, 0)
-  const tax = subtotal * 0.1 // 10% VAT
-  const total = subtotal + tax
 
   return (
     <Card className="supabase-card sticky top-4">
@@ -129,16 +148,87 @@ export function CartSummary({
 
         {/* Order Summary */}
         {cart.length > 0 && (
-          <div className="space-y-3 pt-4 border-t border-border">
+          <div className="space-y-4 pt-4 border-t border-border">
+            {/* VAT Selection */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">VAT (%)</Label>
+              <Select value={vatRate.toString()} onValueChange={(value) => onVatChange(Number(value))}>
+                <SelectTrigger className="supabase-input">
+                  <SelectValue placeholder="Chọn VAT" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">0% - Không VAT</SelectItem>
+                  <SelectItem value="5">5% - VAT giảm</SelectItem>
+                  <SelectItem value="8">8% - VAT trung bình</SelectItem>
+                  <SelectItem value="10">10% - VAT tiêu chuẩn</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Discount Section */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-foreground">Giảm giá</Label>
+              
+              {/* Discount Type Toggle */}
+              <div className="flex gap-2">
+                <Button
+                  variant={discountType === 'percentage' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => onDiscountTypeChange('percentage')}
+                  className={`flex-1 ${discountType === 'percentage' ? 'supabase-button' : 'supabase-button-secondary'}`}
+                >
+                  <Percent className="h-4 w-4 mr-1" />
+                  Theo %
+                </Button>
+                <Button
+                  variant={discountType === 'amount' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => onDiscountTypeChange('amount')}
+                  className={`flex-1 ${discountType === 'amount' ? 'supabase-button' : 'supabase-button-secondary'}`}
+                >
+                  <DollarSign className="h-4 w-4 mr-1" />
+                  Theo số tiền
+                </Button>
+              </div>
+
+              {/* Discount Value Input */}
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder={discountType === 'percentage' ? 'Nhập % giảm' : 'Nhập số tiền giảm'}
+                  value={discountValue || ''}
+                  onChange={(e) => onDiscountValueChange(Number(e.target.value) || 0)}
+                  min="0"
+                  max={discountType === 'percentage' ? '100' : subtotal}
+                  className="supabase-input pr-12"
+                />
+                <div className="absolute right-3 top-2.5 text-xs text-muted-foreground font-medium">
+                  {discountType === 'percentage' ? '%' : 'VND'}
+                </div>
+              </div>
+            </div>
+
+            {/* Calculation Summary */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Tạm tính:</span>
                 <span className="text-foreground font-medium">{formatPrice(subtotal)}</span>
               </div>
+              
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Giảm giá ({discountType === 'percentage' ? `${discountValue}%` : 'Số tiền'}):
+                  </span>
+                  <span className="text-destructive font-medium">-{formatPrice(discountAmount)}</span>
+                </div>
+              )}
+              
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">VAT (10%):</span>
+                <span className="text-muted-foreground">VAT ({vatRate}%):</span>
                 <span className="text-foreground font-medium">{formatPrice(tax)}</span>
               </div>
+              
               <div className="flex justify-between text-lg font-bold pt-2 border-t border-border">
                 <span className="text-foreground">Tổng cộng:</span>
                 <span className="text-brand">{formatPrice(total)}</span>

@@ -34,6 +34,11 @@ export default function POSPage() {
   const [showCheckout, setShowCheckout] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   
+  // VAT and Discount management
+  const [vatRate, setVatRate] = useState(0) // Default 0%
+  const [discountType, setDiscountType] = useState<'percentage' | 'amount'>('percentage')
+  const [discountValue, setDiscountValue] = useState(0)
+  
   // Optimistic stock management
   const [optimisticStockUpdates, setOptimisticStockUpdates] = useState<Record<number, number>>({})
 
@@ -234,96 +239,185 @@ export default function POSPage() {
     ))
   }
 
-  // Calculations
+  // Calculations with VAT and Discount
   const subtotal = cart.reduce((sum, item) => sum + item.line_total, 0)
-  const tax = subtotal * 0.1 // 10% VAT
-  const total = subtotal + tax
+  
+  // Calculate discount
+  const discountAmount = discountType === 'percentage' 
+    ? (subtotal * discountValue) / 100
+    : Math.min(discountValue, subtotal) // Don't allow discount > subtotal
+  
+  const afterDiscount = subtotal - discountAmount
+  const tax = afterDiscount * (vatRate / 100) // VAT based on selected rate
+  const total = afterDiscount + tax
 
-  // Checkout process
+  // Checkout process - Using Supabase Function
   const handleCheckout = async (paymentData: { method: 'cash' | 'card' | 'transfer', receivedAmount?: number }) => {
     if (cart.length === 0 || !selectedCustomer) return
+
+    const formatPrice = (price: number) => {
+      return new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND'
+      }).format(price)
+    }
+
+    console.log('🚀 === CHECKOUT PROCESS STARTED (USING FUNCTION) ===')
+    console.log('📋 Cart Items:', cart)
+    console.log('👤 Selected Customer:', selectedCustomer)
+    console.log('💰 Payment Data:', paymentData)
+    console.log('📊 Calculation Details:', {
+      subtotal,
+      vatRate,
+      discountType,
+      discountValue,
+      discountAmount,
+      tax,
+      total
+    })
 
     try {
       setCheckoutLoading(true)
       
-      // Tạo invoice code
-      const invoiceCode = `HD${Date.now()}`
-      
-      // Tạo invoice
-      const { data: invoice, error: invoiceError } = await supabase
-        .from('invoices')
-        .insert({
-          invoice_code: invoiceCode,
-          invoice_date: new Date().toISOString(),
-          customer_id: selectedCustomer.customer_id,
-          customer_name: selectedCustomer.customer_name,
-          total_amount: total,
-          customer_paid: paymentData.receivedAmount || total,
-          status: 'completed',
-          notes: `Thanh toán bằng ${paymentData.method === 'cash' ? 'tiền mặt' : paymentData.method === 'card' ? 'thẻ' : 'chuyển khoản'}`
-        })
-        .select()
-        .single()
-
-      if (invoiceError) throw invoiceError
-
-      // Tạo invoice details
-      const invoiceDetails = cart.map(item => ({
-        invoice_id: invoice.invoice_id,
+      // Prepare cart items for function
+      const cartItems = cart.map(item => ({
         product_id: item.product.product_id,
-        invoice_code: invoiceCode,
-        product_code: item.product.product_code,
-        product_name: item.product.product_name,
-        customer_name: selectedCustomer.customer_name,
-        invoice_date: new Date().toISOString(),
         quantity: item.quantity,
-        unit_price: item.unit_price,
-        sale_price: item.unit_price,
-        line_total: item.line_total,
-        subtotal: item.line_total,
-        cash_payment: paymentData.method === 'cash' ? item.line_total : 0,
-        card_payment: paymentData.method === 'card' ? item.line_total : 0,
-        transfer_payment: paymentData.method === 'transfer' ? item.line_total : 0
+        unit_price: item.unit_price
       }))
+      
+      console.log('📦 Cart Items for Function:', cartItems)
+      
+      // Call Supabase function
+      const { data: functionResult, error: functionError } = await supabase
+        .rpc('create_pos_invoice', {
+          p_customer_id: selectedCustomer.customer_id,
+          p_cart_items: cartItems,
+          p_vat_rate: vatRate,
+          p_discount_type: discountType,
+          p_discount_value: discountValue,
+          p_payment_method: paymentData.method,
+          p_received_amount: paymentData.receivedAmount || null,
+          p_branch_id: 1,
+          p_created_by: 'POS System'
+        })
 
-      const { error: detailsError } = await supabase
-        .from('invoice_details')
-        .insert(invoiceDetails)
-
-      if (detailsError) throw detailsError
-
-      // Update stock
-      for (const item of cart) {
-        await supabase
-          .from('products')
-          .update({
-            current_stock: item.product.current_stock - item.quantity
-          })
-          .eq('product_id', item.product.product_id)
+      if (functionError) {
+        console.error('❌ Function Call Error:', functionError)
+        throw functionError
       }
-
+      
+      console.log('📊 Function Result:', functionResult)
+      
+      // Check if function was successful
+      if (!functionResult || !functionResult.success) {
+        const errorMessage = functionResult?.error || 'Unknown error occurred'
+        const errorCode = functionResult?.error_code || 'UNKNOWN_ERROR'
+        
+        console.error('❌ Function Returned Error:', {
+          error: errorMessage,
+          error_code: errorCode,
+          error_details: functionResult?.error_details
+        })
+        
+        // Show specific error messages to user
+        switch (errorCode) {
+          case 'CUSTOMER_NOT_FOUND':
+            toast.error('Khách hàng không tồn tại hoặc không hoạt động')
+            break
+          case 'INSUFFICIENT_STOCK':
+            toast.error('Không đủ hàng trong kho')
+            break
+          case 'INSUFFICIENT_PAYMENT':
+            toast.error('Số tiền thanh toán không đủ')
+            break
+          case 'DEBT_LIMIT_EXCEEDED':
+            toast.error('Vượt quá hạn mức nợ của khách hàng')
+            break
+          case 'INVALID_VAT_RATE':
+            toast.error('Tỷ lệ VAT không hợp lệ')
+            break
+          default:
+            toast.error(errorMessage)
+        }
+        
+        return // Exit without clearing cart
+      }
+      
+      // Success! Process the result
+      const invoiceCode = functionResult.invoice_code
+      const totalAmount = functionResult.totals?.total_amount || total
+      const changeAmount = functionResult.totals?.change_amount || 0
+      
+      console.log('✅ Invoice Created Successfully by Function!')
+      console.log('� Invoice Code:', invoiceCode)
+      console.log('💰 Total Amount:', formatPrice(totalAmount))
+      if (changeAmount > 0) {
+        console.log('� Change Amount:', formatPrice(changeAmount))
+      }
+      
+      // Show detailed success message
+      let successMessage = `Hóa đơn ${invoiceCode} đã được tạo thành công!`
+      if (changeAmount > 0) {
+        successMessage += ` Tiền thừa: ${formatPrice(changeAmount)}`
+      }
+      
+      // Show warnings if any
+      if (functionResult.warnings && functionResult.warnings.length > 0) {
+        functionResult.warnings.forEach((warning: string) => {
+          toast.warning(warning)
+        })
+      }
+      
+      toast.success(successMessage)
+      
       // Reset form
+      console.log('🧹 Resetting Form State...')
       setCart([])
       setSelectedCustomer(null)
       setCustomerSearch('')
       setShowCheckout(false)
+      setVatRate(0) // Reset VAT to 0%
+      setDiscountValue(0) // Reset discount
+      setDiscountType('percentage')
       
       // Clear optimistic updates and refresh products
       clearOptimisticUpdates()
       
-      toast.success(`Hóa đơn ${invoiceCode} đã được tạo thành công!`)
+      console.log('🎉 Checkout Process Completed Successfully!')
+      console.log('� Function Response Summary:', {
+        invoice_id: functionResult.invoice_id,
+        invoice_code: functionResult.invoice_code,
+        customer_name: functionResult.customer_name,
+        totals: functionResult.totals,
+        summary: functionResult.summary,
+        customer_info: functionResult.customer_info
+      })
       
       // Refresh products để cập nhật stock từ database
       fetchProducts()
       
     } catch (error) {
-      console.error('Checkout error:', error)
-      toast.error('Lỗi khi tạo hóa đơn')
+      console.error('💥 CHECKOUT ERROR:', error)
+      console.error('📊 Error Context:', {
+        cart,
+        selectedCustomer,
+        paymentData,
+        subtotal,
+        vatRate,
+        discountType,
+        discountValue,
+        discountAmount,
+        tax,
+        total
+      })
+      toast.error('Lỗi khi tạo hóa đơn. Vui lòng thử lại.')
       
       // Don't clear optimistic updates on error - let user retry
       // The optimistic updates will be cleared on successful checkout or page refresh
     } finally {
       setCheckoutLoading(false)
+      console.log('🏁 Checkout Process Finished (Success or Error)')
     }
   }
 
@@ -462,8 +556,18 @@ export default function POSPage() {
             ) : (
               <CartSummary
                 cart={cart}
+                subtotal={subtotal}
+                discountAmount={discountAmount}
+                tax={tax}
+                total={total}
+                vatRate={vatRate}
+                discountType={discountType}
+                discountValue={discountValue}
                 onUpdateQuantity={updateQuantity}
                 onRemoveItem={removeFromCart}
+                onVatChange={setVatRate}
+                onDiscountTypeChange={setDiscountType}
+                onDiscountValueChange={setDiscountValue}
                 onCheckout={() => setShowCheckout(true)}
                 disabled={!selectedCustomer || cart.length === 0}
               />

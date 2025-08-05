@@ -5,7 +5,7 @@
 -- Dumped from database version 17.4
 -- Dumped by pg_dump version 17.4
 
--- Started on 2025-08-02 15:16:01
+-- Started on 2025-08-05 14:45:04
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -28,7 +28,7 @@ CREATE SCHEMA public;
 
 
 --
--- TOC entry 4102 (class 0 OID 0)
+-- TOC entry 4113 (class 0 OID 0)
 -- Dependencies: 12
 -- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
 --
@@ -37,7 +37,495 @@ COMMENT ON SCHEMA public IS 'standard public schema';
 
 
 --
--- TOC entry 492 (class 1255 OID 27238)
+-- TOC entry 423 (class 1255 OID 33772)
+-- Name: create_pos_invoice(integer, jsonb, numeric, character varying, numeric, character varying, numeric, integer, character varying); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric DEFAULT 0, p_discount_type character varying DEFAULT 'percentage'::character varying, p_discount_value numeric DEFAULT 0, p_payment_method character varying DEFAULT 'cash'::character varying, p_received_amount numeric DEFAULT NULL::numeric, p_branch_id integer DEFAULT 1, p_created_by character varying DEFAULT 'POS System'::character varying) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    -- Variables for invoice creation
+    v_invoice_id INTEGER;
+    v_invoice_code VARCHAR(50);
+    v_customer_record customers%ROWTYPE;
+    v_cart_item JSONB;
+    v_product_record products%ROWTYPE;
+    
+    -- Calculation variables
+    v_subtotal NUMERIC := 0;
+    v_discount_amount NUMERIC := 0;
+    v_after_discount NUMERIC := 0;
+    v_vat_amount NUMERIC := 0;
+    v_total_amount NUMERIC := 0;
+    v_change_amount NUMERIC := 0;
+    
+    -- Business validation variables
+    v_total_debt_after NUMERIC := 0;
+    v_item_count INTEGER := 0;
+    v_total_quantity NUMERIC := 0;
+    
+    -- Error tracking
+    v_error_messages TEXT[] := ARRAY[]::TEXT[];
+    v_warnings TEXT[] := ARRAY[]::TEXT[];
+    
+    -- Invoice details array
+    v_invoice_details JSONB[] := ARRAY[]::JSONB[];
+    v_stock_updates JSONB[] := ARRAY[]::JSONB[];
+    
+BEGIN
+    -- =====================================================
+    -- 🔍 PHASE 1: INPUT VALIDATION & SETUP
+    -- =====================================================
+    
+    -- Validate required parameters
+    IF p_customer_id IS NULL OR p_cart_items IS NULL OR jsonb_array_length(p_cart_items) = 0 THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Invalid input: customer_id and cart_items are required',
+            'error_code', 'INVALID_INPUT'
+        );
+    END IF;
+    
+    -- Validate VAT rate
+    IF p_vat_rate NOT IN (0, 5, 8, 10) THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Invalid VAT rate. Must be 0, 5, 8, or 10',
+            'error_code', 'INVALID_VAT_RATE'
+        );
+    END IF;
+    
+    -- Validate discount type
+    IF p_discount_type NOT IN ('percentage', 'amount') THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Invalid discount type. Must be percentage or amount',
+            'error_code', 'INVALID_DISCOUNT_TYPE'
+        );
+    END IF;
+    
+    -- Validate payment method
+    IF p_payment_method NOT IN ('cash', 'card', 'transfer') THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Invalid payment method. Must be cash, card, or transfer',
+            'error_code', 'INVALID_PAYMENT_METHOD'
+        );
+    END IF;
+    
+    -- =====================================================
+    -- 🔍 PHASE 2: CUSTOMER VALIDATION
+    -- =====================================================
+    
+    -- Get customer record
+    SELECT * INTO v_customer_record 
+    FROM customers 
+    WHERE customer_id = p_customer_id AND is_active = true;
+    
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Customer not found or inactive',
+            'error_code', 'CUSTOMER_NOT_FOUND'
+        );
+    END IF;
+    
+    -- =====================================================
+    -- 🔍 PHASE 3: CART VALIDATION & CALCULATION
+    -- =====================================================
+    
+    -- Process each cart item
+    FOR v_cart_item IN SELECT * FROM jsonb_array_elements(p_cart_items)
+    LOOP
+        -- Validate cart item structure
+        IF NOT (v_cart_item ? 'product_id' AND v_cart_item ? 'quantity' AND v_cart_item ? 'unit_price') THEN
+            v_error_messages := array_append(v_error_messages, 
+                'Invalid cart item structure. Required: product_id, quantity, unit_price');
+            CONTINUE;
+        END IF;
+        
+        -- Get product record
+        SELECT * INTO v_product_record 
+        FROM products 
+        WHERE product_id = (v_cart_item->>'product_id')::INTEGER 
+        AND is_active = true 
+        AND allow_sale = true;
+        
+        IF NOT FOUND THEN
+            v_error_messages := array_append(v_error_messages, 
+                format('Product ID %s not found or not available for sale', v_cart_item->>'product_id'));
+            CONTINUE;
+        END IF;
+        
+        -- Validate stock availability
+        IF v_product_record.current_stock < (v_cart_item->>'quantity')::NUMERIC THEN
+            v_error_messages := array_append(v_error_messages, 
+                format('Insufficient stock for %s. Available: %s, Requested: %s', 
+                    v_product_record.product_name, 
+                    v_product_record.current_stock, 
+                    v_cart_item->>'quantity'));
+            CONTINUE;
+        END IF;
+        
+        -- Check prescription requirement
+        IF v_product_record.requires_prescription THEN
+            -- Add warning but don't block (assuming POS operator verified)
+            v_warnings := array_append(v_warnings, 
+                format('Product %s requires prescription - ensure compliance', v_product_record.product_name));
+        END IF;
+        
+        -- Calculate line totals
+        DECLARE
+            v_line_quantity NUMERIC := (v_cart_item->>'quantity')::NUMERIC;
+            v_line_unit_price NUMERIC := (v_cart_item->>'unit_price')::NUMERIC;
+            v_line_total NUMERIC := v_line_quantity * v_line_unit_price;
+        BEGIN
+            -- Add to subtotal
+            v_subtotal := v_subtotal + v_line_total;
+            v_total_quantity := v_total_quantity + v_line_quantity;
+            v_item_count := v_item_count + 1;
+            
+            -- Store invoice detail data
+            v_invoice_details := array_append(v_invoice_details, jsonb_build_object(
+                'product_id', v_product_record.product_id,
+                'product_code', v_product_record.product_code,
+                'product_name', v_product_record.product_name,
+                'quantity', v_line_quantity,
+                'unit_price', v_line_unit_price,
+                'line_total', v_line_total,
+                'cost_price', COALESCE(v_product_record.cost_price, 0),
+                'profit_amount', (v_line_unit_price - COALESCE(v_product_record.cost_price, 0)) * v_line_quantity
+            ));
+            
+            -- Store stock update data
+            v_stock_updates := array_append(v_stock_updates, jsonb_build_object(
+                'product_id', v_product_record.product_id,
+                'old_stock', v_product_record.current_stock,
+                'quantity_sold', v_line_quantity,
+                'new_stock', v_product_record.current_stock - v_line_quantity
+            ));
+        END;
+    END LOOP;
+    
+    -- Check if we have any valid items
+    IF array_length(v_invoice_details, 1) = 0 THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'No valid items in cart',
+            'error_details', v_error_messages,
+            'error_code', 'NO_VALID_ITEMS'
+        );
+    END IF;
+    
+    -- Return errors if any critical validation failed
+    IF array_length(v_error_messages, 1) > 0 THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Validation failed',
+            'error_details', v_error_messages,
+            'error_code', 'VALIDATION_FAILED'
+        );
+    END IF;
+    
+    -- =====================================================
+    -- 🔍 PHASE 4: FINANCIAL CALCULATIONS
+    -- =====================================================
+    
+    -- Calculate discount
+    IF p_discount_type = 'percentage' THEN
+        v_discount_amount := (v_subtotal * p_discount_value) / 100;
+    ELSE
+        v_discount_amount := LEAST(p_discount_value, v_subtotal); -- Don't allow discount > subtotal
+    END IF;
+    
+    -- Calculate amounts
+    v_after_discount := v_subtotal - v_discount_amount;
+    v_vat_amount := v_after_discount * (p_vat_rate / 100);
+    v_total_amount := v_after_discount + v_vat_amount;
+    
+    -- Calculate change if received amount provided
+    IF p_received_amount IS NOT NULL THEN
+        v_change_amount := p_received_amount - v_total_amount;
+        IF v_change_amount < 0 THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error', format('Insufficient payment. Required: %s, Received: %s', v_total_amount, p_received_amount),
+                'error_code', 'INSUFFICIENT_PAYMENT'
+            );
+        END IF;
+    END IF;
+    
+    -- =====================================================
+    -- 🔍 PHASE 5: DEBT LIMIT VALIDATION
+    -- =====================================================
+    
+    -- Calculate debt after this transaction
+    v_total_debt_after := v_customer_record.current_debt + 
+        CASE 
+            WHEN p_received_amount IS NULL THEN v_total_amount
+            WHEN p_received_amount < v_total_amount THEN (v_total_amount - p_received_amount)
+            ELSE 0
+        END;
+    
+    -- Check debt limit
+    IF v_total_debt_after > v_customer_record.debt_limit THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', format('Customer debt limit exceeded. Limit: %s, New total would be: %s', 
+                v_customer_record.debt_limit, v_total_debt_after),
+            'error_code', 'DEBT_LIMIT_EXCEEDED'
+        );
+    END IF;
+    
+    -- =====================================================
+    -- 🔍 PHASE 6: CREATE INVOICE (TRANSACTION START)
+    -- =====================================================
+    
+    -- Generate unique invoice code
+    v_invoice_code := 'HD' || extract(epoch from now())::bigint;
+    
+    -- Insert invoice record
+    INSERT INTO invoices (
+        invoice_code,
+        invoice_date,
+        customer_id,
+        customer_name,
+        branch_id,
+        total_amount,
+        customer_paid,
+        status,
+        notes,
+        created_at,
+        updated_at
+    ) VALUES (
+        v_invoice_code,
+        NOW(),
+        p_customer_id,
+        v_customer_record.customer_name,
+        p_branch_id,
+        v_total_amount,
+        COALESCE(p_received_amount, 0),
+        'completed',
+        jsonb_build_object(
+            'payment_method', p_payment_method,
+            'vat_rate', p_vat_rate,
+            'vat_amount', v_vat_amount,
+            'discount_type', p_discount_type,
+            'discount_value', p_discount_value,
+            'discount_amount', v_discount_amount,
+            'subtotal_amount', v_subtotal,
+            'total_quantity', v_total_quantity,
+            'item_count', v_item_count,
+            'change_amount', v_change_amount,
+            'created_by', p_created_by,
+            'warnings', v_warnings,
+            'summary', format('Thanh toán %s | VAT %s%% (%s VND) | Giảm giá %s = %s VND | Tạm tính: %s VND | Thành tiền: %s VND',
+                CASE p_payment_method 
+                    WHEN 'cash' THEN 'tiền mặt'
+                    WHEN 'card' THEN 'thẻ'
+                    WHEN 'transfer' THEN 'chuyển khoản'
+                    ELSE p_payment_method
+                END,
+                p_vat_rate,
+                v_vat_amount,
+                CASE p_discount_type 
+                    WHEN 'percentage' THEN p_discount_value || '%'
+                    ELSE p_discount_value || ' VND'
+                END,
+                v_discount_amount,
+                v_subtotal,
+                v_total_amount
+            )
+        )::TEXT,
+        NOW(),
+        NOW()
+    ) RETURNING invoice_id INTO v_invoice_id;
+    
+    -- =====================================================
+    -- 🔍 PHASE 7: CREATE INVOICE DETAILS
+    -- =====================================================
+    
+    -- Insert invoice details for each cart item
+    FOR i IN 1..array_length(v_invoice_details, 1)
+    LOOP
+        DECLARE
+            v_detail JSONB := v_invoice_details[i];
+        BEGIN
+            INSERT INTO invoice_details (
+                invoice_id,
+                product_id,
+                invoice_code,
+                product_code,
+                product_name,
+                customer_name,
+                customer_id,
+                branch_id,
+                invoice_date,
+                quantity,
+                unit_price,
+                sale_price,
+                line_total,
+                subtotal,
+                cost_price,
+                profit_amount,
+                
+                -- Payment method breakdown
+                cash_payment,
+                card_payment,
+                transfer_payment,
+                wallet_payment,
+                points_payment,
+                customer_paid,
+                
+                -- Line-level discount (currently 0 - we do invoice-level)
+                discount_percent,
+                discount_amount,
+                total_discount,
+                
+                status,
+                created_at
+            ) VALUES (
+                v_invoice_id,
+                (v_detail->>'product_id')::INTEGER,
+                v_invoice_code,
+                v_detail->>'product_code',
+                v_detail->>'product_name',
+                v_customer_record.customer_name,
+                p_customer_id,
+                p_branch_id,
+                NOW(),
+                (v_detail->>'quantity')::NUMERIC,
+                (v_detail->>'unit_price')::NUMERIC,
+                (v_detail->>'unit_price')::NUMERIC,
+                (v_detail->>'line_total')::NUMERIC,
+                (v_detail->>'line_total')::NUMERIC,
+                (v_detail->>'cost_price')::NUMERIC,
+                (v_detail->>'profit_amount')::NUMERIC,
+                
+                -- Payment breakdown based on method
+                CASE WHEN p_payment_method = 'cash' THEN (v_detail->>'line_total')::NUMERIC ELSE 0 END,
+                CASE WHEN p_payment_method = 'card' THEN (v_detail->>'line_total')::NUMERIC ELSE 0 END,
+                CASE WHEN p_payment_method = 'transfer' THEN (v_detail->>'line_total')::NUMERIC ELSE 0 END,
+                0, -- wallet_payment
+                0, -- points_payment
+                COALESCE(p_received_amount, 0),
+                
+                0, -- discount_percent (line-level)
+                0, -- discount_amount (line-level)
+                0, -- total_discount (line-level)
+                
+                'completed',
+                NOW()
+            );
+        END;
+    END LOOP;
+    
+    -- =====================================================
+    -- 🔍 PHASE 8: UPDATE PRODUCT STOCK
+    -- =====================================================
+    
+    -- Update stock for each product
+    FOR i IN 1..array_length(v_stock_updates, 1)
+    LOOP
+        DECLARE
+            v_stock_update JSONB := v_stock_updates[i];
+        BEGIN
+            UPDATE products 
+            SET 
+                current_stock = (v_stock_update->>'new_stock')::NUMERIC,
+                updated_at = NOW()
+            WHERE product_id = (v_stock_update->>'product_id')::INTEGER;
+        END;
+    END LOOP;
+    
+    -- =====================================================
+    -- 🔍 PHASE 9: UPDATE CUSTOMER STATISTICS
+    -- =====================================================
+    
+    -- Update customer record
+    UPDATE customers 
+    SET 
+        current_debt = v_total_debt_after,
+        total_revenue = total_revenue + v_total_amount,
+        total_profit = total_profit + (
+            SELECT SUM((detail->>'profit_amount')::NUMERIC) 
+            FROM unnest(v_invoice_details) AS detail
+        ),
+        purchase_count = purchase_count + 1,
+        last_purchase_date = NOW(),
+        updated_at = NOW()
+    WHERE customer_id = p_customer_id;
+    
+    -- =====================================================
+    -- 🔍 PHASE 10: SUCCESS RESPONSE
+    -- =====================================================
+    
+    RETURN jsonb_build_object(
+        'success', true,
+        'invoice_id', v_invoice_id,
+        'invoice_code', v_invoice_code,
+        'customer_id', p_customer_id,
+        'customer_name', v_customer_record.customer_name,
+        'totals', jsonb_build_object(
+            'subtotal', v_subtotal,
+            'discount_amount', v_discount_amount,
+            'vat_amount', v_vat_amount,
+            'total_amount', v_total_amount,
+            'received_amount', p_received_amount,
+            'change_amount', v_change_amount
+        ),
+        'summary', jsonb_build_object(
+            'item_count', v_item_count,
+            'total_quantity', v_total_quantity,
+            'payment_method', p_payment_method,
+            'vat_rate', p_vat_rate,
+            'discount_type', p_discount_type,
+            'discount_value', p_discount_value
+        ),
+        'customer_info', jsonb_build_object(
+            'new_debt', v_total_debt_after,
+            'debt_limit', v_customer_record.debt_limit,
+            'debt_remaining', v_customer_record.debt_limit - v_total_debt_after
+        ),
+        'warnings', v_warnings,
+        'created_at', NOW(),
+        'message', format('Invoice %s created successfully for %s VND', v_invoice_code, v_total_amount)
+    );
+
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Return detailed error information
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Database error occurred',
+            'error_code', 'DATABASE_ERROR',
+            'error_message', SQLERRM,
+            'error_state', SQLSTATE,
+            'debug_info', jsonb_build_object(
+                'customer_id', p_customer_id,
+                'invoice_code', v_invoice_code,
+                'calculated_total', v_total_amount,
+                'items_processed', array_length(v_invoice_details, 1)
+            )
+        );
+END;
+$$;
+
+
+--
+-- TOC entry 4114 (class 0 OID 0)
+-- Dependencies: 423
+-- Name: FUNCTION create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric, p_discount_type character varying, p_discount_value numeric, p_payment_method character varying, p_received_amount numeric, p_branch_id integer, p_created_by character varying); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric, p_discount_type character varying, p_discount_value numeric, p_payment_method character varying, p_received_amount numeric, p_branch_id integer, p_created_by character varying) IS 'POS Checkout Function: Handles complete invoice creation with VAT/discount support, 
+stock management, customer debt validation, and comprehensive business logic validation.
+Returns detailed JSON response with success/error status and transaction details.';
+
+
+--
+-- TOC entry 495 (class 1255 OID 27238)
 -- Name: get_financial_summary(date, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -133,7 +621,7 @@ $$;
 
 
 --
--- TOC entry 490 (class 1255 OID 27237)
+-- TOC entry 493 (class 1255 OID 27237)
 -- Name: get_inventory_alerts(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -191,7 +679,7 @@ $$;
 
 
 --
--- TOC entry 485 (class 1255 OID 27239)
+-- TOC entry 488 (class 1255 OID 27239)
 -- Name: get_medicine_analytics(date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -238,7 +726,7 @@ $$;
 
 
 --
--- TOC entry 439 (class 1255 OID 27234)
+-- TOC entry 442 (class 1255 OID 27234)
 -- Name: get_pharmacy_dashboard_stats(date, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -322,7 +810,7 @@ $$;
 
 
 --
--- TOC entry 440 (class 1255 OID 31286)
+-- TOC entry 443 (class 1255 OID 31286)
 -- Name: get_setting_value(character varying, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -356,7 +844,7 @@ $$;
 
 
 --
--- TOC entry 419 (class 1255 OID 31288)
+-- TOC entry 421 (class 1255 OID 31288)
 -- Name: get_settings_by_category(character varying, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -390,7 +878,7 @@ $$;
 
 
 --
--- TOC entry 449 (class 1255 OID 27236)
+-- TOC entry 452 (class 1255 OID 27236)
 -- Name: search_customers_with_stats(text, integer, integer, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -452,7 +940,7 @@ $$;
 
 
 --
--- TOC entry 512 (class 1255 OID 27235)
+-- TOC entry 515 (class 1255 OID 27235)
 -- Name: search_products_with_stats(text, integer, integer, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -508,7 +996,7 @@ $$;
 
 
 --
--- TOC entry 528 (class 1255 OID 31287)
+-- TOC entry 531 (class 1255 OID 31287)
 -- Name: set_setting_value(character varying, text, integer, character varying, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -558,7 +1046,7 @@ $$;
 
 
 --
--- TOC entry 513 (class 1255 OID 31291)
+-- TOC entry 516 (class 1255 OID 31291)
 -- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -573,7 +1061,7 @@ $$;
 
 
 --
--- TOC entry 527 (class 1255 OID 31294)
+-- TOC entry 530 (class 1255 OID 31294)
 -- Name: validate_setting_value(character varying, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -628,7 +1116,7 @@ $_$;
 
 
 --
--- TOC entry 458 (class 1255 OID 22432)
+-- TOC entry 461 (class 1255 OID 22432)
 -- Name: verify_public_schema_reset(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -716,7 +1204,7 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- TOC entry 412 (class 1259 OID 31250)
+-- TOC entry 414 (class 1259 OID 31250)
 -- Name: branch_settings; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -732,7 +1220,7 @@ CREATE TABLE public.branch_settings (
 
 
 --
--- TOC entry 411 (class 1259 OID 31249)
+-- TOC entry 413 (class 1259 OID 31249)
 -- Name: branch_settings_branch_setting_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -746,8 +1234,8 @@ CREATE SEQUENCE public.branch_settings_branch_setting_id_seq
 
 
 --
--- TOC entry 4103 (class 0 OID 0)
--- Dependencies: 411
+-- TOC entry 4115 (class 0 OID 0)
+-- Dependencies: 413
 -- Name: branch_settings_branch_setting_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -755,7 +1243,7 @@ ALTER SEQUENCE public.branch_settings_branch_setting_id_seq OWNED BY public.bran
 
 
 --
--- TOC entry 380 (class 1259 OID 22945)
+-- TOC entry 382 (class 1259 OID 22945)
 -- Name: branches; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -772,7 +1260,7 @@ CREATE TABLE public.branches (
 
 
 --
--- TOC entry 379 (class 1259 OID 22944)
+-- TOC entry 381 (class 1259 OID 22944)
 -- Name: branches_branch_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -786,8 +1274,8 @@ CREATE SEQUENCE public.branches_branch_id_seq
 
 
 --
--- TOC entry 4104 (class 0 OID 0)
--- Dependencies: 379
+-- TOC entry 4116 (class 0 OID 0)
+-- Dependencies: 381
 -- Name: branches_branch_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -795,7 +1283,7 @@ ALTER SEQUENCE public.branches_branch_id_seq OWNED BY public.branches.branch_id;
 
 
 --
--- TOC entry 382 (class 1259 OID 22959)
+-- TOC entry 384 (class 1259 OID 22959)
 -- Name: customer_types; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -810,7 +1298,7 @@ CREATE TABLE public.customer_types (
 
 
 --
--- TOC entry 381 (class 1259 OID 22958)
+-- TOC entry 383 (class 1259 OID 22958)
 -- Name: customer_types_type_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -824,8 +1312,8 @@ CREATE SEQUENCE public.customer_types_type_id_seq
 
 
 --
--- TOC entry 4105 (class 0 OID 0)
--- Dependencies: 381
+-- TOC entry 4117 (class 0 OID 0)
+-- Dependencies: 383
 -- Name: customer_types_type_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -833,7 +1321,7 @@ ALTER SEQUENCE public.customer_types_type_id_seq OWNED BY public.customer_types.
 
 
 --
--- TOC entry 390 (class 1259 OID 23058)
+-- TOC entry 392 (class 1259 OID 23058)
 -- Name: customers; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -867,7 +1355,7 @@ CREATE TABLE public.customers (
 
 
 --
--- TOC entry 389 (class 1259 OID 23057)
+-- TOC entry 391 (class 1259 OID 23057)
 -- Name: customers_customer_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -881,8 +1369,8 @@ CREATE SEQUENCE public.customers_customer_id_seq
 
 
 --
--- TOC entry 4106 (class 0 OID 0)
--- Dependencies: 389
+-- TOC entry 4118 (class 0 OID 0)
+-- Dependencies: 391
 -- Name: customers_customer_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -890,7 +1378,7 @@ ALTER SEQUENCE public.customers_customer_id_seq OWNED BY public.customers.custom
 
 
 --
--- TOC entry 398 (class 1259 OID 25227)
+-- TOC entry 400 (class 1259 OID 25227)
 -- Name: invoices; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -908,13 +1396,57 @@ CREATE TABLE public.invoices (
     status character varying(50) DEFAULT 'completed'::character varying,
     created_at timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now(),
+    discount_type character varying(20) DEFAULT 'percentage'::character varying,
+    discount_value numeric(10,2) DEFAULT 0,
+    vat_rate numeric(5,2) DEFAULT 0,
+    vat_amount numeric(15,2) DEFAULT 0,
+    CONSTRAINT chk_invoices_discount_type_valid CHECK (((discount_type)::text = ANY ((ARRAY['percentage'::character varying, 'amount'::character varying])::text[]))),
+    CONSTRAINT chk_invoices_discount_value_positive CHECK ((discount_value >= (0)::numeric)),
     CONSTRAINT chk_invoices_invoice_code_not_empty CHECK ((length(TRIM(BOTH FROM invoice_code)) > 0)),
+    CONSTRAINT chk_invoices_vat_amount_positive CHECK ((vat_amount >= (0)::numeric)),
+    CONSTRAINT chk_invoices_vat_rate_range CHECK (((vat_rate >= (0)::numeric) AND (vat_rate <= (100)::numeric))),
     CONSTRAINT invoices_total_amount_check CHECK ((total_amount >= (0)::numeric))
 );
 
 
 --
--- TOC entry 407 (class 1259 OID 27240)
+-- TOC entry 4119 (class 0 OID 0)
+-- Dependencies: 400
+-- Name: COLUMN invoices.discount_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.invoices.discount_type IS 'Loại giảm giá: percentage (%) hoặc amount (số tiền)';
+
+
+--
+-- TOC entry 4120 (class 0 OID 0)
+-- Dependencies: 400
+-- Name: COLUMN invoices.discount_value; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.invoices.discount_value IS 'Giá trị giảm giá (% hoặc số tiền tùy theo type)';
+
+
+--
+-- TOC entry 4121 (class 0 OID 0)
+-- Dependencies: 400
+-- Name: COLUMN invoices.vat_rate; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.invoices.vat_rate IS 'Tỷ lệ VAT (%) - 0, 5, 8, 10';
+
+
+--
+-- TOC entry 4122 (class 0 OID 0)
+-- Dependencies: 400
+-- Name: COLUMN invoices.vat_amount; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.invoices.vat_amount IS 'Số tiền VAT tính được';
+
+
+--
+-- TOC entry 409 (class 1259 OID 27240)
 -- Name: dashboard_quick_stats; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -928,7 +1460,7 @@ CREATE VIEW public.dashboard_quick_stats AS
 
 
 --
--- TOC entry 404 (class 1259 OID 25326)
+-- TOC entry 406 (class 1259 OID 25326)
 -- Name: financial_transactions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -945,7 +1477,7 @@ CREATE TABLE public.financial_transactions (
 
 
 --
--- TOC entry 403 (class 1259 OID 25325)
+-- TOC entry 405 (class 1259 OID 25325)
 -- Name: financial_transactions_transaction_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -959,8 +1491,8 @@ CREATE SEQUENCE public.financial_transactions_transaction_id_seq
 
 
 --
--- TOC entry 4107 (class 0 OID 0)
--- Dependencies: 403
+-- TOC entry 4123 (class 0 OID 0)
+-- Dependencies: 405
 -- Name: financial_transactions_transaction_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -968,7 +1500,7 @@ ALTER SEQUENCE public.financial_transactions_transaction_id_seq OWNED BY public.
 
 
 --
--- TOC entry 400 (class 1259 OID 25257)
+-- TOC entry 402 (class 1259 OID 25257)
 -- Name: invoice_details; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1046,7 +1578,7 @@ CREATE TABLE public.invoice_details (
 
 
 --
--- TOC entry 399 (class 1259 OID 25256)
+-- TOC entry 401 (class 1259 OID 25256)
 -- Name: invoice_details_detail_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -1060,8 +1592,8 @@ CREATE SEQUENCE public.invoice_details_detail_id_seq
 
 
 --
--- TOC entry 4108 (class 0 OID 0)
--- Dependencies: 399
+-- TOC entry 4124 (class 0 OID 0)
+-- Dependencies: 401
 -- Name: invoice_details_detail_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -1069,7 +1601,7 @@ ALTER SEQUENCE public.invoice_details_detail_id_seq OWNED BY public.invoice_deta
 
 
 --
--- TOC entry 394 (class 1259 OID 23111)
+-- TOC entry 396 (class 1259 OID 23111)
 -- Name: products; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1111,7 +1643,7 @@ CREATE TABLE public.products (
 
 
 --
--- TOC entry 405 (class 1259 OID 25627)
+-- TOC entry 407 (class 1259 OID 25627)
 -- Name: invoice_details_normalized; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -1139,7 +1671,7 @@ CREATE VIEW public.invoice_details_normalized AS
 
 
 --
--- TOC entry 397 (class 1259 OID 25226)
+-- TOC entry 399 (class 1259 OID 25226)
 -- Name: invoices_invoice_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -1153,8 +1685,8 @@ CREATE SEQUENCE public.invoices_invoice_id_seq
 
 
 --
--- TOC entry 4109 (class 0 OID 0)
--- Dependencies: 397
+-- TOC entry 4125 (class 0 OID 0)
+-- Dependencies: 399
 -- Name: invoices_invoice_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -1162,7 +1694,7 @@ ALTER SEQUENCE public.invoices_invoice_id_seq OWNED BY public.invoices.invoice_i
 
 
 --
--- TOC entry 406 (class 1259 OID 25632)
+-- TOC entry 408 (class 1259 OID 25632)
 -- Name: invoices_normalized; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -1187,7 +1719,7 @@ CREATE VIEW public.invoices_normalized AS
 
 
 --
--- TOC entry 386 (class 1259 OID 22985)
+-- TOC entry 388 (class 1259 OID 22985)
 -- Name: product_categories; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1204,7 +1736,7 @@ CREATE TABLE public.product_categories (
 
 
 --
--- TOC entry 408 (class 1259 OID 27244)
+-- TOC entry 410 (class 1259 OID 27244)
 -- Name: low_stock_products; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -1228,7 +1760,7 @@ CREATE VIEW public.low_stock_products AS
 
 
 --
--- TOC entry 385 (class 1259 OID 22984)
+-- TOC entry 387 (class 1259 OID 22984)
 -- Name: product_categories_category_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -1242,8 +1774,8 @@ CREATE SEQUENCE public.product_categories_category_id_seq
 
 
 --
--- TOC entry 4110 (class 0 OID 0)
--- Dependencies: 385
+-- TOC entry 4126 (class 0 OID 0)
+-- Dependencies: 387
 -- Name: product_categories_category_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -1251,7 +1783,7 @@ ALTER SEQUENCE public.product_categories_category_id_seq OWNED BY public.product
 
 
 --
--- TOC entry 396 (class 1259 OID 23157)
+-- TOC entry 398 (class 1259 OID 23157)
 -- Name: product_units; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1267,7 +1799,7 @@ CREATE TABLE public.product_units (
 
 
 --
--- TOC entry 395 (class 1259 OID 23156)
+-- TOC entry 397 (class 1259 OID 23156)
 -- Name: product_units_product_unit_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -1281,8 +1813,8 @@ CREATE SEQUENCE public.product_units_product_unit_id_seq
 
 
 --
--- TOC entry 4111 (class 0 OID 0)
--- Dependencies: 395
+-- TOC entry 4127 (class 0 OID 0)
+-- Dependencies: 397
 -- Name: product_units_product_unit_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -1290,7 +1822,7 @@ ALTER SEQUENCE public.product_units_product_unit_id_seq OWNED BY public.product_
 
 
 --
--- TOC entry 393 (class 1259 OID 23110)
+-- TOC entry 395 (class 1259 OID 23110)
 -- Name: products_product_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -1304,8 +1836,8 @@ CREATE SEQUENCE public.products_product_id_seq
 
 
 --
--- TOC entry 4112 (class 0 OID 0)
--- Dependencies: 393
+-- TOC entry 4128 (class 0 OID 0)
+-- Dependencies: 395
 -- Name: products_product_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -1313,7 +1845,7 @@ ALTER SEQUENCE public.products_product_id_seq OWNED BY public.products.product_i
 
 
 --
--- TOC entry 402 (class 1259 OID 25309)
+-- TOC entry 404 (class 1259 OID 25309)
 -- Name: purchase_orders; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1331,7 +1863,7 @@ CREATE TABLE public.purchase_orders (
 
 
 --
--- TOC entry 401 (class 1259 OID 25308)
+-- TOC entry 403 (class 1259 OID 25308)
 -- Name: purchase_orders_order_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -1345,8 +1877,8 @@ CREATE SEQUENCE public.purchase_orders_order_id_seq
 
 
 --
--- TOC entry 4113 (class 0 OID 0)
--- Dependencies: 401
+-- TOC entry 4129 (class 0 OID 0)
+-- Dependencies: 403
 -- Name: purchase_orders_order_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -1354,7 +1886,7 @@ ALTER SEQUENCE public.purchase_orders_order_id_seq OWNED BY public.purchase_orde
 
 
 --
--- TOC entry 388 (class 1259 OID 23003)
+-- TOC entry 390 (class 1259 OID 23003)
 -- Name: sales_channels; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1369,7 +1901,7 @@ CREATE TABLE public.sales_channels (
 
 
 --
--- TOC entry 387 (class 1259 OID 23002)
+-- TOC entry 389 (class 1259 OID 23002)
 -- Name: sales_channels_channel_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -1383,8 +1915,8 @@ CREATE SEQUENCE public.sales_channels_channel_id_seq
 
 
 --
--- TOC entry 4114 (class 0 OID 0)
--- Dependencies: 387
+-- TOC entry 4130 (class 0 OID 0)
+-- Dependencies: 389
 -- Name: sales_channels_channel_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -1392,7 +1924,7 @@ ALTER SEQUENCE public.sales_channels_channel_id_seq OWNED BY public.sales_channe
 
 
 --
--- TOC entry 414 (class 1259 OID 31270)
+-- TOC entry 416 (class 1259 OID 31270)
 -- Name: settings_change_log; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1411,7 +1943,7 @@ CREATE TABLE public.settings_change_log (
 
 
 --
--- TOC entry 413 (class 1259 OID 31269)
+-- TOC entry 415 (class 1259 OID 31269)
 -- Name: settings_change_log_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -1424,8 +1956,8 @@ CREATE SEQUENCE public.settings_change_log_log_id_seq
 
 
 --
--- TOC entry 4115 (class 0 OID 0)
--- Dependencies: 413
+-- TOC entry 4131 (class 0 OID 0)
+-- Dependencies: 415
 -- Name: settings_change_log_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -1433,7 +1965,7 @@ ALTER SEQUENCE public.settings_change_log_log_id_seq OWNED BY public.settings_ch
 
 
 --
--- TOC entry 392 (class 1259 OID 23094)
+-- TOC entry 394 (class 1259 OID 23094)
 -- Name: suppliers; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1455,7 +1987,7 @@ CREATE TABLE public.suppliers (
 
 
 --
--- TOC entry 391 (class 1259 OID 23093)
+-- TOC entry 393 (class 1259 OID 23093)
 -- Name: suppliers_supplier_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -1469,8 +2001,8 @@ CREATE SEQUENCE public.suppliers_supplier_id_seq
 
 
 --
--- TOC entry 4116 (class 0 OID 0)
--- Dependencies: 391
+-- TOC entry 4132 (class 0 OID 0)
+-- Dependencies: 393
 -- Name: suppliers_supplier_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -1478,7 +2010,7 @@ ALTER SEQUENCE public.suppliers_supplier_id_seq OWNED BY public.suppliers.suppli
 
 
 --
--- TOC entry 410 (class 1259 OID 31229)
+-- TOC entry 412 (class 1259 OID 31229)
 -- Name: system_settings; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1502,7 +2034,7 @@ CREATE TABLE public.system_settings (
 
 
 --
--- TOC entry 415 (class 1259 OID 31295)
+-- TOC entry 417 (class 1259 OID 31295)
 -- Name: system_info; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -1529,7 +2061,7 @@ UNION ALL
 
 
 --
--- TOC entry 409 (class 1259 OID 31228)
+-- TOC entry 411 (class 1259 OID 31228)
 -- Name: system_settings_setting_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -1543,8 +2075,8 @@ CREATE SEQUENCE public.system_settings_setting_id_seq
 
 
 --
--- TOC entry 4117 (class 0 OID 0)
--- Dependencies: 409
+-- TOC entry 4133 (class 0 OID 0)
+-- Dependencies: 411
 -- Name: system_settings_setting_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -1552,7 +2084,7 @@ ALTER SEQUENCE public.system_settings_setting_id_seq OWNED BY public.system_sett
 
 
 --
--- TOC entry 384 (class 1259 OID 22972)
+-- TOC entry 386 (class 1259 OID 22972)
 -- Name: units; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1569,7 +2101,7 @@ CREATE TABLE public.units (
 
 
 --
--- TOC entry 383 (class 1259 OID 22971)
+-- TOC entry 385 (class 1259 OID 22971)
 -- Name: units_unit_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -1583,8 +2115,8 @@ CREATE SEQUENCE public.units_unit_id_seq
 
 
 --
--- TOC entry 4118 (class 0 OID 0)
--- Dependencies: 383
+-- TOC entry 4134 (class 0 OID 0)
+-- Dependencies: 385
 -- Name: units_unit_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -1592,7 +2124,7 @@ ALTER SEQUENCE public.units_unit_id_seq OWNED BY public.units.unit_id;
 
 
 --
--- TOC entry 3784 (class 2604 OID 31253)
+-- TOC entry 3791 (class 2604 OID 31253)
 -- Name: branch_settings branch_setting_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1600,7 +2132,7 @@ ALTER TABLE ONLY public.branch_settings ALTER COLUMN branch_setting_id SET DEFAU
 
 
 --
--- TOC entry 3684 (class 2604 OID 22948)
+-- TOC entry 3687 (class 2604 OID 22948)
 -- Name: branches branch_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1608,7 +2140,7 @@ ALTER TABLE ONLY public.branches ALTER COLUMN branch_id SET DEFAULT nextval('pub
 
 
 --
--- TOC entry 3688 (class 2604 OID 22962)
+-- TOC entry 3691 (class 2604 OID 22962)
 -- Name: customer_types type_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1616,7 +2148,7 @@ ALTER TABLE ONLY public.customer_types ALTER COLUMN type_id SET DEFAULT nextval(
 
 
 --
--- TOC entry 3702 (class 2604 OID 23061)
+-- TOC entry 3705 (class 2604 OID 23061)
 -- Name: customers customer_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1624,7 +2156,7 @@ ALTER TABLE ONLY public.customers ALTER COLUMN customer_id SET DEFAULT nextval('
 
 
 --
--- TOC entry 3773 (class 2604 OID 25329)
+-- TOC entry 3780 (class 2604 OID 25329)
 -- Name: financial_transactions transaction_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1632,7 +2164,7 @@ ALTER TABLE ONLY public.financial_transactions ALTER COLUMN transaction_id SET D
 
 
 --
--- TOC entry 3749 (class 2604 OID 25260)
+-- TOC entry 3756 (class 2604 OID 25260)
 -- Name: invoice_details detail_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1640,7 +2172,7 @@ ALTER TABLE ONLY public.invoice_details ALTER COLUMN detail_id SET DEFAULT nextv
 
 
 --
--- TOC entry 3743 (class 2604 OID 25230)
+-- TOC entry 3746 (class 2604 OID 25230)
 -- Name: invoices invoice_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1648,7 +2180,7 @@ ALTER TABLE ONLY public.invoices ALTER COLUMN invoice_id SET DEFAULT nextval('pu
 
 
 --
--- TOC entry 3696 (class 2604 OID 22988)
+-- TOC entry 3699 (class 2604 OID 22988)
 -- Name: product_categories category_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1656,7 +2188,7 @@ ALTER TABLE ONLY public.product_categories ALTER COLUMN category_id SET DEFAULT 
 
 
 --
--- TOC entry 3739 (class 2604 OID 23160)
+-- TOC entry 3742 (class 2604 OID 23160)
 -- Name: product_units product_unit_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1664,7 +2196,7 @@ ALTER TABLE ONLY public.product_units ALTER COLUMN product_unit_id SET DEFAULT n
 
 
 --
--- TOC entry 3719 (class 2604 OID 23114)
+-- TOC entry 3722 (class 2604 OID 23114)
 -- Name: products product_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1672,7 +2204,7 @@ ALTER TABLE ONLY public.products ALTER COLUMN product_id SET DEFAULT nextval('pu
 
 
 --
--- TOC entry 3768 (class 2604 OID 25312)
+-- TOC entry 3775 (class 2604 OID 25312)
 -- Name: purchase_orders order_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1680,7 +2212,7 @@ ALTER TABLE ONLY public.purchase_orders ALTER COLUMN order_id SET DEFAULT nextva
 
 
 --
--- TOC entry 3699 (class 2604 OID 23006)
+-- TOC entry 3702 (class 2604 OID 23006)
 -- Name: sales_channels channel_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1688,7 +2220,7 @@ ALTER TABLE ONLY public.sales_channels ALTER COLUMN channel_id SET DEFAULT nextv
 
 
 --
--- TOC entry 3787 (class 2604 OID 31273)
+-- TOC entry 3794 (class 2604 OID 31273)
 -- Name: settings_change_log log_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1696,7 +2228,7 @@ ALTER TABLE ONLY public.settings_change_log ALTER COLUMN log_id SET DEFAULT next
 
 
 --
--- TOC entry 3714 (class 2604 OID 23097)
+-- TOC entry 3717 (class 2604 OID 23097)
 -- Name: suppliers supplier_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1704,7 +2236,7 @@ ALTER TABLE ONLY public.suppliers ALTER COLUMN supplier_id SET DEFAULT nextval('
 
 
 --
--- TOC entry 3775 (class 2604 OID 31232)
+-- TOC entry 3782 (class 2604 OID 31232)
 -- Name: system_settings setting_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1712,7 +2244,7 @@ ALTER TABLE ONLY public.system_settings ALTER COLUMN setting_id SET DEFAULT next
 
 
 --
--- TOC entry 3691 (class 2604 OID 22975)
+-- TOC entry 3694 (class 2604 OID 22975)
 -- Name: units unit_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1720,7 +2252,7 @@ ALTER TABLE ONLY public.units ALTER COLUMN unit_id SET DEFAULT nextval('public.u
 
 
 --
--- TOC entry 3908 (class 2606 OID 31261)
+-- TOC entry 3919 (class 2606 OID 31261)
 -- Name: branch_settings branch_settings_branch_id_setting_key_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1729,7 +2261,7 @@ ALTER TABLE ONLY public.branch_settings
 
 
 --
--- TOC entry 3910 (class 2606 OID 31259)
+-- TOC entry 3921 (class 2606 OID 31259)
 -- Name: branch_settings branch_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1738,7 +2270,7 @@ ALTER TABLE ONLY public.branch_settings
 
 
 --
--- TOC entry 3805 (class 2606 OID 22957)
+-- TOC entry 3816 (class 2606 OID 22957)
 -- Name: branches branches_branch_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1747,7 +2279,7 @@ ALTER TABLE ONLY public.branches
 
 
 --
--- TOC entry 3807 (class 2606 OID 22955)
+-- TOC entry 3818 (class 2606 OID 22955)
 -- Name: branches branches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1756,7 +2288,7 @@ ALTER TABLE ONLY public.branches
 
 
 --
--- TOC entry 3809 (class 2606 OID 22968)
+-- TOC entry 3820 (class 2606 OID 22968)
 -- Name: customer_types customer_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1765,7 +2297,7 @@ ALTER TABLE ONLY public.customer_types
 
 
 --
--- TOC entry 3811 (class 2606 OID 22970)
+-- TOC entry 3822 (class 2606 OID 22970)
 -- Name: customer_types customer_types_type_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1774,7 +2306,7 @@ ALTER TABLE ONLY public.customer_types
 
 
 --
--- TOC entry 3825 (class 2606 OID 23078)
+-- TOC entry 3836 (class 2606 OID 23078)
 -- Name: customers customers_customer_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1783,7 +2315,7 @@ ALTER TABLE ONLY public.customers
 
 
 --
--- TOC entry 3827 (class 2606 OID 23076)
+-- TOC entry 3838 (class 2606 OID 23076)
 -- Name: customers customers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1792,7 +2324,7 @@ ALTER TABLE ONLY public.customers
 
 
 --
--- TOC entry 3894 (class 2606 OID 25334)
+-- TOC entry 3905 (class 2606 OID 25334)
 -- Name: financial_transactions financial_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1801,7 +2333,7 @@ ALTER TABLE ONLY public.financial_transactions
 
 
 --
--- TOC entry 3896 (class 2606 OID 25336)
+-- TOC entry 3907 (class 2606 OID 25336)
 -- Name: financial_transactions financial_transactions_transaction_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1810,7 +2342,7 @@ ALTER TABLE ONLY public.financial_transactions
 
 
 --
--- TOC entry 3886 (class 2606 OID 25287)
+-- TOC entry 3897 (class 2606 OID 25287)
 -- Name: invoice_details invoice_details_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1819,7 +2351,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3868 (class 2606 OID 25242)
+-- TOC entry 3879 (class 2606 OID 25242)
 -- Name: invoices invoices_invoice_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1828,7 +2360,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- TOC entry 3870 (class 2606 OID 25240)
+-- TOC entry 3881 (class 2606 OID 25240)
 -- Name: invoices invoices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1837,7 +2369,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- TOC entry 3817 (class 2606 OID 22996)
+-- TOC entry 3828 (class 2606 OID 22996)
 -- Name: product_categories product_categories_category_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1846,7 +2378,7 @@ ALTER TABLE ONLY public.product_categories
 
 
 --
--- TOC entry 3819 (class 2606 OID 22994)
+-- TOC entry 3830 (class 2606 OID 22994)
 -- Name: product_categories product_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1855,7 +2387,7 @@ ALTER TABLE ONLY public.product_categories
 
 
 --
--- TOC entry 3856 (class 2606 OID 23165)
+-- TOC entry 3867 (class 2606 OID 23165)
 -- Name: product_units product_units_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1864,7 +2396,7 @@ ALTER TABLE ONLY public.product_units
 
 
 --
--- TOC entry 3858 (class 2606 OID 23167)
+-- TOC entry 3869 (class 2606 OID 23167)
 -- Name: product_units product_units_product_id_unit_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1873,7 +2405,7 @@ ALTER TABLE ONLY public.product_units
 
 
 --
--- TOC entry 3850 (class 2606 OID 23137)
+-- TOC entry 3861 (class 2606 OID 23137)
 -- Name: products products_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1882,7 +2414,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- TOC entry 3852 (class 2606 OID 23139)
+-- TOC entry 3863 (class 2606 OID 23139)
 -- Name: products products_product_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1891,7 +2423,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- TOC entry 3890 (class 2606 OID 25322)
+-- TOC entry 3901 (class 2606 OID 25322)
 -- Name: purchase_orders purchase_orders_order_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1900,7 +2432,7 @@ ALTER TABLE ONLY public.purchase_orders
 
 
 --
--- TOC entry 3892 (class 2606 OID 25320)
+-- TOC entry 3903 (class 2606 OID 25320)
 -- Name: purchase_orders purchase_orders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1909,7 +2441,7 @@ ALTER TABLE ONLY public.purchase_orders
 
 
 --
--- TOC entry 3821 (class 2606 OID 23014)
+-- TOC entry 3832 (class 2606 OID 23014)
 -- Name: sales_channels sales_channels_channel_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1918,7 +2450,7 @@ ALTER TABLE ONLY public.sales_channels
 
 
 --
--- TOC entry 3823 (class 2606 OID 23012)
+-- TOC entry 3834 (class 2606 OID 23012)
 -- Name: sales_channels sales_channels_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1927,7 +2459,7 @@ ALTER TABLE ONLY public.sales_channels
 
 
 --
--- TOC entry 3916 (class 2606 OID 31278)
+-- TOC entry 3927 (class 2606 OID 31278)
 -- Name: settings_change_log settings_change_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1936,7 +2468,7 @@ ALTER TABLE ONLY public.settings_change_log
 
 
 --
--- TOC entry 3838 (class 2606 OID 23105)
+-- TOC entry 3849 (class 2606 OID 23105)
 -- Name: suppliers suppliers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1945,7 +2477,7 @@ ALTER TABLE ONLY public.suppliers
 
 
 --
--- TOC entry 3840 (class 2606 OID 23107)
+-- TOC entry 3851 (class 2606 OID 23107)
 -- Name: suppliers suppliers_supplier_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1954,7 +2486,7 @@ ALTER TABLE ONLY public.suppliers
 
 
 --
--- TOC entry 3904 (class 2606 OID 31244)
+-- TOC entry 3915 (class 2606 OID 31244)
 -- Name: system_settings system_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1963,7 +2495,7 @@ ALTER TABLE ONLY public.system_settings
 
 
 --
--- TOC entry 3906 (class 2606 OID 31246)
+-- TOC entry 3917 (class 2606 OID 31246)
 -- Name: system_settings system_settings_setting_key_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1972,7 +2504,7 @@ ALTER TABLE ONLY public.system_settings
 
 
 --
--- TOC entry 3813 (class 2606 OID 22981)
+-- TOC entry 3824 (class 2606 OID 22981)
 -- Name: units units_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1981,7 +2513,7 @@ ALTER TABLE ONLY public.units
 
 
 --
--- TOC entry 3815 (class 2606 OID 22983)
+-- TOC entry 3826 (class 2606 OID 22983)
 -- Name: units units_unit_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1990,7 +2522,7 @@ ALTER TABLE ONLY public.units
 
 
 --
--- TOC entry 3911 (class 1259 OID 31267)
+-- TOC entry 3922 (class 1259 OID 31267)
 -- Name: idx_branch_settings_branch; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1998,7 +2530,7 @@ CREATE INDEX idx_branch_settings_branch ON public.branch_settings USING btree (b
 
 
 --
--- TOC entry 3912 (class 1259 OID 31268)
+-- TOC entry 3923 (class 1259 OID 31268)
 -- Name: idx_branch_settings_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2006,7 +2538,7 @@ CREATE INDEX idx_branch_settings_key ON public.branch_settings USING btree (sett
 
 
 --
--- TOC entry 3828 (class 1259 OID 23092)
+-- TOC entry 3839 (class 1259 OID 23092)
 -- Name: idx_customers_branch; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2014,7 +2546,7 @@ CREATE INDEX idx_customers_branch ON public.customers USING btree (branch_create
 
 
 --
--- TOC entry 3829 (class 1259 OID 26940)
+-- TOC entry 3840 (class 1259 OID 26940)
 -- Name: idx_customers_branch_created_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2022,7 +2554,7 @@ CREATE INDEX idx_customers_branch_created_id ON public.customers USING btree (br
 
 
 --
--- TOC entry 3830 (class 1259 OID 23089)
+-- TOC entry 3841 (class 1259 OID 23089)
 -- Name: idx_customers_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2030,7 +2562,7 @@ CREATE INDEX idx_customers_code ON public.customers USING btree (customer_code);
 
 
 --
--- TOC entry 3831 (class 1259 OID 26938)
+-- TOC entry 3842 (class 1259 OID 26938)
 -- Name: idx_customers_customer_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2038,7 +2570,7 @@ CREATE INDEX idx_customers_customer_code ON public.customers USING btree (custom
 
 
 --
--- TOC entry 3832 (class 1259 OID 26939)
+-- TOC entry 3843 (class 1259 OID 26939)
 -- Name: idx_customers_customer_type_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2046,7 +2578,7 @@ CREATE INDEX idx_customers_customer_type_id ON public.customers USING btree (cus
 
 
 --
--- TOC entry 3833 (class 1259 OID 23090)
+-- TOC entry 3844 (class 1259 OID 23090)
 -- Name: idx_customers_phone; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2054,7 +2586,7 @@ CREATE INDEX idx_customers_phone ON public.customers USING btree (phone);
 
 
 --
--- TOC entry 3834 (class 1259 OID 23091)
+-- TOC entry 3845 (class 1259 OID 23091)
 -- Name: idx_customers_type; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2062,7 +2594,7 @@ CREATE INDEX idx_customers_type ON public.customers USING btree (customer_type_i
 
 
 --
--- TOC entry 3897 (class 1259 OID 25337)
+-- TOC entry 3908 (class 1259 OID 25337)
 -- Name: idx_financial_transactions_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2070,7 +2602,7 @@ CREATE INDEX idx_financial_transactions_date ON public.financial_transactions US
 
 
 --
--- TOC entry 3898 (class 1259 OID 25338)
+-- TOC entry 3909 (class 1259 OID 25338)
 -- Name: idx_financial_transactions_type; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2078,7 +2610,7 @@ CREATE INDEX idx_financial_transactions_type ON public.financial_transactions US
 
 
 --
--- TOC entry 3871 (class 1259 OID 25305)
+-- TOC entry 3882 (class 1259 OID 25305)
 -- Name: idx_invoice_details_customer; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2086,7 +2618,7 @@ CREATE INDEX idx_invoice_details_customer ON public.invoice_details USING btree 
 
 
 --
--- TOC entry 3872 (class 1259 OID 26931)
+-- TOC entry 3883 (class 1259 OID 26931)
 -- Name: idx_invoice_details_customer_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2094,7 +2626,7 @@ CREATE INDEX idx_invoice_details_customer_code ON public.invoice_details USING b
 
 
 --
--- TOC entry 3873 (class 1259 OID 25624)
+-- TOC entry 3884 (class 1259 OID 25624)
 -- Name: idx_invoice_details_customer_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2102,7 +2634,7 @@ CREATE INDEX idx_invoice_details_customer_id ON public.invoice_details USING btr
 
 
 --
--- TOC entry 3874 (class 1259 OID 26934)
+-- TOC entry 3885 (class 1259 OID 26934)
 -- Name: idx_invoice_details_customer_product; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2110,7 +2642,7 @@ CREATE INDEX idx_invoice_details_customer_product ON public.invoice_details USIN
 
 
 --
--- TOC entry 3875 (class 1259 OID 25306)
+-- TOC entry 3886 (class 1259 OID 25306)
 -- Name: idx_invoice_details_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2118,7 +2650,7 @@ CREATE INDEX idx_invoice_details_date ON public.invoice_details USING btree (inv
 
 
 --
--- TOC entry 3876 (class 1259 OID 26932)
+-- TOC entry 3887 (class 1259 OID 26932)
 -- Name: idx_invoice_details_date_customer; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2126,7 +2658,7 @@ CREATE INDEX idx_invoice_details_date_customer ON public.invoice_details USING b
 
 
 --
--- TOC entry 3877 (class 1259 OID 26933)
+-- TOC entry 3888 (class 1259 OID 26933)
 -- Name: idx_invoice_details_date_product; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2134,7 +2666,7 @@ CREATE INDEX idx_invoice_details_date_product ON public.invoice_details USING bt
 
 
 --
--- TOC entry 3878 (class 1259 OID 25303)
+-- TOC entry 3889 (class 1259 OID 25303)
 -- Name: idx_invoice_details_invoice; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2142,7 +2674,7 @@ CREATE INDEX idx_invoice_details_invoice ON public.invoice_details USING btree (
 
 
 --
--- TOC entry 3879 (class 1259 OID 25307)
+-- TOC entry 3890 (class 1259 OID 25307)
 -- Name: idx_invoice_details_invoice_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2150,7 +2682,7 @@ CREATE INDEX idx_invoice_details_invoice_code ON public.invoice_details USING bt
 
 
 --
--- TOC entry 3880 (class 1259 OID 26929)
+-- TOC entry 3891 (class 1259 OID 26929)
 -- Name: idx_invoice_details_invoice_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2158,7 +2690,7 @@ CREATE INDEX idx_invoice_details_invoice_date ON public.invoice_details USING bt
 
 
 --
--- TOC entry 3881 (class 1259 OID 26928)
+-- TOC entry 3892 (class 1259 OID 26928)
 -- Name: idx_invoice_details_invoice_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2166,7 +2698,7 @@ CREATE INDEX idx_invoice_details_invoice_id ON public.invoice_details USING btre
 
 
 --
--- TOC entry 3882 (class 1259 OID 25304)
+-- TOC entry 3893 (class 1259 OID 25304)
 -- Name: idx_invoice_details_product; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2174,7 +2706,7 @@ CREATE INDEX idx_invoice_details_product ON public.invoice_details USING btree (
 
 
 --
--- TOC entry 3883 (class 1259 OID 26930)
+-- TOC entry 3894 (class 1259 OID 26930)
 -- Name: idx_invoice_details_product_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2182,7 +2714,7 @@ CREATE INDEX idx_invoice_details_product_code ON public.invoice_details USING bt
 
 
 --
--- TOC entry 3884 (class 1259 OID 25625)
+-- TOC entry 3895 (class 1259 OID 25625)
 -- Name: idx_invoice_details_product_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2190,7 +2722,7 @@ CREATE INDEX idx_invoice_details_product_id ON public.invoice_details USING btre
 
 
 --
--- TOC entry 3859 (class 1259 OID 25255)
+-- TOC entry 3870 (class 1259 OID 25255)
 -- Name: idx_invoices_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2198,7 +2730,7 @@ CREATE INDEX idx_invoices_code ON public.invoices USING btree (invoice_code);
 
 
 --
--- TOC entry 3860 (class 1259 OID 25254)
+-- TOC entry 3871 (class 1259 OID 25254)
 -- Name: idx_invoices_customer; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2206,7 +2738,7 @@ CREATE INDEX idx_invoices_customer ON public.invoices USING btree (customer_id);
 
 
 --
--- TOC entry 3861 (class 1259 OID 25623)
+-- TOC entry 3872 (class 1259 OID 25623)
 -- Name: idx_invoices_customer_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2214,7 +2746,7 @@ CREATE INDEX idx_invoices_customer_id ON public.invoices USING btree (customer_i
 
 
 --
--- TOC entry 3862 (class 1259 OID 25253)
+-- TOC entry 3873 (class 1259 OID 25253)
 -- Name: idx_invoices_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2222,7 +2754,7 @@ CREATE INDEX idx_invoices_date ON public.invoices USING btree (invoice_date);
 
 
 --
--- TOC entry 3863 (class 1259 OID 25626)
+-- TOC entry 3874 (class 1259 OID 25626)
 -- Name: idx_invoices_date_customer; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2230,7 +2762,7 @@ CREATE INDEX idx_invoices_date_customer ON public.invoices USING btree (invoice_
 
 
 --
--- TOC entry 3864 (class 1259 OID 26935)
+-- TOC entry 3875 (class 1259 OID 26935)
 -- Name: idx_invoices_invoice_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2238,7 +2770,7 @@ CREATE INDEX idx_invoices_invoice_code ON public.invoices USING btree (invoice_c
 
 
 --
--- TOC entry 3865 (class 1259 OID 26936)
+-- TOC entry 3876 (class 1259 OID 26936)
 -- Name: idx_invoices_invoice_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2246,7 +2778,7 @@ CREATE INDEX idx_invoices_invoice_date ON public.invoices USING btree (invoice_d
 
 
 --
--- TOC entry 3866 (class 1259 OID 26937)
+-- TOC entry 3877 (class 1259 OID 26937)
 -- Name: idx_invoices_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2254,7 +2786,7 @@ CREATE INDEX idx_invoices_status ON public.invoices USING btree (status);
 
 
 --
--- TOC entry 3853 (class 1259 OID 23178)
+-- TOC entry 3864 (class 1259 OID 23178)
 -- Name: idx_product_units_product; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2262,7 +2794,7 @@ CREATE INDEX idx_product_units_product ON public.product_units USING btree (prod
 
 
 --
--- TOC entry 3854 (class 1259 OID 23179)
+-- TOC entry 3865 (class 1259 OID 23179)
 -- Name: idx_product_units_unit; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2270,7 +2802,7 @@ CREATE INDEX idx_product_units_unit ON public.product_units USING btree (unit_id
 
 
 --
--- TOC entry 3841 (class 1259 OID 23154)
+-- TOC entry 3852 (class 1259 OID 23154)
 -- Name: idx_products_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2278,7 +2810,7 @@ CREATE INDEX idx_products_active ON public.products USING btree (is_active);
 
 
 --
--- TOC entry 3842 (class 1259 OID 23155)
+-- TOC entry 3853 (class 1259 OID 23155)
 -- Name: idx_products_allow_sale; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2286,7 +2818,7 @@ CREATE INDEX idx_products_allow_sale ON public.products USING btree (allow_sale)
 
 
 --
--- TOC entry 3843 (class 1259 OID 23151)
+-- TOC entry 3854 (class 1259 OID 23151)
 -- Name: idx_products_barcode; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2294,7 +2826,7 @@ CREATE INDEX idx_products_barcode ON public.products USING btree (barcode);
 
 
 --
--- TOC entry 3844 (class 1259 OID 23153)
+-- TOC entry 3855 (class 1259 OID 23153)
 -- Name: idx_products_category; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2302,7 +2834,7 @@ CREATE INDEX idx_products_category ON public.products USING btree (category_id);
 
 
 --
--- TOC entry 3845 (class 1259 OID 26942)
+-- TOC entry 3856 (class 1259 OID 26942)
 -- Name: idx_products_category_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2310,7 +2842,7 @@ CREATE INDEX idx_products_category_id ON public.products USING btree (category_i
 
 
 --
--- TOC entry 3846 (class 1259 OID 23150)
+-- TOC entry 3857 (class 1259 OID 23150)
 -- Name: idx_products_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2318,7 +2850,7 @@ CREATE INDEX idx_products_code ON public.products USING btree (product_code);
 
 
 --
--- TOC entry 3847 (class 1259 OID 23152)
+-- TOC entry 3858 (class 1259 OID 23152)
 -- Name: idx_products_name; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2326,7 +2858,7 @@ CREATE INDEX idx_products_name ON public.products USING btree (product_name);
 
 
 --
--- TOC entry 3848 (class 1259 OID 26941)
+-- TOC entry 3859 (class 1259 OID 26941)
 -- Name: idx_products_product_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2334,7 +2866,7 @@ CREATE INDEX idx_products_product_code ON public.products USING btree (product_c
 
 
 --
--- TOC entry 3887 (class 1259 OID 25324)
+-- TOC entry 3898 (class 1259 OID 25324)
 -- Name: idx_purchase_orders_customer; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2342,7 +2874,7 @@ CREATE INDEX idx_purchase_orders_customer ON public.purchase_orders USING btree 
 
 
 --
--- TOC entry 3888 (class 1259 OID 25323)
+-- TOC entry 3899 (class 1259 OID 25323)
 -- Name: idx_purchase_orders_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2350,7 +2882,7 @@ CREATE INDEX idx_purchase_orders_date ON public.purchase_orders USING btree (ord
 
 
 --
--- TOC entry 3913 (class 1259 OID 31285)
+-- TOC entry 3924 (class 1259 OID 31285)
 -- Name: idx_settings_log_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2358,7 +2890,7 @@ CREATE INDEX idx_settings_log_date ON public.settings_change_log USING btree (cr
 
 
 --
--- TOC entry 3914 (class 1259 OID 31284)
+-- TOC entry 3925 (class 1259 OID 31284)
 -- Name: idx_settings_log_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2366,7 +2898,7 @@ CREATE INDEX idx_settings_log_key ON public.settings_change_log USING btree (set
 
 
 --
--- TOC entry 3835 (class 1259 OID 23108)
+-- TOC entry 3846 (class 1259 OID 23108)
 -- Name: idx_suppliers_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2374,7 +2906,7 @@ CREATE INDEX idx_suppliers_code ON public.suppliers USING btree (supplier_code);
 
 
 --
--- TOC entry 3836 (class 1259 OID 23109)
+-- TOC entry 3847 (class 1259 OID 23109)
 -- Name: idx_suppliers_name; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2382,7 +2914,7 @@ CREATE INDEX idx_suppliers_name ON public.suppliers USING btree (supplier_name);
 
 
 --
--- TOC entry 3899 (class 1259 OID 31289)
+-- TOC entry 3910 (class 1259 OID 31289)
 -- Name: idx_system_settings_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2390,7 +2922,7 @@ CREATE INDEX idx_system_settings_active ON public.system_settings USING btree (i
 
 
 --
--- TOC entry 3900 (class 1259 OID 31247)
+-- TOC entry 3911 (class 1259 OID 31247)
 -- Name: idx_system_settings_category; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2398,7 +2930,7 @@ CREATE INDEX idx_system_settings_category ON public.system_settings USING btree 
 
 
 --
--- TOC entry 3901 (class 1259 OID 31248)
+-- TOC entry 3912 (class 1259 OID 31248)
 -- Name: idx_system_settings_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2406,7 +2938,7 @@ CREATE INDEX idx_system_settings_key ON public.system_settings USING btree (sett
 
 
 --
--- TOC entry 3902 (class 1259 OID 31290)
+-- TOC entry 3913 (class 1259 OID 31290)
 -- Name: idx_system_settings_required; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2414,7 +2946,7 @@ CREATE INDEX idx_system_settings_required ON public.system_settings USING btree 
 
 
 --
--- TOC entry 3942 (class 2620 OID 31293)
+-- TOC entry 3953 (class 2620 OID 31293)
 -- Name: branch_settings update_branch_settings_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -2422,7 +2954,7 @@ CREATE TRIGGER update_branch_settings_updated_at BEFORE UPDATE ON public.branch_
 
 
 --
--- TOC entry 3941 (class 2620 OID 31292)
+-- TOC entry 3952 (class 2620 OID 31292)
 -- Name: system_settings update_system_settings_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -2430,7 +2962,7 @@ CREATE TRIGGER update_system_settings_updated_at BEFORE UPDATE ON public.system_
 
 
 --
--- TOC entry 3939 (class 2606 OID 31262)
+-- TOC entry 3950 (class 2606 OID 31262)
 -- Name: branch_settings branch_settings_branch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2439,7 +2971,7 @@ ALTER TABLE ONLY public.branch_settings
 
 
 --
--- TOC entry 3918 (class 2606 OID 23084)
+-- TOC entry 3929 (class 2606 OID 23084)
 -- Name: customers customers_branch_created_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2448,7 +2980,7 @@ ALTER TABLE ONLY public.customers
 
 
 --
--- TOC entry 3919 (class 2606 OID 23079)
+-- TOC entry 3930 (class 2606 OID 23079)
 -- Name: customers customers_customer_type_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2457,7 +2989,7 @@ ALTER TABLE ONLY public.customers
 
 
 --
--- TOC entry 3920 (class 2606 OID 26918)
+-- TOC entry 3931 (class 2606 OID 26918)
 -- Name: customers fk_customers_branch_created_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2466,7 +2998,7 @@ ALTER TABLE ONLY public.customers
 
 
 --
--- TOC entry 3921 (class 2606 OID 26913)
+-- TOC entry 3932 (class 2606 OID 26913)
 -- Name: customers fk_customers_customer_type_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2475,7 +3007,7 @@ ALTER TABLE ONLY public.customers
 
 
 --
--- TOC entry 3931 (class 2606 OID 25613)
+-- TOC entry 3942 (class 2606 OID 25613)
 -- Name: invoice_details fk_invoice_details_customer; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2484,7 +3016,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3932 (class 2606 OID 26903)
+-- TOC entry 3943 (class 2606 OID 26903)
 -- Name: invoice_details fk_invoice_details_customer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2493,7 +3025,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3933 (class 2606 OID 26893)
+-- TOC entry 3944 (class 2606 OID 26893)
 -- Name: invoice_details fk_invoice_details_invoice_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2502,7 +3034,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3934 (class 2606 OID 25618)
+-- TOC entry 3945 (class 2606 OID 25618)
 -- Name: invoice_details fk_invoice_details_product; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2511,7 +3043,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3935 (class 2606 OID 26898)
+-- TOC entry 3946 (class 2606 OID 26898)
 -- Name: invoice_details fk_invoice_details_product_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2520,7 +3052,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3927 (class 2606 OID 25608)
+-- TOC entry 3938 (class 2606 OID 25608)
 -- Name: invoices fk_invoices_customer; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2529,7 +3061,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- TOC entry 3928 (class 2606 OID 26908)
+-- TOC entry 3939 (class 2606 OID 26908)
 -- Name: invoices fk_invoices_customer_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2538,7 +3070,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- TOC entry 3922 (class 2606 OID 26923)
+-- TOC entry 3933 (class 2606 OID 26923)
 -- Name: products fk_products_category_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2547,7 +3079,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- TOC entry 3936 (class 2606 OID 25298)
+-- TOC entry 3947 (class 2606 OID 25298)
 -- Name: invoice_details invoice_details_branch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2556,7 +3088,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3937 (class 2606 OID 25288)
+-- TOC entry 3948 (class 2606 OID 25288)
 -- Name: invoice_details invoice_details_invoice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2565,7 +3097,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3938 (class 2606 OID 25293)
+-- TOC entry 3949 (class 2606 OID 25293)
 -- Name: invoice_details invoice_details_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2574,7 +3106,7 @@ ALTER TABLE ONLY public.invoice_details
 
 
 --
--- TOC entry 3929 (class 2606 OID 25248)
+-- TOC entry 3940 (class 2606 OID 25248)
 -- Name: invoices invoices_branch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2583,7 +3115,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- TOC entry 3930 (class 2606 OID 25243)
+-- TOC entry 3941 (class 2606 OID 25243)
 -- Name: invoices invoices_customer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2592,7 +3124,7 @@ ALTER TABLE ONLY public.invoices
 
 
 --
--- TOC entry 3917 (class 2606 OID 22997)
+-- TOC entry 3928 (class 2606 OID 22997)
 -- Name: product_categories product_categories_parent_category_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2601,7 +3133,7 @@ ALTER TABLE ONLY public.product_categories
 
 
 --
--- TOC entry 3925 (class 2606 OID 23168)
+-- TOC entry 3936 (class 2606 OID 23168)
 -- Name: product_units product_units_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2610,7 +3142,7 @@ ALTER TABLE ONLY public.product_units
 
 
 --
--- TOC entry 3926 (class 2606 OID 23173)
+-- TOC entry 3937 (class 2606 OID 23173)
 -- Name: product_units product_units_unit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2619,7 +3151,7 @@ ALTER TABLE ONLY public.product_units
 
 
 --
--- TOC entry 3923 (class 2606 OID 23145)
+-- TOC entry 3934 (class 2606 OID 23145)
 -- Name: products products_base_unit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2628,7 +3160,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- TOC entry 3924 (class 2606 OID 23140)
+-- TOC entry 3935 (class 2606 OID 23140)
 -- Name: products products_category_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2637,7 +3169,7 @@ ALTER TABLE ONLY public.products
 
 
 --
--- TOC entry 3940 (class 2606 OID 31279)
+-- TOC entry 3951 (class 2606 OID 31279)
 -- Name: settings_change_log settings_change_log_branch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2645,7 +3177,7 @@ ALTER TABLE ONLY public.settings_change_log
     ADD CONSTRAINT settings_change_log_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(branch_id);
 
 
--- Completed on 2025-08-02 15:16:10
+-- Completed on 2025-08-05 14:45:11
 
 --
 -- PostgreSQL database dump complete
