@@ -114,7 +114,16 @@ export default function POSPage() {
       const { data, error } = await query
 
       if (error) throw error
-      setProducts(data || [])
+      
+      // Transform data để đảm bảo product_categories là single object (consistency với Products page)
+      const transformedData = data?.map(product => ({
+        ...product,
+        product_categories: Array.isArray(product.product_categories) 
+          ? product.product_categories[0] || null
+          : product.product_categories
+      })) || []
+      
+      setProducts(transformedData)
     } catch (error) {
       console.error('Error fetching products:', error)
       toast.error('Lỗi khi tải danh sách sản phẩm')

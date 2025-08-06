@@ -68,7 +68,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
 
             {/* Category */}
             <div className="text-xs text-muted-foreground bg-muted px-2.5 py-1.5 rounded-lg w-fit border border-border">
-              {product.product_categories?.[0]?.category_name || 'Không phân loại'}
+              {product.product_categories?.category_name || 'Không phân loại'}
             </div>
 
             {/* Stock info */}

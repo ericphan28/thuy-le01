@@ -9,10 +9,10 @@ export interface Product {
   requires_prescription: boolean
   is_medicine: boolean
   category_id: number
-  product_categories: {
+  product_categories?: {
     category_id: number
     category_name: string
-  }[]
+  } | null
 }
 
 export interface Customer {
