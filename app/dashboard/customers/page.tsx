@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { CustomerFormModal } from '@/components/customers/customer-form-modal'
 import { 
   Users, 
   Search, 
@@ -20,7 +21,9 @@ import {
   AlertTriangle,
   Phone,
   Mail,
-  MapPin
+  MapPin,
+  Edit2,
+  Trash2
 } from 'lucide-react'
 
 // 🐾 Customer interface matching database schema
@@ -35,6 +38,7 @@ interface VeterinaryCustomer {
   address: string | null
   company_name: string | null
   tax_code: string | null
+  id_number: string | null
   gender: string | null
   debt_limit: number
   current_debt: number
@@ -43,8 +47,11 @@ interface VeterinaryCustomer {
   purchase_count: number
   last_purchase_date: string | null
   status: number
+  notes: string | null
+  created_by: string | null
   is_active: boolean
   created_at: string
+  updated_at: string
   customer_types?: {
     type_id: number
     type_name: string
@@ -60,12 +67,17 @@ export default function VeterinaryCustomersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterType, setFilterType] = useState<'all' | 'vip' | 'high' | 'low_data' | 'churn_risk'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'vip' | 'high' | 'low_data' | 'churn_risk' | 'inactive'>('all')
   const [totalCount, setTotalCount] = useState<number>(0)
+  const [inactiveCount, setInactiveCount] = useState<number>(0)
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(20)
+
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedCustomer, setSelectedCustomer] = useState<VeterinaryCustomer | null>(null)
   
   // Sorting states
   const [sortBy] = useState<'name' | 'revenue' | 'purchases' | 'created'>('revenue')
@@ -83,7 +95,24 @@ export default function VeterinaryCustomersPage() {
       let countQuery = supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
+
+      // Apply filters for count
+      if (filterType === 'inactive') {
+        countQuery = countQuery.eq('is_active', false)
+      } else {
+        countQuery = countQuery.eq('is_active', true)
+        if (filterType === 'vip') {
+          countQuery = countQuery.gte('total_revenue', 50000000)
+        } else if (filterType === 'high') {
+          countQuery = countQuery.gte('total_revenue', 10000000).lt('total_revenue', 50000000)
+        } else if (filterType === 'low_data') {
+          countQuery = countQuery.or('phone.is.null,email.is.null,address.is.null')
+        } else if (filterType === 'churn_risk') {
+          const ninetyDaysAgo = new Date()
+          ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+          countQuery = countQuery.or(`last_purchase_date.is.null,last_purchase_date.lt.${ninetyDaysAgo.toISOString()}`)
+        }
+      }
 
       if (searchTerm) {
         countQuery = countQuery.or(`customer_name.ilike.%${searchTerm}%,customer_code.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
@@ -91,6 +120,14 @@ export default function VeterinaryCustomersPage() {
 
       const { count: filteredCount } = await countQuery
       setTotalCount(filteredCount || 0)
+
+      // Get inactive count for stats
+      const { count: inactiveCountResult } = await supabase
+        .from('customers')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', false)
+      
+      setInactiveCount(inactiveCountResult || 0)
 
       // Main query with pagination
       let query = supabase
@@ -125,7 +162,13 @@ export default function VeterinaryCustomersPage() {
             branch_name
           )
         `)
-        .eq('is_active', true)
+        
+      // Set base filter for active/inactive
+      if (filterType === 'inactive') {
+        query = query.eq('is_active', false)
+      } else {
+        query = query.eq('is_active', true)
+      }
 
       // Apply sorting
       const sortColumn = sortBy === 'name' ? 'customer_name' 
@@ -166,12 +209,16 @@ export default function VeterinaryCustomersPage() {
         return
       }
 
-      // Transform data
-      const transformedCustomers: VeterinaryCustomer[] = (data || []).map(item => ({
+      // Transform data with safe field access
+      const transformedCustomers: VeterinaryCustomer[] = (data || []).map((item: Record<string, unknown>) => ({
         ...item,
+        id_number: item.id_number as string | null || null,
+        notes: item.notes as string | null || null,
+        created_by: item.created_by as string | null || null,
+        updated_at: item.updated_at as string || item.created_at as string,
         customer_types: Array.isArray(item.customer_types) ? item.customer_types[0] : item.customer_types,
         branches: Array.isArray(item.branches) ? item.branches[0] : item.branches
-      }))
+      } as VeterinaryCustomer))
 
       setCustomers(transformedCustomers)
     } catch (err) {
@@ -235,6 +282,135 @@ export default function VeterinaryCustomersPage() {
     }).format(amount)
   }
 
+  // Modal handlers
+  const handleAddCustomer = useCallback(() => {
+    console.log('🔵 handleAddCustomer called - Opening modal for new customer')
+    setSelectedCustomer(null)
+    setIsModalOpen(true)
+    console.log('🔵 Modal state updated:', { isModalOpen: true, selectedCustomer: null })
+  }, [])
+
+  const handleEditCustomer = useCallback((customer: VeterinaryCustomer) => {
+    console.log('🟢 handleEditCustomer called for customer:', customer.customer_name)
+    setSelectedCustomer(customer)
+    setIsModalOpen(true)
+    console.log('🟢 Modal state updated:', { isModalOpen: true, selectedCustomer: customer.customer_code })
+  }, [])
+
+  const handleModalSuccess = useCallback(() => {
+    console.log('✅ handleModalSuccess called - Modal operation completed')
+    setIsModalOpen(false)
+    setSelectedCustomer(null)
+    fetchCustomers() // Refresh data after successful operation
+  }, [fetchCustomers])
+
+  const handleDeleteCustomer = useCallback(async (customer: VeterinaryCustomer) => {
+    console.log('🗑️ handleDeleteCustomer called for customer:', customer.customer_name)
+    
+    try {
+      // First, check if customer has any invoices/orders
+      console.log('🔍 Checking if customer has related orders/invoices...')
+      const { data: invoices, error: invoiceCheckError } = await supabase
+        .from('invoices')
+        .select('invoice_id')
+        .eq('customer_id', customer.customer_id)
+        .limit(1)
+
+      if (invoiceCheckError) {
+        console.error('❌ Error checking invoices:', invoiceCheckError)
+        alert('Có lỗi xảy ra khi kiểm tra dữ liệu liên quan.')
+        return
+      }
+
+      const hasInvoices = invoices && invoices.length > 0
+      console.log('🔍 Customer has invoices:', hasInvoices)
+
+      if (hasInvoices) {
+        // Customer has related data - offer deactivation instead
+        const userChoice = window.confirm(
+          `⚠️ KHÔNG THỂ XÓA KHÁCH HÀNG\n\n` +
+          `Khách hàng "${customer.customer_name}" (${customer.customer_code}) không thể xóa vì:\n` +
+          `• Còn có đơn hàng/hóa đơn trong hệ thống\n` +
+          `• Dữ liệu này được bảo vệ để đảm bảo tính toàn vẹn\n\n` +
+          `🔄 THAY VÀO ĐÓ:\n` +
+          `Bạn có muốn VÔ HIỆU HÓA khách hàng này không?\n` +
+          `(Khách hàng sẽ bị ẩn khỏi danh sách nhưng dữ liệu vẫn được giữ lại)\n\n` +
+          `Nhấn OK để vô hiệu hóa, Cancel để hủy bỏ.`
+        )
+
+        if (!userChoice) {
+          console.log('🗑️ Deactivation cancelled by user')
+          return
+        }
+
+        // Deactivate customer instead of deleting
+        console.log('🔄 Deactivating customer instead of deleting...')
+        const { error: deactivateError } = await supabase
+          .from('customers')
+          .update({ 
+            is_active: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('customer_id', customer.customer_id)
+
+        if (deactivateError) {
+          console.error('❌ Deactivation error:', deactivateError)
+          alert('Có lỗi xảy ra khi vô hiệu hóa khách hàng: ' + deactivateError.message)
+          return
+        }
+
+        console.log('✅ Customer deactivated successfully')
+        alert(`✅ Đã vô hiệu hóa khách hàng "${customer.customer_name}" thành công!\n\n` +
+              `Khách hàng này sẽ không hiển thị trong danh sách hoạt động nhưng dữ liệu đơn hàng vẫn được bảo toàn.`)
+        fetchCustomers()
+        
+      } else {
+        // Customer has no related data - can be safely deleted
+        const isConfirmed = window.confirm(
+          `🗑️ XÓA KHÁCH HÀNG\n\n` +
+          `Bạn có chắc chắn muốn XÓA VĨNH VIỄN khách hàng "${customer.customer_name}" (${customer.customer_code})?\n\n` +
+          `⚠️ Hành động này không thể hoàn tác!\n\n` +
+          `Nhấn OK để xóa, Cancel để hủy bỏ.`
+        )
+
+        if (!isConfirmed) {
+          console.log('🗑️ Delete cancelled by user')
+          return
+        }
+
+        console.log('🗑️ Proceeding with permanent delete...')
+        const { error } = await supabase
+          .from('customers')
+          .delete()
+          .eq('customer_id', customer.customer_id)
+
+        if (error) {
+          console.error('❌ Delete error:', error)
+          
+          // Check if it's a foreign key constraint error
+          if (error.message.includes('foreign key') || error.message.includes('violates')) {
+            alert(
+              `❌ KHÔNG THỂ XÓA KHÁCH HÀNG\n\n` +
+              `Khách hàng "${customer.customer_name}" có dữ liệu liên quan trong hệ thống.\n\n` +
+              `Vui lòng liên hệ quản trị viên để được hỗ trợ.`
+            )
+          } else {
+            alert('Có lỗi xảy ra khi xóa khách hàng: ' + error.message)
+          }
+          return
+        }
+
+        console.log('✅ Customer deleted successfully')
+        alert(`✅ Đã xóa khách hàng "${customer.customer_name}" thành công!`)
+        fetchCustomers()
+      }
+
+    } catch (error) {
+      console.error('💥 Error in delete process:', error)
+      alert('Có lỗi xảy ra trong quá trình xử lý. Vui lòng thử lại.')
+    }
+  }, [supabase, fetchCustomers])
+
   // Statistics
   const stats = {
     total: customers.length,
@@ -245,7 +421,8 @@ export default function VeterinaryCustomersPage() {
       if (!c.last_purchase_date) return true
       const daysSince = Math.floor((new Date().getTime() - new Date(c.last_purchase_date).getTime()) / (1000 * 60 * 60 * 24))
       return daysSince > 90
-    }).length
+    }).length,
+    inactive: inactiveCount
   }
 
   if (error) {
@@ -290,7 +467,12 @@ export default function VeterinaryCustomersPage() {
             </div>
             
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" className="supabase-button-secondary h-6 px-1.5 text-xs">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleAddCustomer}
+                className="supabase-button-secondary h-6 px-1.5 text-xs"
+              >
                 <Plus className="h-3 w-3 mr-1" />
                 Thêm
               </Button>
@@ -298,7 +480,7 @@ export default function VeterinaryCustomersPage() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             <div className="bg-brand text-primary-foreground rounded-lg p-2 text-center">
               <div className="text-lg font-bold">{stats.total}</div>
               <div className="text-xs opacity-90">Tổng KH</div>
@@ -315,6 +497,10 @@ export default function VeterinaryCustomersPage() {
               <div className="text-lg font-bold">{stats.churnRisk}</div>
               <div className="text-xs">Rời bỏ</div>
             </div>
+            <div className="bg-gray-500 text-white rounded-lg p-2 text-center">
+              <div className="text-lg font-bold">{stats.inactive}</div>
+              <div className="text-xs">Vô hiệu</div>
+            </div>
           </div>
 
           {/* Search and Controls */}
@@ -327,6 +513,58 @@ export default function VeterinaryCustomersPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="supabase-input pl-10 h-8"
               />
+            </div>
+            
+            {/* Filter Options */}
+            <div className="flex flex-wrap gap-1">
+              <Button
+                variant={filterType === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterType('all')}
+                className="h-8 px-2 text-xs"
+              >
+                Tất cả
+              </Button>
+              <Button
+                variant={filterType === 'vip' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterType('vip')}
+                className="h-8 px-2 text-xs"
+              >
+                VIP
+              </Button>
+              <Button
+                variant={filterType === 'high' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterType('high')}
+                className="h-8 px-2 text-xs"
+              >
+                Tiềm năng
+              </Button>
+              <Button
+                variant={filterType === 'low_data' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterType('low_data')}
+                className="h-8 px-2 text-xs"
+              >
+                Thiếu TT
+              </Button>
+              <Button
+                variant={filterType === 'churn_risk' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterType('churn_risk')}
+                className="h-8 px-2 text-xs"
+              >
+                Rời bỏ
+              </Button>
+              <Button
+                variant={filterType === 'inactive' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterType('inactive')}
+                className="h-8 px-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700"
+              >
+                Đã vô hiệu
+              </Button>
             </div>
           </div>
         </div>
@@ -356,27 +594,56 @@ export default function VeterinaryCustomersPage() {
             const churnRisk = getChurnRisk(customer.last_purchase_date)
             
             return (
-              <Card key={customer.customer_id} className="supabase-product-card">
+              <Card key={customer.customer_id} className={`supabase-product-card ${!customer.is_active ? 'opacity-60 border-gray-300' : ''}`}>
                 <CardHeader className="pb-1 pt-2 px-2">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center space-x-2 min-w-0 flex-1">
                       <Avatar className="h-8 w-8 border border-border">
-                        <AvatarFallback className="bg-brand text-primary-foreground text-xs font-semibold">
+                        <AvatarFallback className={`text-xs font-semibold ${!customer.is_active ? 'bg-gray-400 text-gray-700' : 'bg-brand text-primary-foreground'}`}>
                           {customer.customer_name.split(' ').map(n => n[0]).join('').substring(0, 2)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold text-xs text-foreground leading-tight truncate">
-                          {customer.customer_name}
-                        </h3>
-                        <p className="text-xs font-mono text-muted-foreground truncate">
+                        <div className="flex items-center gap-1">
+                          <h3 className={`font-semibold text-xs leading-tight truncate ${!customer.is_active ? 'text-gray-500' : 'text-foreground'}`}>
+                            {customer.customer_name}
+                          </h3>
+                          {!customer.is_active && (
+                            <span className="text-xs px-1 py-0.5 bg-gray-200 text-gray-600 rounded text-[10px]">
+                              VÔ HIỆU
+                            </span>
+                          )}
+                        </div>
+                        <p className={`text-xs font-mono truncate ${!customer.is_active ? 'text-gray-400' : 'text-muted-foreground'}`}>
                           {customer.customer_code}
                         </p>
                       </div>
                     </div>
-                    <Badge variant={segment.color} className="text-xs px-1 py-0">
-                      {segment.label}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditCustomer(customer)}
+                          className="h-6 w-6 p-0 hover:bg-blue-50 text-blue-600"
+                          title="Chỉnh sửa khách hàng"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteCustomer(customer)}
+                          className="h-6 w-6 p-0 hover:bg-red-50 text-red-600"
+                          title="Xóa khách hàng"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <Badge variant={segment.color} className="text-xs px-1 py-0">
+                        {segment.label}
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
 
@@ -498,6 +765,18 @@ export default function VeterinaryCustomersPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Customer Form Modal */}
+      <CustomerFormModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setSelectedCustomer(null)
+        }}
+        customer={selectedCustomer}
+        mode={selectedCustomer ? 'edit' : 'create'}
+        onSuccess={handleModalSuccess}
+      />
     </div>
   )
 }
