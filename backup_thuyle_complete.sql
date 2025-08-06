@@ -32,11 +32,130 @@ COMMENT ON SCHEMA public IS 'standard public schema';
 
 
 --
+-- Name: adjust_customer_debt(integer, numeric, character varying, text, character varying); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.adjust_customer_debt(p_customer_id integer, p_adjustment_amount numeric, p_adjustment_type character varying, p_reason text, p_created_by character varying DEFAULT 'system'::character varying) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_debt NUMERIC;
+    v_new_debt NUMERIC;
+    v_customer_record customers%ROWTYPE;
+    v_transaction_id INTEGER;
+    v_transaction_type VARCHAR;
+    v_actual_amount NUMERIC;
+BEGIN
+    -- Validate input
+    IF p_customer_id IS NULL OR p_adjustment_amount IS NULL OR p_adjustment_amount <= 0 THEN
+        RETURN jsonb_build_object(
+            'success', false, 
+            'error', 'Invalid input parameters',
+            'error_code', 'INVALID_INPUT'
+        );
+    END IF;
+    
+    -- Validate adjustment type
+    IF p_adjustment_type NOT IN ('increase', 'decrease', 'writeoff') THEN
+        RETURN jsonb_build_object(
+            'success', false, 
+            'error', 'Invalid adjustment type',
+            'error_code', 'INVALID_ADJUSTMENT_TYPE'
+        );
+    END IF;
+    
+    -- Get customer record
+    SELECT * INTO v_customer_record 
+    FROM customers 
+    WHERE customer_id = p_customer_id AND is_active = true;
+    
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object(
+            'success', false, 
+            'error', 'Customer not found or inactive',
+            'error_code', 'CUSTOMER_NOT_FOUND'
+        );
+    END IF;
+    
+    v_current_debt := v_customer_record.current_debt;
+    
+    -- Calculate new debt based on adjustment type
+    CASE p_adjustment_type
+        WHEN 'increase' THEN
+            v_new_debt := v_current_debt + p_adjustment_amount;
+            v_actual_amount := p_adjustment_amount;
+            v_transaction_type := 'debt_increase';
+        WHEN 'decrease' THEN
+            v_new_debt := GREATEST(0, v_current_debt - p_adjustment_amount);
+            v_actual_amount := -(LEAST(p_adjustment_amount, v_current_debt));
+            v_transaction_type := 'debt_adjustment';
+        WHEN 'writeoff' THEN
+            v_new_debt := 0;
+            v_actual_amount := -v_current_debt;
+            v_transaction_type := 'debt_writeoff';
+    END CASE;
+    
+    -- Update customer debt
+    UPDATE customers 
+    SET 
+        current_debt = v_new_debt,
+        updated_at = NOW()
+    WHERE customer_id = p_customer_id;
+    
+    -- Record transaction
+    INSERT INTO debt_transactions (
+        customer_id, transaction_type, amount, old_debt, new_debt,
+        notes, created_by, created_at
+    ) VALUES (
+        p_customer_id, v_transaction_type, v_actual_amount, 
+        v_current_debt, v_new_debt, p_reason, p_created_by, NOW()
+    ) RETURNING transaction_id INTO v_transaction_id;
+    
+    RETURN jsonb_build_object(
+        'success', true,
+        'transaction_id', v_transaction_id,
+        'customer_id', p_customer_id,
+        'customer_name', v_customer_record.customer_name,
+        'adjustment_type', p_adjustment_type,
+        'old_debt', v_current_debt,
+        'adjustment_amount', v_actual_amount,
+        'new_debt', v_new_debt,
+        'reason', p_reason,
+        'created_at', NOW(),
+        'message', format('Đã %s công nợ %s VND cho %s. Nợ hiện tại: %s VND', 
+            CASE p_adjustment_type 
+                WHEN 'increase' THEN 'tăng'
+                WHEN 'decrease' THEN 'giảm'
+                WHEN 'writeoff' THEN 'xóa'
+            END,
+            ABS(v_actual_amount), v_customer_record.customer_name, v_new_debt)
+    );
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Database error occurred',
+            'error_code', 'DATABASE_ERROR',
+            'error_message', SQLERRM
+        );
+END;
+$$;
+
+
+--
+-- Name: FUNCTION adjust_customer_debt(p_customer_id integer, p_adjustment_amount numeric, p_adjustment_type character varying, p_reason text, p_created_by character varying); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.adjust_customer_debt(p_customer_id integer, p_adjustment_amount numeric, p_adjustment_type character varying, p_reason text, p_created_by character varying) IS 'Điều chỉnh công nợ khách hàng (tăng/giảm/xóa nợ) với lý do rõ ràng';
+
+
+--
 -- Name: create_pos_invoice(integer, jsonb, numeric, character varying, numeric, character varying, numeric, integer, character varying); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric DEFAULT 0, p_discount_type character varying DEFAULT 'percentage'::character varying, p_discount_value numeric DEFAULT 0, p_payment_method character varying DEFAULT 'cash'::character varying, p_received_amount numeric DEFAULT NULL::numeric, p_branch_id integer DEFAULT 1, p_created_by character varying DEFAULT 'POS System'::character varying) RETURNS jsonb
-    LANGUAGE plpgsql SECURITY DEFINER
+CREATE FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric DEFAULT 0, p_discount_type character varying DEFAULT 'percentage'::character varying, p_discount_value numeric DEFAULT 0, p_payment_method character varying DEFAULT 'cash'::character varying, p_received_amount numeric DEFAULT NULL::numeric, p_branch_id integer DEFAULT 1, p_created_by character varying DEFAULT 'POS'::character varying) RETURNS jsonb
+    LANGUAGE plpgsql
     AS $$
 DECLARE
     -- Variables for invoice creation
@@ -164,7 +283,6 @@ BEGIN
         
         -- Check prescription requirement
         IF v_product_record.requires_prescription THEN
-            -- Add warning but don't block (assuming POS operator verified)
             v_warnings := array_append(v_warnings, 
                 format('Product %s requires prescription - ensure compliance', v_product_record.product_name));
         END IF;
@@ -230,7 +348,7 @@ BEGIN
     IF p_discount_type = 'percentage' THEN
         v_discount_amount := (v_subtotal * p_discount_value) / 100;
     ELSE
-        v_discount_amount := LEAST(p_discount_value, v_subtotal); -- Don't allow discount > subtotal
+        v_discount_amount := LEAST(p_discount_value, v_subtotal);
     END IF;
     
     -- Calculate amounts
@@ -279,7 +397,7 @@ BEGIN
     -- Generate unique invoice code
     v_invoice_code := 'HD' || extract(epoch from now())::bigint;
     
-    -- Insert invoice record
+    -- 🔥 FINAL: Clean notes format without redundant "POS" prefix
     INSERT INTO invoices (
         invoice_code,
         invoice_date,
@@ -288,8 +406,12 @@ BEGIN
         branch_id,
         total_amount,
         customer_paid,
-        status,
+        discount_type,
+        discount_value,
+        vat_rate,
+        vat_amount,
         notes,
+        status,
         created_at,
         updated_at
     ) VALUES (
@@ -300,38 +422,64 @@ BEGIN
         p_branch_id,
         v_total_amount,
         COALESCE(p_received_amount, 0),
+        p_discount_type,
+        p_discount_value,
+        p_vat_rate,
+        v_vat_amount,
+        -- ✅ CLEAN: No redundant "POS" prefix, just meaningful info
+        CASE 
+            WHEN p_discount_value > 0 AND p_vat_rate > 0 THEN
+                format('%s | %s items | Giảm %s | VAT %s%%',
+                    CASE p_payment_method 
+                        WHEN 'cash' THEN 'Tiền mặt'
+                        WHEN 'card' THEN 'Thẻ'
+                        WHEN 'transfer' THEN 'Chuyển khoản'
+                        ELSE p_payment_method
+                    END,
+                    v_item_count,
+                    CASE 
+                        WHEN p_discount_type = 'percentage' THEN p_discount_value || '%'
+                        ELSE (p_discount_value::INTEGER / 1000) || 'k'
+                    END,
+                    p_vat_rate
+                )
+            WHEN p_discount_value > 0 THEN
+                format('%s | %s items | Giảm %s',
+                    CASE p_payment_method 
+                        WHEN 'cash' THEN 'Tiền mặt'
+                        WHEN 'card' THEN 'Thẻ'
+                        WHEN 'transfer' THEN 'Chuyển khoản'
+                        ELSE p_payment_method
+                    END,
+                    v_item_count,
+                    CASE 
+                        WHEN p_discount_type = 'percentage' THEN p_discount_value || '%'
+                        ELSE (p_discount_value::INTEGER / 1000) || 'k'
+                    END
+                )
+            WHEN p_vat_rate > 0 THEN
+                format('%s | %s items | VAT %s%%',
+                    CASE p_payment_method 
+                        WHEN 'cash' THEN 'Tiền mặt'
+                        WHEN 'card' THEN 'Thẻ'
+                        WHEN 'transfer' THEN 'Chuyển khoản'
+                        ELSE p_payment_method
+                    END,
+                    v_item_count,
+                    p_vat_rate
+                )
+            ELSE
+                format('%s | %s items',
+                    CASE p_payment_method 
+                        WHEN 'cash' THEN 'Tiền mặt'
+                        WHEN 'card' THEN 'Thẻ'
+                        WHEN 'transfer' THEN 'Chuyển khoản'
+                        ELSE p_payment_method
+                    END,
+                    v_item_count
+                )
+        END,
         'completed',
-        jsonb_build_object(
-            'payment_method', p_payment_method,
-            'vat_rate', p_vat_rate,
-            'vat_amount', v_vat_amount,
-            'discount_type', p_discount_type,
-            'discount_value', p_discount_value,
-            'discount_amount', v_discount_amount,
-            'subtotal_amount', v_subtotal,
-            'total_quantity', v_total_quantity,
-            'item_count', v_item_count,
-            'change_amount', v_change_amount,
-            'created_by', p_created_by,
-            'warnings', v_warnings,
-            'summary', format('Thanh toán %s | VAT %s%% (%s VND) | Giảm giá %s = %s VND | Tạm tính: %s VND | Thành tiền: %s VND',
-                CASE p_payment_method 
-                    WHEN 'cash' THEN 'tiền mặt'
-                    WHEN 'card' THEN 'thẻ'
-                    WHEN 'transfer' THEN 'chuyển khoản'
-                    ELSE p_payment_method
-                END,
-                p_vat_rate,
-                v_vat_amount,
-                CASE p_discount_type 
-                    WHEN 'percentage' THEN p_discount_value || '%'
-                    ELSE p_discount_value || ' VND'
-                END,
-                v_discount_amount,
-                v_subtotal,
-                v_total_amount
-            )
-        )::TEXT,
         NOW(),
         NOW()
     ) RETURNING invoice_id INTO v_invoice_id;
@@ -347,70 +495,24 @@ BEGIN
             v_detail JSONB := v_invoice_details[i];
         BEGIN
             INSERT INTO invoice_details (
-                invoice_id,
-                product_id,
-                invoice_code,
-                product_code,
-                product_name,
-                customer_name,
-                customer_id,
-                branch_id,
-                invoice_date,
-                quantity,
-                unit_price,
-                sale_price,
-                line_total,
-                subtotal,
-                cost_price,
-                profit_amount,
-                
-                -- Payment method breakdown
-                cash_payment,
-                card_payment,
-                transfer_payment,
-                wallet_payment,
-                points_payment,
-                customer_paid,
-                
-                -- Line-level discount (currently 0 - we do invoice-level)
-                discount_percent,
-                discount_amount,
-                total_discount,
-                
-                status,
-                created_at
+                invoice_id, product_id, invoice_code, product_code, product_name,
+                customer_name, customer_id, branch_id, invoice_date,
+                quantity, unit_price, sale_price, line_total, subtotal,
+                cost_price, profit_amount,
+                cash_payment, card_payment, transfer_payment, wallet_payment, points_payment, customer_paid,
+                discount_percent, discount_amount, total_discount, status, created_at
             ) VALUES (
-                v_invoice_id,
-                (v_detail->>'product_id')::INTEGER,
-                v_invoice_code,
-                v_detail->>'product_code',
-                v_detail->>'product_name',
-                v_customer_record.customer_name,
-                p_customer_id,
-                p_branch_id,
-                NOW(),
-                (v_detail->>'quantity')::NUMERIC,
-                (v_detail->>'unit_price')::NUMERIC,
-                (v_detail->>'unit_price')::NUMERIC,
-                (v_detail->>'line_total')::NUMERIC,
-                (v_detail->>'line_total')::NUMERIC,
-                (v_detail->>'cost_price')::NUMERIC,
+                v_invoice_id, (v_detail->>'product_id')::INTEGER, v_invoice_code,
+                v_detail->>'product_code', v_detail->>'product_name',
+                v_customer_record.customer_name, p_customer_id, p_branch_id, NOW(),
+                (v_detail->>'quantity')::NUMERIC, (v_detail->>'unit_price')::NUMERIC,
+                (v_detail->>'unit_price')::NUMERIC, (v_detail->>'line_total')::NUMERIC,
+                (v_detail->>'line_total')::NUMERIC, (v_detail->>'cost_price')::NUMERIC,
                 (v_detail->>'profit_amount')::NUMERIC,
-                
-                -- Payment breakdown based on method
                 CASE WHEN p_payment_method = 'cash' THEN (v_detail->>'line_total')::NUMERIC ELSE 0 END,
                 CASE WHEN p_payment_method = 'card' THEN (v_detail->>'line_total')::NUMERIC ELSE 0 END,
                 CASE WHEN p_payment_method = 'transfer' THEN (v_detail->>'line_total')::NUMERIC ELSE 0 END,
-                0, -- wallet_payment
-                0, -- points_payment
-                COALESCE(p_received_amount, 0),
-                
-                0, -- discount_percent (line-level)
-                0, -- discount_amount (line-level)
-                0, -- total_discount (line-level)
-                
-                'completed',
-                NOW()
+                0, 0, COALESCE(p_received_amount, 0), 0, 0, 0, 'completed', NOW()
             );
         END;
     END LOOP;
@@ -426,9 +528,7 @@ BEGIN
             v_stock_update JSONB := v_stock_updates[i];
         BEGIN
             UPDATE products 
-            SET 
-                current_stock = (v_stock_update->>'new_stock')::NUMERIC,
-                updated_at = NOW()
+            SET current_stock = (v_stock_update->>'new_stock')::NUMERIC, updated_at = NOW()
             WHERE product_id = (v_stock_update->>'product_id')::INTEGER;
         END;
     END LOOP;
@@ -489,7 +589,6 @@ BEGIN
 
 EXCEPTION
     WHEN OTHERS THEN
-        -- Return detailed error information
         RETURN jsonb_build_object(
             'success', false,
             'error', 'Database error occurred',
@@ -511,9 +610,112 @@ $$;
 -- Name: FUNCTION create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric, p_discount_type character varying, p_discount_value numeric, p_payment_method character varying, p_received_amount numeric, p_branch_id integer, p_created_by character varying); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric, p_discount_type character varying, p_discount_value numeric, p_payment_method character varying, p_received_amount numeric, p_branch_id integer, p_created_by character varying) IS 'POS Checkout Function: Handles complete invoice creation with VAT/discount support, 
-stock management, customer debt validation, and comprehensive business logic validation.
-Returns detailed JSON response with success/error status and transaction details.';
+COMMENT ON FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric, p_discount_type character varying, p_discount_value numeric, p_payment_method character varying, p_received_amount numeric, p_branch_id integer, p_created_by character varying) IS 'FINAL POS Checkout Function: Clean, efficient invoice creation with dedicated VAT/discount columns.
+Uses meaningful notes format without redundant prefixes. Handles complete business logic validation.';
+
+
+--
+-- Name: get_debt_dashboard_stats(date, date); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_debt_dashboard_stats(date_from date DEFAULT (CURRENT_DATE - '30 days'::interval), date_to date DEFAULT CURRENT_DATE) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    result JSON;
+BEGIN
+    SELECT json_build_object(
+        'period_info', json_build_object(
+            'date_from', date_from,
+            'date_to', date_to,
+            'total_days', (date_to - date_from + 1)
+        ),
+        'debt_overview', json_build_object(
+            'total_customers_with_debt', (
+                SELECT COUNT(*) FROM customers WHERE current_debt > 0 AND is_active = true
+            ),
+            'total_debt_amount', (
+                SELECT COALESCE(SUM(current_debt), 0) FROM customers WHERE current_debt > 0 AND is_active = true
+            ),
+            'total_credit_amount', (
+                SELECT COALESCE(SUM(ABS(current_debt)), 0) FROM customers WHERE current_debt < 0 AND is_active = true
+            ),
+            'customers_over_limit', (
+                SELECT COUNT(*) FROM customers WHERE current_debt > debt_limit AND debt_limit > 0 AND is_active = true
+            ),
+            'avg_debt_per_customer', (
+                SELECT COALESCE(AVG(current_debt), 0) FROM customers WHERE current_debt > 0 AND is_active = true
+            )
+        ),
+        'recent_transactions', json_build_object(
+            'total_payments', (
+                SELECT COUNT(*) FROM debt_transactions 
+                WHERE transaction_type = 'debt_payment' 
+                AND created_at BETWEEN date_from AND date_to
+            ),
+            'total_payment_amount', (
+                SELECT COALESCE(SUM(ABS(amount)), 0) FROM debt_transactions 
+                WHERE transaction_type = 'debt_payment' 
+                AND created_at BETWEEN date_from AND date_to
+            ),
+            'total_increases', (
+                SELECT COUNT(*) FROM debt_transactions 
+                WHERE transaction_type = 'debt_increase' 
+                AND created_at BETWEEN date_from AND date_to
+            ),
+            'total_increase_amount', (
+                SELECT COALESCE(SUM(amount), 0) FROM debt_transactions 
+                WHERE transaction_type = 'debt_increase' 
+                AND created_at BETWEEN date_from AND date_to
+            )
+        ),
+        'top_debtors', (
+            SELECT COALESCE(json_agg(
+                json_build_object(
+                    'customer_name', customer_name,
+                    'customer_code', customer_code,
+                    'current_debt', current_debt,
+                    'debt_limit', debt_limit,
+                    'risk_level', risk_level,
+                    'days_since_last_purchase', days_since_last_purchase
+                ) ORDER BY current_debt DESC
+            ), '[]'::json)
+            FROM debt_summary
+            WHERE current_debt > 0
+            LIMIT 10
+        ),
+        'payment_trends', (
+            SELECT COALESCE(json_agg(
+                json_build_object(
+                    'date', payment_date,
+                    'payment_count', payment_count,
+                    'payment_amount', payment_amount
+                ) ORDER BY payment_date
+            ), '[]'::json)
+            FROM (
+                SELECT 
+                    DATE(created_at) as payment_date,
+                    COUNT(*) as payment_count,
+                    SUM(ABS(amount)) as payment_amount
+                FROM debt_transactions
+                WHERE transaction_type = 'debt_payment'
+                AND created_at BETWEEN date_from AND date_to
+                GROUP BY DATE(created_at)
+                ORDER BY DATE(created_at)
+            ) payment_trends
+        )
+    ) INTO result;
+    
+    RETURN result;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_debt_dashboard_stats(date_from date, date_to date); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_debt_dashboard_stats(date_from date, date_to date) IS 'Lấy thống kê tổng quan cho dashboard quản lý công nợ';
 
 
 --
@@ -864,6 +1066,120 @@ $$;
 
 
 --
+-- Name: pay_customer_debt(integer, numeric, character varying, text, character varying); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pay_customer_debt(p_customer_id integer, p_payment_amount numeric, p_payment_method character varying DEFAULT 'cash'::character varying, p_notes text DEFAULT NULL::text, p_created_by character varying DEFAULT 'system'::character varying) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_debt NUMERIC;
+    v_new_debt NUMERIC;
+    v_customer_record customers%ROWTYPE;
+    v_transaction_id INTEGER;
+BEGIN
+    -- Validate input
+    IF p_customer_id IS NULL OR p_payment_amount IS NULL OR p_payment_amount <= 0 THEN
+        RETURN jsonb_build_object(
+            'success', false, 
+            'error', 'Invalid input parameters',
+            'error_code', 'INVALID_INPUT'
+        );
+    END IF;
+    
+    -- Get customer record
+    SELECT * INTO v_customer_record 
+    FROM customers 
+    WHERE customer_id = p_customer_id AND is_active = true;
+    
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object(
+            'success', false, 
+            'error', 'Customer not found or inactive',
+            'error_code', 'CUSTOMER_NOT_FOUND'
+        );
+    END IF;
+    
+    v_current_debt := v_customer_record.current_debt;
+    
+    -- Validate payment amount
+    IF p_payment_amount > v_current_debt THEN
+        RETURN jsonb_build_object(
+            'success', false, 
+            'error', 'Payment amount exceeds current debt',
+            'error_code', 'PAYMENT_EXCEEDS_DEBT',
+            'current_debt', v_current_debt,
+            'payment_amount', p_payment_amount
+        );
+    END IF;
+    
+    -- Calculate new debt
+    v_new_debt := v_current_debt - p_payment_amount;
+    
+    -- Update customer debt
+    UPDATE customers 
+    SET 
+        current_debt = v_new_debt,
+        updated_at = NOW()
+    WHERE customer_id = p_customer_id;
+    
+    -- Record transaction in debt_transactions
+    INSERT INTO debt_transactions (
+        customer_id, transaction_type, amount, old_debt, new_debt,
+        payment_method, notes, created_by, created_at
+    ) VALUES (
+        p_customer_id, 'debt_payment', -p_payment_amount, 
+        v_current_debt, v_new_debt, p_payment_method, 
+        COALESCE(p_notes, 'Thu tiền nợ từ ' || v_customer_record.customer_name),
+        p_created_by, NOW()
+    ) RETURNING transaction_id INTO v_transaction_id;
+    
+    -- Create invoice record for payment tracking
+    INSERT INTO invoices (
+        invoice_code, invoice_date, customer_id, customer_name, 
+        total_amount, customer_paid, status, notes, created_at
+    ) VALUES (
+        'PAY' || extract(epoch from now())::bigint,
+        NOW(), p_customer_id, v_customer_record.customer_name,
+        p_payment_amount, p_payment_amount, 'debt_payment',
+        'Thu tiền nợ - ' || COALESCE(p_notes, 'Thanh toán công nợ'),
+        NOW()
+    );
+    
+    RETURN jsonb_build_object(
+        'success', true,
+        'transaction_id', v_transaction_id,
+        'customer_id', p_customer_id,
+        'customer_name', v_customer_record.customer_name,
+        'old_debt', v_current_debt,
+        'payment_amount', p_payment_amount,
+        'new_debt', v_new_debt,
+        'payment_method', p_payment_method,
+        'created_at', NOW(),
+        'message', format('Đã thu %s VND từ %s. Nợ còn lại: %s VND', 
+            p_payment_amount, v_customer_record.customer_name, v_new_debt)
+    );
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Database error occurred',
+            'error_code', 'DATABASE_ERROR',
+            'error_message', SQLERRM
+        );
+END;
+$$;
+
+
+--
+-- Name: FUNCTION pay_customer_debt(p_customer_id integer, p_payment_amount numeric, p_payment_method character varying, p_notes text, p_created_by character varying); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.pay_customer_debt(p_customer_id integer, p_payment_amount numeric, p_payment_method character varying, p_notes text, p_created_by character varying) IS 'Thu tiền công nợ từ khách hàng với validation và logging đầy đủ';
+
+
+--
 -- Name: search_customers_with_stats(text, integer, integer, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -922,6 +1238,59 @@ BEGIN
   LIMIT limit_count;
 END;
 $$;
+
+
+--
+-- Name: search_debt_customers(text, character varying, character varying, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.search_debt_customers(search_term text DEFAULT ''::text, debt_status_filter character varying DEFAULT ''::character varying, risk_level_filter character varying DEFAULT ''::character varying, limit_count integer DEFAULT 50) RETURNS TABLE(customer_id integer, customer_code text, customer_name text, phone text, current_debt numeric, debt_limit numeric, remaining_credit numeric, debt_status text, risk_level text, collection_priority integer, days_since_last_purchase integer, last_purchase_date timestamp without time zone, total_revenue numeric, purchase_count integer)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        ds.customer_id,
+        ds.customer_code::TEXT,
+        ds.customer_name::TEXT,
+        ds.phone::TEXT,
+        ds.current_debt,
+        ds.debt_limit,
+        ds.remaining_credit,
+        ds.debt_status::TEXT,
+        ds.risk_level::TEXT,
+        ds.collection_priority,
+        ds.days_since_last_purchase,
+        ds.last_purchase_date,
+        ds.total_revenue,
+        ds.purchase_count
+    FROM debt_summary ds
+    WHERE 
+        (search_term = '' OR 
+         ds.customer_name ILIKE '%' || search_term || '%' OR 
+         ds.customer_code ILIKE '%' || search_term || '%' OR
+         ds.phone ILIKE '%' || search_term || '%')
+        AND (debt_status_filter = '' OR debt_status_filter = 'all' OR
+             (debt_status_filter = 'overdue' AND ds.debt_status = 'Vượt hạn mức nợ') OR
+             (debt_status_filter = 'normal' AND ds.debt_status = 'Nợ trong hạn mức') OR
+             (debt_status_filter = 'credit' AND ds.debt_status = 'Cửa hàng nợ khách') OR
+             (debt_status_filter = 'none' AND ds.debt_status = 'Không nợ'))
+        AND (risk_level_filter = '' OR risk_level_filter = 'all' OR
+             (risk_level_filter = 'high' AND ds.risk_level = 'Rủi ro cao') OR
+             (risk_level_filter = 'medium' AND ds.risk_level = 'Rủi ro trung bình') OR
+             (risk_level_filter = 'low' AND ds.risk_level = 'Rủi ro thấp') OR
+             (risk_level_filter = 'none' AND ds.risk_level = 'Không rủi ro'))
+    ORDER BY ds.collection_priority ASC, ds.current_debt DESC
+    LIMIT limit_count;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION search_debt_customers(search_term text, debt_status_filter character varying, risk_level_filter character varying, limit_count integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.search_debt_customers(search_term text, debt_status_filter character varying, risk_level_filter character varying, limit_count integer) IS 'Tìm kiếm khách hàng có công nợ với các bộ lọc nâng cao';
 
 
 --
@@ -1411,6 +1780,156 @@ CREATE VIEW public.dashboard_quick_stats AS
     COALESCE(avg(total_amount), (0)::numeric) AS avg_order_value_today
    FROM public.invoices i
   WHERE (date(invoice_date) = CURRENT_DATE);
+
+
+--
+-- Name: debt_summary; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.debt_summary AS
+ SELECT customer_id,
+    customer_code,
+    customer_name,
+    phone,
+    email,
+    current_debt,
+    debt_limit,
+    (debt_limit - current_debt) AS remaining_credit,
+    last_purchase_date,
+    total_revenue,
+    purchase_count,
+        CASE
+            WHEN (current_debt = (0)::numeric) THEN 'Không nợ'::text
+            WHEN ((current_debt > (0)::numeric) AND (current_debt <= debt_limit)) THEN 'Nợ trong hạn mức'::text
+            WHEN (current_debt > debt_limit) THEN 'Vượt hạn mức nợ'::text
+            WHEN (current_debt < (0)::numeric) THEN 'Cửa hàng nợ khách'::text
+            ELSE 'Khác'::text
+        END AS debt_status,
+        CASE
+            WHEN (current_debt > debt_limit) THEN 1
+            WHEN (current_debt > (debt_limit * 0.8)) THEN 2
+            WHEN (current_debt > (0)::numeric) THEN 3
+            ELSE 4
+        END AS collection_priority,
+        CASE
+            WHEN (last_purchase_date IS NULL) THEN NULL::integer
+            ELSE (CURRENT_DATE - date(last_purchase_date))
+        END AS days_since_last_purchase,
+        CASE
+            WHEN (current_debt > debt_limit) THEN 'Rủi ro cao'::text
+            WHEN (current_debt > (debt_limit * 0.8)) THEN 'Rủi ro trung bình'::text
+            WHEN (current_debt > (0)::numeric) THEN 'Rủi ro thấp'::text
+            WHEN (current_debt = (0)::numeric) THEN 'Không rủi ro'::text
+            ELSE 'Cần xem xét'::text
+        END AS risk_level,
+    is_active,
+    created_at,
+    updated_at
+   FROM public.customers c
+  WHERE (is_active = true)
+  ORDER BY
+        CASE
+            WHEN (current_debt > debt_limit) THEN 1
+            WHEN (current_debt > (debt_limit * 0.8)) THEN 2
+            WHEN (current_debt > (0)::numeric) THEN 3
+            ELSE 4
+        END, (abs(current_debt)) DESC;
+
+
+--
+-- Name: VIEW debt_summary; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.debt_summary IS 'Tổng quan công nợ khách hàng với phân loại rủi ro và ưu tiên thu nợ';
+
+
+--
+-- Name: debt_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.debt_transactions (
+    transaction_id integer NOT NULL,
+    customer_id integer,
+    transaction_type character varying(20) NOT NULL,
+    amount numeric(15,2) NOT NULL,
+    old_debt numeric(15,2) NOT NULL,
+    new_debt numeric(15,2) NOT NULL,
+    payment_method character varying(20),
+    notes text,
+    invoice_id integer,
+    created_by character varying(100),
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: debt_transactions_history; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.debt_transactions_history AS
+ SELECT dt.transaction_id,
+    dt.customer_id,
+    c.customer_code,
+    c.customer_name,
+    c.phone,
+    dt.transaction_type,
+    dt.amount,
+    dt.old_debt,
+    dt.new_debt,
+    dt.payment_method,
+    dt.notes,
+    dt.invoice_id,
+        CASE
+            WHEN (dt.invoice_id IS NOT NULL) THEN i.invoice_code
+            ELSE NULL::character varying
+        END AS invoice_code,
+    dt.created_by,
+    dt.created_at,
+        CASE
+            WHEN ((dt.transaction_type)::text = 'debt_increase'::text) THEN 'Tăng nợ'::text
+            WHEN ((dt.transaction_type)::text = 'debt_payment'::text) THEN 'Thu nợ'::text
+            WHEN ((dt.transaction_type)::text = 'debt_adjustment'::text) THEN 'Điều chỉnh'::text
+            WHEN ((dt.transaction_type)::text = 'debt_writeoff'::text) THEN 'Xóa nợ'::text
+            ELSE 'Khác'::text
+        END AS transaction_display,
+        CASE
+            WHEN ((dt.transaction_type)::text = 'debt_increase'::text) THEN 'red'::text
+            WHEN ((dt.transaction_type)::text = 'debt_payment'::text) THEN 'green'::text
+            WHEN ((dt.transaction_type)::text = 'debt_adjustment'::text) THEN 'blue'::text
+            WHEN ((dt.transaction_type)::text = 'debt_writeoff'::text) THEN 'orange'::text
+            ELSE 'gray'::text
+        END AS transaction_color
+   FROM ((public.debt_transactions dt
+     LEFT JOIN public.customers c ON ((dt.customer_id = c.customer_id)))
+     LEFT JOIN public.invoices i ON ((dt.invoice_id = i.invoice_id)))
+  ORDER BY dt.created_at DESC;
+
+
+--
+-- Name: VIEW debt_transactions_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.debt_transactions_history IS 'Lịch sử giao dịch công nợ với thông tin khách hàng và hóa đơn liên quan';
+
+
+--
+-- Name: debt_transactions_transaction_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.debt_transactions_transaction_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: debt_transactions_transaction_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.debt_transactions_transaction_id_seq OWNED BY public.debt_transactions.transaction_id;
 
 
 --
@@ -2055,6 +2574,13 @@ ALTER TABLE ONLY public.customers ALTER COLUMN customer_id SET DEFAULT nextval('
 
 
 --
+-- Name: debt_transactions transaction_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.debt_transactions ALTER COLUMN transaction_id SET DEFAULT nextval('public.debt_transactions_transaction_id_seq'::regclass);
+
+
+--
 -- Name: financial_transactions transaction_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2175,12 +2701,8 @@ COPY public.customer_types (type_id, type_code, type_name, description, is_activ
 --
 
 COPY public.customers (customer_id, customer_code, customer_name, customer_type_id, branch_created_id, phone, email, address, company_name, tax_code, id_number, gender, debt_limit, current_debt, total_revenue, total_profit, purchase_count, last_purchase_date, status, notes, created_by, is_active, created_at, updated_at) FROM stdin;
-830	KH000424	CHỊ TRINH - VĨNH CỬU 4K	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	0.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-28 03:43:08.569	2025-07-29 06:48:10.46569
 831	KH000423	ANH HẢI (TUẤN)	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	120000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-26 03:31:11.68	2025-07-29 06:48:10.46569
-832	KH000422	ANH HẢI (THUÝ)	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	440000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-26 00:11:29.56	2025-07-29 06:48:10.46569
-833	KH000421	Thắng bida (test)	1	1	907136029	ericphan28@gmail.com	Bida Thiên Long 2, Gia Kiệm	\N	\N	\N	\N	50000000.00	0.00	170000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2025-07-25 23:53:02.183	2025-07-29 06:48:10.46569
 834	KH000420	CHỊ LIỄU - LONG THÀNH	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	10760000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-25 09:38:10.697	2025-07-29 06:48:10.46569
-835	KH000419	CHỊ TRINH - VĨNH AN	1	1	0888 445 792	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	8270000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-24 03:06:17.607	2025-07-29 06:48:10.46569
 836	KH000418	ANH KHÁNH - TAM HOÀNG - SOKLU 2	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	10490000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-23 04:12:38.577	2025-07-29 06:48:10.46569
 837	KH000417	EM HẢI - TÂN PHÚ	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	5392000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-22 08:51:47.45	2025-07-29 06:48:10.46569
 838	KH000416	ANH LÂM - TRẠI 5	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	3860000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-22 01:57:51.242	2025-07-29 06:48:10.46569
@@ -2218,9 +2740,7 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 870	KH000383	Anh Phúc - Cám	1	1	0909 319 424	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	1500000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2025-06-25 01:17:58.34	2025-07-29 06:48:10.46569
 871	KH000382	ANH CHÁNH CÚT ĐẺ	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	14300000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-24 09:28:57.983	2025-07-29 06:48:10.46569
 872	KH000380	ANH BÍCH	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	2960000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-23 09:34:47.183	2025-07-29 06:48:10.46569
-873	KH000379	THÚ Y KHANH THUỶ - VĨNH CỬU	1	1	907656669	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	1392000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-18 09:19:52.027	2025-07-29 06:48:10.46569
 874	KH000378	QUÂN BIOFRAM	1	1	373994326	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	1800000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-18 09:18:00.912	2025-07-29 06:48:10.46569
-875	KH000377	NHUNG VIETVET	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	102094000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-18 03:48:41.41	2025-07-29 06:48:10.46569
 876	KH000376	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	56640000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-16 07:58:44.646	2025-07-29 06:48:10.46569
 877	KH000375	ANH DANH - GÀ TRE - VÔ NHIỄM 4K	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	5890000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-16 00:11:47.457	2025-07-29 06:48:10.46569
 878	KH000374	ANH TÈO - VÔ NHIỄM	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	29400000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-16 00:07:52.333	2025-07-29 06:48:10.46569
@@ -2230,6 +2750,10 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 882	KH000370	ANH PHONG - CTY GREENTECH	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	5040000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-10 09:13:40.759	2025-07-29 06:48:10.591439
 883	KH000369	ANH HẢI CJ	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	5430000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-10 08:29:24.857	2025-07-29 06:48:10.591439
 884	KH000368	CÔ LUÂN - BÀU HÀM	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	800000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-10 08:20:30.85	2025-07-29 06:48:10.591439
+875	KH000377	NHUNG VIETVET	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	102664000.00	198096.77	1	2025-08-05 08:15:45.23856	1	\N	Ngọc Bích	t	2025-06-18 03:48:41.41	2025-08-05 08:15:45.23856
+873	KH000379	THÚ Y KHANH THUỶ - VĨNH CỬU	1	1	907656669	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	3822648.00	593096.77	1	2025-08-05 08:24:29.140906	1	\N	Ngọc Bích	t	2025-06-18 09:19:52.027	2025-08-05 08:24:29.140906
+833	KH000421	Thắng bida (test)	1	1	907136029	ericphan28@gmail.com	Bida Thiên Long 2, Gia Kiệm	\N	\N	\N	\N	50000000.00	20000000.00	170000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2025-07-25 23:53:02.183	2025-08-05 15:39:21.892108
+835	KH000419	CHỊ TRINH - VĨNH AN	1	1	0888 445 792	\N	\N	\N	\N	\N	Nữ	50000000.00	63800000.00	8270000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-24 03:06:17.607	2025-08-05 15:44:10.237439
 885	KH000367	ANH THỨC - TAM HOÀNG	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	46205000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-07 07:45:06.42	2025-07-29 06:48:10.591439
 886	KH000366	CHỊ QUY - BÌNH DƯƠNG - LÔ MỚI	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	77740000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-07 04:34:44.966	2025-07-29 06:48:10.591439
 887	KH000365	ANH HUY - GÀ - ĐỨC HUY	1	1	0972 612 063	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	18480000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-05 03:43:35.857	2025-07-29 06:48:10.591439
@@ -2270,7 +2794,6 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 922	KH000330	HUY - NINH PHÁT	1	1	379874873	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	2700000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-04-28 02:39:50.727	2025-07-29 06:48:10.591439
 923	KH000329	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	122950000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-04-25 07:46:26.879	2025-07-29 06:48:10.591439
 924	KH000328	ANH CU - TAM HOÀNG - HƯNG LỘC LÔ MỚI	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	171540000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-04-25 07:38:54.45	2025-07-29 06:48:10.591439
-925	KH000327	ANH THUỶ - VỊT - ĐỨC HUY	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	3100000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-04-24 09:57:30.95	2025-07-29 06:48:10.591439
 926	KH000326	ĐẠI LÝ GẤU - BÀU CÁ	1	1	797530328	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	3440000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-04-22 09:28:48.346	2025-07-29 06:48:10.591439
 927	KH000325	CÔ LAN PHƯỚC - NINH PHÁT	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	117780000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-04-22 09:04:36.9	2025-07-29 06:48:10.591439
 928	KH000323	ANH LỘC-LÂM ĐỒNG	1	1	0386 852 479	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	13650000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-04-16 07:38:56.23	2025-07-29 06:48:10.591439
@@ -2517,7 +3040,6 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 1167	KH0000067	CHÚ MINH - GÀ TA- NINH PHÁT	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	16820000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.98	2025-07-29 06:48:11.450257
 1168	KH0000066	CÔ THỌ - GÀ TA - SUỐI NHO	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	6550000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.98	2025-07-29 06:48:11.450257
 1169	KH0000065	ANH QUÂN CÁM GOLD COIN - GA TA	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	30490000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.977	2025-07-29 06:48:11.450257
-1170	KH0000064	CHÚ CHIỂU - GÀ TA - ĐỨC LONG	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	0.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.977	2025-07-29 06:48:11.450257
 1171	KH0000063	CHÚ ĐÔNG - TAM HOÀNG	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	94010000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.977	2025-07-29 06:48:11.450257
 1172	KH0000061	CHỊ TRANG-TAM HOÀNG-NAGOA	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	46960000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.973	2025-07-29 06:48:11.450257
 1173	KH0000060	ANH BIỂN - TAM HOÀNG - CÂY GÁO	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	182150000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.973	2025-07-29 06:48:11.450257
@@ -2527,6 +3049,7 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 1177	KH0000055	ANH SƠN ( BỘ) - TAM HOÀNG	1	1	0385 410 545	\N	\N	\N	\N	\N	\N	50000000.00	0.00	104878000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.967	2025-07-29 06:48:11.450257
 1178	KH0000054	CHÚ CHƯƠNG - TAM HOÀNG	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	52210000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.967	2025-07-29 06:48:11.450257
 1179	KH0000053	CÔ LAN ( TUẤN) - TAM HOÀNG	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	118420000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.967	2025-07-29 06:48:11.450257
+1170	KH0000064	CHÚ CHIỂU - GÀ TA - ĐỨC LONG	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	600000.00	185096.77	1	2025-08-05 08:00:19.181657	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.977	2025-08-05 08:00:19.181657
 1183	KH0000049	ANH CU - TAM HOÀNG HƯNG LỘC	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	149200000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.963	2025-07-29 06:48:11.558485
 1184	KH0000048	CÔ CHƯNG - TAM HOÀNG - NAGOA	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	133150000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.959	2025-07-29 06:48:11.558485
 1185	KH0000047	ANH LÂM (8K) - TRẠI 4	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	124220000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.959	2025-07-29 06:48:11.558485
@@ -2573,6 +3096,21 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 1226	KH000012	ANH LÂM (5k) - TRẠI 1	1	1	0386 209 400	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	111530000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.912	2025-07-29 06:48:11.558485
 1228	KH_WALK_IN	Khách lẻ	1	1	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0	\N	1	\N	\N	t	2025-07-30 04:51:20.635148	2025-07-30 04:51:20.635148
 1076	KH000166	ANH CHIẾN-KHÁNH	1	1	039 6790740	\N	\N	\N	\N	\N	\N	50000000.00	0.00	1890000.00	440000.00	1	2025-08-05 02:31:51.073582	1	\N	Thu Y Thuy Trang	t	2024-12-10 11:38:52.319	2025-08-05 02:31:51.073582
+830	KH000424	CHỊ TRINH - VĨNH CỬU 4K	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	1018500.00	338193.54	1	2025-08-05 08:04:12.175956	1	\N	Ngọc Bích	t	2025-07-28 03:43:08.569	2025-08-05 08:04:12.175956
+832	KH000422	ANH HẢI (THUÝ)	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	1038500.00	198096.77	1	2025-08-05 08:23:16.964938	1	\N	Ngọc Bích	t	2025-07-26 00:11:29.56	2025-08-05 08:23:16.964938
+925	KH000327	ANH THUỶ - VỊT - ĐỨC HUY	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	3883000.00	230096.77	1	2025-08-05 08:53:57.727982	1	\N	Ngọc Bích	t	2025-04-24 09:57:30.95	2025-08-05 08:53:57.727982
+\.
+
+
+--
+-- Data for Name: debt_transactions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.debt_transactions (transaction_id, customer_id, transaction_type, amount, old_debt, new_debt, payment_method, notes, invoice_id, created_by, created_at) FROM stdin;
+1	833	debt_increase	50000000.00	0.00	50000000.00	\N	muon tien ngaoi	\N	POS System	2025-08-05 15:37:46.449526
+2	833	debt_payment	-30000000.00	50000000.00	20000000.00	cash	trả nợ, con thiêu s  20tr	\N	POS System	2025-08-05 15:39:21.892108
+3	835	debt_increase	65000000.00	0.00	65000000.00	\N	trả tiền	\N	POS System	2025-08-05 15:41:29.381201
+4	835	debt_adjustment	-1200000.00	65000000.00	63800000.00	\N	gí mãi mới trả	\N	POS System	2025-08-05 15:44:10.237439
 \.
 
 
@@ -4286,6 +4824,20 @@ COPY public.invoice_details (detail_id, invoice_id, product_id, invoice_code, pr
 2830	744	1955	HD1754328295337	SP000565	#CÚM H5 + H9 (250ml)	\N	ANH KHÁNH - VỊT - SOKLU	1	\N	\N	\N	2025-08-04 17:24:56.19	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	0.00	0.00	400000.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	2.00	200000.00	0.00	0.00	200000.00	400000.00	0.00	0.00	2025-08-04 17:24:54.366593	\N
 2831	745	1847	HD1754361111	SP000677	#AGR IZOVAC ND-EDS-IB	\N	ANH CHIẾN-KHÁNH	1	\N	\N	\N	2025-08-05 02:31:51.073582	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	1600000.00	0.00	1890000.00	0.00	1600000.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	1600000.00	0.00	0.00	1600000.00	1600000.00	1250000.00	350000.00	2025-08-05 02:31:51.073582	1076
 2832	745	1630	HD1754361111	SP000178	#CÚM AVAC RE5 (250ml)	\N	ANH CHIẾN-KHÁNH	1	\N	\N	\N	2025-08-05 02:31:51.073582	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	1890000.00	0.00	400000.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	2.00	200000.00	0.00	0.00	200000.00	400000.00	155000.00	90000.00	2025-08-05 02:31:51.073582	1076
+2833	746	1622	HD1754380819	SP000186	#CIRCO (2000DS)	\N	CHÚ CHIỂU - GÀ TA - ĐỨC LONG	1	\N	\N	\N	2025-08-05 08:00:19.181657	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	600000.00	400000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	400000.00	0.00	0.00	400000.00	400000.00	259903.23	140096.77	2025-08-05 08:00:19.181657	1170
+2834	746	1630	HD1754380819	SP000178	#CÚM AVAC RE5 (250ml)	\N	CHÚ CHIỂU - GÀ TA - ĐỨC LONG	1	\N	\N	\N	2025-08-05 08:00:19.181657	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	200000.00	0.00	600000.00	200000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	200000.00	0.00	0.00	200000.00	200000.00	155000.00	45000.00	2025-08-05 08:00:19.181657	1170
+2835	747	1755	HD1754381052	SP000049	#AGR POX (1000DS)	\N	CHỊ TRINH - VĨNH CỬU 4K	1	\N	\N	\N	2025-08-05 08:04:12.175956	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	220000.00	0.00	1018500.00	220000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	220000.00	0.00	0.00	220000.00	220000.00	162000.00	58000.00	2025-08-05 08:04:12.175956	830
+2836	747	1622	HD1754381052	SP000186	#CIRCO (2000DS)	\N	CHỊ TRINH - VĨNH CỬU 4K	1	\N	\N	\N	2025-08-05 08:04:12.175956	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	800000.00	0.00	1018500.00	800000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	2.00	400000.00	0.00	0.00	400000.00	800000.00	259903.23	280193.54	2025-08-05 08:04:12.175956	830
+2837	748	1755	HD1754381745	SP000049	#AGR POX (1000DS)	\N	NHUNG VIETVET	1	\N	\N	\N	2025-08-05 08:15:45.23856	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	220000.00	0.00	570000.00	220000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	220000.00	0.00	0.00	220000.00	220000.00	162000.00	58000.00	2025-08-05 08:15:45.23856	875
+2838	748	1622	HD1754381745	SP000186	#CIRCO (2000DS)	\N	NHUNG VIETVET	1	\N	\N	\N	2025-08-05 08:15:45.23856	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	570000.00	400000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	400000.00	0.00	0.00	400000.00	400000.00	259903.23	140096.77	2025-08-05 08:15:45.23856	875
+2839	749	1755	HD1754382197	SP000049	#AGR POX (1000DS)	\N	ANH HẢI (THUÝ)	1	\N	\N	\N	2025-08-05 08:23:16.964938	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	220000.00	0.00	598500.00	220000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	220000.00	0.00	0.00	220000.00	220000.00	162000.00	58000.00	2025-08-05 08:23:16.964938	832
+2840	749	1622	HD1754382197	SP000186	#CIRCO (2000DS)	\N	ANH HẢI (THUÝ)	1	\N	\N	\N	2025-08-05 08:23:16.964938	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	598500.00	400000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	400000.00	0.00	0.00	400000.00	400000.00	259903.23	140096.77	2025-08-05 08:23:16.964938	832
+2841	750	1847	HD1754382269	SP000677	#AGR IZOVAC ND-EDS-IB	\N	THÚ Y KHANH THUỶ - VĨNH CỬU	1	\N	\N	\N	2025-08-05 08:24:29.140906	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	1600000.00	0.00	2430648.00	1600000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	1600000.00	0.00	0.00	1600000.00	1600000.00	1250000.00	350000.00	2025-08-05 08:24:29.140906	873
+2842	750	1755	HD1754382269	SP000049	#AGR POX (1000DS)	\N	THÚ Y KHANH THUỶ - VĨNH CỬU	1	\N	\N	\N	2025-08-05 08:24:29.140906	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	220000.00	0.00	2430648.00	220000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	220000.00	0.00	0.00	220000.00	220000.00	162000.00	58000.00	2025-08-05 08:24:29.140906	873
+2843	750	1622	HD1754382269	SP000186	#CIRCO (2000DS)	\N	THÚ Y KHANH THUỶ - VĨNH CỬU	1	\N	\N	\N	2025-08-05 08:24:29.140906	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	2430648.00	400000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	400000.00	0.00	0.00	400000.00	400000.00	259903.23	140096.77	2025-08-05 08:24:29.140906	873
+2844	750	1630	HD1754382269	SP000178	#CÚM AVAC RE5 (250ml)	\N	THÚ Y KHANH THUỶ - VĨNH CỬU	1	\N	\N	\N	2025-08-05 08:24:29.140906	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	200000.00	0.00	2430648.00	200000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	200000.00	0.00	0.00	200000.00	200000.00	155000.00	45000.00	2025-08-05 08:24:29.140906	873
+2845	751	1622	HD1754384038	SP000186	#CIRCO (2000DS)	\N	ANH THUỶ - VỊT - ĐỨC HUY	1	\N	\N	\N	2025-08-05 08:53:57.727982	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	783000.00	400000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	400000.00	0.00	0.00	400000.00	400000.00	259903.23	140096.77	2025-08-05 08:53:57.727982	925
+2846	751	1630	HD1754384038	SP000178	#CÚM AVAC RE5 (250ml)	\N	ANH THUỶ - VỊT - ĐỨC HUY	1	\N	\N	\N	2025-08-05 08:53:57.727982	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	783000.00	400000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	2.00	200000.00	0.00	0.00	200000.00	400000.00	155000.00	90000.00	2025-08-05 08:53:57.727982	925
 2812	738	\N	HD004605.01	SP000616{DEL}	CEVAMUNE (VIÊN)	KH000385	QUYỀN - TAM HOÀNG LÔ MỚI	1	\N	\N	\N	1970-01-01 00:00:45.839	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	80000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00		\N				1.00	80000.00	0.00	0.00	80000.00	80000.00	0.00	0.00	2025-07-30 01:20:39.244021	868
 1419	5	1584	HD005350	SP000224	#TG TẢ + CÚM (500ml)	KH000182	CÔ TUYẾT THU - PHÚ CƯỜNG 11K	1	\N	\N	\N	1970-01-01 00:00:45.866	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	13000000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00		\N				10.00	1300000.00	0.00	0.00	1300000.00	13000000.00	0.00	0.00	2025-07-30 01:20:32.586738	1115
 1420	6	1673	HD005349	SP000134	VAC PAC PLUS (5g)	KH000184	ĐINH QUỐC TUẤN	1	\N	\N	\N	1970-01-01 00:00:45.866	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	60000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00		\N				2.00	30000.00	0.00	0.00	30000.00	60000.00	0.00	0.00	2025-07-30 01:20:32.586738	1060
@@ -5030,6 +5582,9 @@ COPY public.invoices (invoice_id, invoice_code, invoice_date, return_code, custo
 703	HD004640	2025-07-02 07:45:41.16	\N	992	XUÂN ( THUÊ NGÁT)	1	7360000.00	7360000.00	\N	completed	2025-07-30 00:54:59.937	2025-07-30 00:54:59.937	percentage	0.00	0.00	0.00
 740	HD1754246827011	2025-08-03 18:47:07.011	\N	874	QUÂN BIOFRAM	1	3080000.00	3080000.00	Thanh toán bằng tiền mặt	completed	2025-08-03 18:47:06.080625	2025-08-03 18:47:06.080625	percentage	0.00	0.00	0.00
 743	HD1754312829160	2025-08-04 13:07:09.16	\N	932	ANH KHÁNH - VỊT - SOKLU	1	693000.00	693000.00	Thanh toán bằng chuyển khoản	completed	2025-08-04 13:07:07.43665	2025-08-04 13:07:07.43665	percentage	0.00	0.00	0.00
+746	HD1754380819	2025-08-05 08:00:19.181657	\N	1170	CHÚ CHIỂU - GÀ TA - ĐỨC LONG	1	600000.00	600000.00	Thanh toán tiền mặt | 2 items | Tạo bởi: POS System | Đã thu: 600000 | Thối lại: 0.0000000000000000000000000000000000000000	completed	2025-08-05 08:00:19.181657	2025-08-05 08:00:19.181657	percentage	0.00	0.00	0.00
+749	HD1754382197	2025-08-05 08:23:16.964938	\N	832	ANH HẢI (THUÝ)	1	598500.00	598500.00	POS | Tiền mặt | 2 items | Giảm 50k | VAT 5%	completed	2025-08-05 08:23:16.964938	2025-08-05 08:23:16.964938	amount	50000.00	5.00	28500.00
+752	PAY1754408362	2025-08-05 15:39:21.892108	\N	833	Thắng bida (test)	1	30000000.00	30000000.00	Thu tiền nợ - trả nợ, con thiêu s  20tr	debt_payment	2025-08-05 15:39:21.892108	2025-08-05 15:39:21.892108	percentage	0.00	0.00	0.00
 282	HD005066	2025-07-18 09:56:36.503	\N	1203	CHỊ LOAN ( ĐỊNH)	1	5800000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00
 357	HD004989	2025-07-15 11:54:47.662	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	5280000.00	0.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00
 381	HD004966.01	2025-07-14 16:25:29.287	\N	1048	ANH TRIỆU - GIA KIỆM	1	200000.00	0.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00
@@ -5041,6 +5596,8 @@ COPY public.invoices (invoice_id, invoice_code, invoice_date, return_code, custo
 696	HD004647	2025-07-02 08:49:16.029	\N	1032	ANH LÂM (5K) - TRẠI 2	1	5680000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00
 741	HD1754268864323	2025-08-04 00:54:24.324	\N	932	ANH KHÁNH - VỊT - SOKLU	1	836000.00	836000.00	Thanh toán bằng chuyển khoản	completed	2025-08-04 00:54:23.328636	2025-08-04 00:54:23.328636	percentage	0.00	0.00	0.00
 744	HD1754328295337	2025-08-04 17:24:55.337	\N	932	ANH KHÁNH - VỊT - SOKLU	1	660000.00	660000.00	Thanh toán bằng thẻ	completed	2025-08-04 17:24:53.98314	2025-08-04 17:24:53.98314	percentage	0.00	0.00	0.00
+747	HD1754381052	2025-08-05 08:04:12.175956	\N	830	CHỊ TRINH - VĨNH CỬU 4K	1	1018500.00	1018500.00	Thanh toán tiền mặt | 2 items | Tạo bởi: POS System | Đã thu: 1018500 | Thối lại: 0.00000000000000000000	completed	2025-08-05 08:04:12.175956	2025-08-05 08:04:12.175956	amount	50000.00	5.00	48500.00
+750	HD1754382269	2025-08-05 08:24:29.140906	\N	873	THÚ Y KHANH THUỶ - VĨNH CỬU	1	2430648.00	2430648.00	POS | Tiền mặt | 4 items | Giảm 7% | VAT 8%	completed	2025-08-05 08:24:29.140906	2025-08-05 08:24:29.140906	percentage	7.00	8.00	180048.00
 310	HD005038	2025-07-17 11:07:21.637	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	700000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00
 319	HD005029	2025-07-17 08:01:31.273	\N	843	CHÚ MẪN - CÚT - VÕ DÕNG	1	650000.00	650000.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00
 394	HD004952	2025-07-14 08:15:38.13	\N	1215	ANH TÂM ( ANH CÔNG)	1	2150000.00	0.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00
@@ -5048,6 +5605,8 @@ COPY public.invoices (invoice_id, invoice_code, invoice_date, return_code, custo
 722	HD004621	2025-07-01 14:47:20.637	\N	1220	ANH LÂM - TAM HOÀNG - NINH PHÁT	1	4400000.00	4180000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00
 742	HD1754307855017	2025-08-04 11:44:15.017	\N	925	ANH THUỶ - VỊT - ĐỨC HUY	1	2684000.00	2684000.00	Thanh toán bằng chuyển khoản	completed	2025-08-04 11:44:13.407038	2025-08-04 11:44:13.407038	percentage	0.00	0.00	0.00
 745	HD1754361111	2025-08-05 02:31:51.073582	\N	1076	ANH CHIẾN-KHÁNH	1	1890000.00	1890000.00	{"summary": "Thanh toán thẻ | VAT 5% (90000.00000000000000000000000000000000 VND) | Giảm giá 10% = 200000.000000000000 VND | Tạm tính: 2000000 VND | Thành tiền: 1890000.00000000000000000000000000000000 VND", "vat_rate": 5, "warnings": [], "created_by": "POS System", "item_count": 2, "vat_amount": 90000.00000000000000000000000000000000, "change_amount": 0.00000000000000000000000000000000, "discount_type": "percentage", "discount_value": 10, "payment_method": "card", "total_quantity": 3, "discount_amount": 200000.000000000000, "subtotal_amount": 2000000}	completed	2025-08-05 02:31:51.073582	2025-08-05 02:31:51.073582	percentage	0.00	0.00	0.00
+748	HD1754381745	2025-08-05 08:15:45.23856	\N	875	NHUNG VIETVET	1	570000.00	570000.00	POS | Tiền mặt | 2 items | Giảm 50000%	completed	2025-08-05 08:15:45.23856	2025-08-05 08:15:45.23856	amount	50000.00	0.00	0.00
+751	HD1754384038	2025-08-05 08:53:57.727982	\N	925	ANH THUỶ - VỊT - ĐỨC HUY	1	783000.00	783000.00	Tiền mặt | 2 items | Giảm 75k | VAT 8%	completed	2025-08-05 08:53:57.727982	2025-08-05 08:53:57.727982	amount	75000.00	8.00	58000.00
 \.
 
 
@@ -5381,7 +5940,7 @@ COPY public.products (product_id, product_code, product_name, category_id, base_
 1783	SP000004	NOVAVETER FENDOX PLUS (1lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	1250000.00	1450000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:54.135	2025-07-29 06:48:55.660734
 1760	SP000044	#IZOVAC H120 - LASOTA (2500DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	223000.00	280000.00	75.00	0.00	76.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.781	2025-07-29 06:48:54.999774
 1640	SP000168	#DỊCH TẢ VỊT-NAVETCO (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	37000.00	70000.00	26.00	0.00	27.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.476	2025-07-29 06:48:53.691393
-1755	SP000049	#AGR POX (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	162000.00	220000.00	63.00	0.00	66.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.78	2025-07-29 06:48:54.999774
+1755	SP000049	#AGR POX (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	162000.00	220000.00	59.00	0.00	66.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.78	2025-08-05 08:24:29.140906
 1642	SP000166	#VIÊM GAN VỊT - AVAC (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	54000.00	85000.00	0.00	0.00	0.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.575	2025-07-29 06:48:53.789102
 1643	SP000165	ALpha D3 (1Kg)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	130000.00	160000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.575	2025-07-29 06:48:53.789102
 1644	SP000164	CLOSTAB (1Kg)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	350000.00	350000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.575	2025-07-29 06:48:53.789102
@@ -5760,10 +6319,10 @@ COPY public.products (product_id, product_code, product_name, category_id, base_
 2110	SP000394	AGR DOXSURE 50% POWER (1KG)	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	1650000.00	1800000.00	19.00	0.00	19.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:54.934	2025-07-29 12:57:55.940309
 1942	SP000578	#DỊCH TẢ HANVET	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	46499.92	70000.00	41.00	0.00	42.00	0.00	50000000.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:37.325	2025-07-29 12:57:38.335049
 1611	SP000197	#GUMBORO D78 (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	165000.00	200000.00	11.00	0.00	12.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.272	2025-07-29 06:48:53.484799
-1622	SP000186	#CIRCO (2000DS)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	259903.23	400000.00	117.00	0.00	121.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.372	2025-07-29 06:48:53.589531
+1622	SP000186	#CIRCO (2000DS)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	259903.23	400000.00	110.00	0.00	121.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.372	2025-08-05 08:53:57.727982
 1962	SP000558	AGR BUTASAL ATP GOLD 100ml	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	90000.00	120000.00	5.00	0.00	6.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:39.493	2025-07-29 12:57:40.494079
-1847	SP000677	#AGR IZOVAC ND-EDS-IB	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	1250000.00	1600000.00	2.00	0.00	5.00	0.00	50000000.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:27.289	2025-08-05 02:31:51.073582
-1630	SP000178	#CÚM AVAC RE5 (250ml)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	155000.00	200000.00	50.00	0.00	54.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.373	2025-08-05 02:31:51.073582
+1630	SP000178	#CÚM AVAC RE5 (250ml)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	155000.00	200000.00	46.00	0.00	54.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.373	2025-08-05 08:53:57.727982
+1847	SP000677	#AGR IZOVAC ND-EDS-IB	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	1250000.00	1600000.00	1.00	0.00	5.00	0.00	50000000.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:27.289	2025-08-05 08:24:29.140906
 \.
 
 
@@ -5962,6 +6521,13 @@ SELECT pg_catalog.setval('public.customers_customer_id_seq', 1228, true);
 
 
 --
+-- Name: debt_transactions_transaction_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.debt_transactions_transaction_id_seq', 4, true);
+
+
+--
 -- Name: financial_transactions_transaction_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -5972,14 +6538,14 @@ SELECT pg_catalog.setval('public.financial_transactions_transaction_id_seq', 281
 -- Name: invoice_details_detail_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.invoice_details_detail_id_seq', 2832, true);
+SELECT pg_catalog.setval('public.invoice_details_detail_id_seq', 2846, true);
 
 
 --
 -- Name: invoices_invoice_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.invoices_invoice_id_seq', 745, true);
+SELECT pg_catalog.setval('public.invoices_invoice_id_seq', 752, true);
 
 
 --
@@ -6107,6 +6673,14 @@ ALTER TABLE ONLY public.customers
 
 ALTER TABLE ONLY public.customers
     ADD CONSTRAINT customers_pkey PRIMARY KEY (customer_id);
+
+
+--
+-- Name: debt_transactions debt_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.debt_transactions
+    ADD CONSTRAINT debt_transactions_pkey PRIMARY KEY (transaction_id);
 
 
 --
@@ -6321,6 +6895,13 @@ CREATE INDEX idx_customers_code ON public.customers USING btree (customer_code);
 
 
 --
+-- Name: idx_customers_current_debt; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_customers_current_debt ON public.customers USING btree (current_debt) WHERE (current_debt <> (0)::numeric);
+
+
+--
 -- Name: idx_customers_customer_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6335,6 +6916,20 @@ CREATE INDEX idx_customers_customer_type_id ON public.customers USING btree (cus
 
 
 --
+-- Name: idx_customers_debt_limit; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_customers_debt_limit ON public.customers USING btree (debt_limit) WHERE (debt_limit > (0)::numeric);
+
+
+--
+-- Name: idx_customers_debt_over_limit; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_customers_debt_over_limit ON public.customers USING btree (current_debt, debt_limit) WHERE (current_debt > debt_limit);
+
+
+--
 -- Name: idx_customers_phone; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6346,6 +6941,34 @@ CREATE INDEX idx_customers_phone ON public.customers USING btree (phone);
 --
 
 CREATE INDEX idx_customers_type ON public.customers USING btree (customer_type_id);
+
+
+--
+-- Name: idx_debt_transactions_composite; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_debt_transactions_composite ON public.debt_transactions USING btree (customer_id, created_at DESC);
+
+
+--
+-- Name: idx_debt_transactions_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_debt_transactions_created_at ON public.debt_transactions USING btree (created_at);
+
+
+--
+-- Name: idx_debt_transactions_customer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_debt_transactions_customer_id ON public.debt_transactions USING btree (customer_id);
+
+
+--
+-- Name: idx_debt_transactions_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_debt_transactions_type ON public.debt_transactions USING btree (transaction_type);
 
 
 --
@@ -6692,6 +7315,22 @@ ALTER TABLE ONLY public.customers
 
 ALTER TABLE ONLY public.customers
     ADD CONSTRAINT customers_customer_type_id_fkey FOREIGN KEY (customer_type_id) REFERENCES public.customer_types(type_id);
+
+
+--
+-- Name: debt_transactions debt_transactions_customer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.debt_transactions
+    ADD CONSTRAINT debt_transactions_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(customer_id);
+
+
+--
+-- Name: debt_transactions debt_transactions_invoice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.debt_transactions
+    ADD CONSTRAINT debt_transactions_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(invoice_id);
 
 
 --

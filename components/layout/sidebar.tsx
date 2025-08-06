@@ -100,11 +100,11 @@ const menuItems = [
   {
     title: "Tài Chính",
     icon: DollarSign,
-    href: "/finance",
+    href: "/dashboard/debt",
     badge: null,
     children: [
       { title: "Sổ Quỹ", href: "/finance/cashbook" },
-      { title: "Công Nợ", href: "/finance/debts" },
+      { title: "Công Nợ", href: "/dashboard/debt" },
       { title: "Báo Cáo", href: "/finance/reports" }
     ]
   },
@@ -208,9 +208,9 @@ export function Sidebar() {
         variants={sidebarVariants}
         animate={isOpen ? "open" : "closed"}
         className={cn(
-          "fixed left-0 top-0 z-50 h-full bg-white/90 backdrop-blur-xl border-r border-white/30 shadow-2xl",
+          "fixed left-0 top-0 z-50 h-full bg-white/95 backdrop-blur-lg border-r border-white/30 shadow-2xl",
           "lg:relative lg:z-0 lg:shadow-xl",
-          "dark:bg-gray-900/90 dark:border-gray-700/30"
+          "dark:bg-gray-900/95 dark:border-gray-700/30"
         )}
       >
         <div className="flex h-full flex-col">
@@ -300,7 +300,7 @@ export function Sidebar() {
                       "h-5 w-5 transition-all duration-300 relative z-10",
                       isActive 
                         ? "text-white drop-shadow-sm scale-110" 
-                        : "text-gray-500 group-hover:text-blue-600 dark:text-gray-400 dark:group-hover:text-blue-400"
+                        : "text-gray-500 group-hover:!text-gray-800 dark:text-gray-400 dark:group-hover:!text-blue-300"
                     )} />                    <AnimatePresence mode="wait">
                       {isOpen && (
                         <motion.div
@@ -314,7 +314,7 @@ export function Sidebar() {
                             "font-medium transition-all duration-300 relative z-10",
                             isActive 
                               ? "text-white drop-shadow-sm font-semibold" 
-                              : "text-gray-700 group-hover:text-blue-600 dark:text-gray-300 dark:group-hover:text-blue-400"
+                              : "text-gray-700 group-hover:!text-gray-800 dark:text-gray-300 dark:group-hover:!text-blue-300"
                           )}>
                             {item.title}
                           </span>
@@ -352,7 +352,7 @@ export function Sidebar() {
                             href={child.href}
                             className={cn(
                               "block rounded-lg px-4 py-2.5 text-sm transition-all duration-200 relative ml-2",
-                              "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:text-blue-700 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20",
+                              "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:!text-gray-800 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 dark:hover:!text-blue-300",
                               "hover:shadow-sm hover:scale-[1.01]",
                               isChildActive 
                                 ? [
