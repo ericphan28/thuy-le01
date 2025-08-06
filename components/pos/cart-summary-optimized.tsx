@@ -2,14 +2,26 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ShoppingCart, X, Plus, Minus, CreditCard } from 'lucide-react'
+import { ShoppingCart, X, Plus, Minus, CreditCard, Percent, DollarSign } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import type { CartItem } from '@/lib/types/pos'
 
 interface CartSummaryOptimizedProps {
   cart: CartItem[]
+  subtotal: number
+  discountAmount: number
+  tax: number
   total: number
+  vatRate: number
+  discountType: 'percentage' | 'amount'
+  discountValue: number
   onUpdateQuantity: (productId: number, quantity: number) => void
   onRemoveItem: (productId: number) => void
+  onVatChange: (rate: number) => void
+  onDiscountTypeChange: (type: 'percentage' | 'amount') => void
+  onDiscountValueChange: (value: number) => void
   onCheckout: () => void
   disabled?: boolean
   isFullHeight?: boolean
@@ -17,9 +29,18 @@ interface CartSummaryOptimizedProps {
 
 export function CartSummaryOptimized({ 
   cart, 
+  subtotal,
+  discountAmount,
+  tax,
   total,
+  vatRate,
+  discountType,
+  discountValue,
   onUpdateQuantity, 
   onRemoveItem,
+  onVatChange,
+  onDiscountTypeChange,
+  onDiscountValueChange,
   onCheckout,
   disabled = false,
   isFullHeight = false
@@ -32,7 +53,7 @@ export function CartSummaryOptimized({
   }
 
   return (
-    <Card className={`supabase-card ${!isFullHeight ? 'sticky top-4' : ''}`}>
+    <Card className="supabase-card">
       {/* Compact Header */}
       <CardHeader className="pb-2 border-b border-border">
         <CardTitle className="flex items-center justify-between">
@@ -130,13 +151,83 @@ export function CartSummaryOptimized({
           </div>
         )}
 
-        {/* Total & Checkout - Ultra Compact */}
+        {/* VAT, Discount & Total - Compact */}
         {cart.length > 0 && (
           <div className="space-y-3 pt-3 border-t border-border">
-            {/* Simple Total */}
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-foreground">Tổng cộng:</span>
-              <span className="text-lg font-bold text-brand">{formatPrice(total)}</span>
+            {/* VAT Selection - Single Row */}
+            <div className="flex items-center gap-2">
+              <Label className="text-xs font-medium text-foreground min-w-fit">VAT:</Label>
+              <Select value={vatRate.toString()} onValueChange={(value) => onVatChange(Number(value))}>
+                <SelectTrigger className="supabase-input h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">0%</SelectItem>
+                  <SelectItem value="5">5%</SelectItem>
+                  <SelectItem value="8">8%</SelectItem>
+                  <SelectItem value="10">10%</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Discount - Single Row */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label className="text-xs font-medium text-foreground min-w-fit">Giảm giá:</Label>
+                <div className="flex items-center gap-1 flex-1">
+                  <Button
+                    variant={discountType === 'percentage' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => onDiscountTypeChange('percentage')}
+                    className="h-6 px-2 text-xs"
+                  >
+                    <Percent className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant={discountType === 'amount' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => onDiscountTypeChange('amount')}
+                    className="h-6 px-2 text-xs"
+                  >
+                    <DollarSign className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              
+              <Input
+                type="number"
+                placeholder={discountType === 'percentage' ? '%' : 'VND'}
+                value={discountValue || ''}
+                onChange={(e) => onDiscountValueChange(Number(e.target.value) || 0)}
+                min="0"
+                max={discountType === 'percentage' ? '100' : subtotal}
+                className="supabase-input h-7 text-xs"
+              />
+            </div>
+
+            {/* Calculation Summary - Super Compact */}
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tạm tính:</span>
+                <span className="text-foreground">{formatPrice(subtotal)}</span>
+              </div>
+              
+              {discountAmount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Giảm giá:</span>
+                  <span className="text-destructive">-{formatPrice(discountAmount)}</span>
+                </div>
+              )}
+              
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">VAT ({vatRate}%):</span>
+                <span className="text-foreground">{formatPrice(tax)}</span>
+              </div>
+              
+              <div className="flex justify-between text-sm font-bold pt-1 border-t border-border">
+                <span className="text-foreground">Tổng cộng:</span>
+                <span className="text-brand">{formatPrice(total)}</span>
+              </div>
             </div>
 
             {/* Checkout Button - Prominent */}

@@ -142,7 +142,9 @@ export function Sidebar() {
       const mobile = window.innerWidth < 768
       setMobile(mobile)
       if (mobile) {
-        setOpen(false)
+        setOpen(false) // Close in mobile
+      } else {
+        setOpen(true) // Open in desktop
       }
     }
 
@@ -154,6 +156,7 @@ export function Sidebar() {
   const sidebarVariants = {
     open: {
       width: isMobile ? "100%" : "280px",
+      x: 0,
       transition: {
         type: "spring" as const,
         stiffness: 300,
@@ -162,6 +165,7 @@ export function Sidebar() {
     },
     closed: {
       width: isMobile ? "0px" : "80px",
+      x: isMobile ? "-100%" : 0,
       transition: {
         type: "spring" as const,
         stiffness: 300,
@@ -210,7 +214,9 @@ export function Sidebar() {
         className={cn(
           "fixed left-0 top-0 z-50 h-full bg-white/95 backdrop-blur-lg border-r border-white/30 shadow-2xl",
           "lg:relative lg:z-0 lg:shadow-xl",
-          "dark:bg-gray-900/95 dark:border-gray-700/30"
+          "dark:bg-gray-900/95 dark:border-gray-700/30",
+          // Hide completely in mobile when closed
+          !isOpen && isMobile && "hidden"
         )}
       >
         <div className="flex h-full flex-col">

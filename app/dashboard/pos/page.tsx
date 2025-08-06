@@ -711,7 +711,7 @@ export default function POSPage() {
           </div>
 
           {/* Cart Section - Right Side */}
-          <div className="space-y-4 order-1 xl:order-2">
+          <div className="space-y-4 order-1 xl:order-2 min-h-0">
             {/* Mobile: Show cart summary with view details button */}
             <div className="xl:hidden">
               {cart.length > 0 ? (
@@ -844,8 +844,8 @@ export default function POSPage() {
               )}
             </div>
 
-            {/* Desktop: Full cart display */}
-            <div className="hidden xl:block">
+            {/* Desktop: Full cart display - Sticky positioning with header offset */}
+            <div className="hidden xl:block sticky top-20 self-start">
               {showCheckout && selectedCustomer ? (
                 <CheckoutPanelOptimized
                   customer={selectedCustomer}
@@ -857,9 +857,18 @@ export default function POSPage() {
               ) : (
                 <CartSummaryOptimized
                   cart={cart}
+                  subtotal={subtotal}
+                  discountAmount={discountAmount}
+                  tax={tax}
                   total={total}
+                  vatRate={vatRate}
+                  discountType={discountType}
+                  discountValue={discountValue}
                   onUpdateQuantity={updateQuantity}
                   onRemoveItem={removeFromCart}
+                  onVatChange={setVatRate}
+                  onDiscountTypeChange={setDiscountType}
+                  onDiscountValueChange={setDiscountValue}
                   onCheckout={() => setShowCheckout(true)}
                   disabled={!selectedCustomer || cart.length === 0}
                 />
@@ -918,9 +927,18 @@ export default function POSPage() {
                     <div className="flex-1">
                       <CartSummaryOptimized
                         cart={cart}
+                        subtotal={subtotal}
+                        discountAmount={discountAmount}
+                        tax={tax}
                         total={total}
+                        vatRate={vatRate}
+                        discountType={discountType}
+                        discountValue={discountValue}
                         onUpdateQuantity={updateQuantity}
                         onRemoveItem={removeFromCart}
+                        onVatChange={setVatRate}
+                        onDiscountTypeChange={setDiscountType}
+                        onDiscountValueChange={setDiscountValue}
                         onCheckout={() => {
                           if (selectedCustomer) {
                             // Stay in checkout mode if customer selected

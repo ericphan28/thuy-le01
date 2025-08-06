@@ -87,23 +87,18 @@ export function CustomerSelector({
         <div className="relative">
           <div className="supabase-card p-0 bg-card border border-border hover:border-brand/30 focus-within:border-brand transition-colors">
             <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3">
-              <div className="p-1 sm:p-1.5 bg-brand/10 rounded-lg">
+              <div className="p-1 sm:p-1.5 sm:bg-brand/10 rounded-lg">
                 <Users className="h-3 w-3 sm:h-4 sm:w-4 text-brand flex-shrink-0" />
               </div>
               <div className="flex-1">
                 <input
-                  placeholder="Tìm khách hàng..."
+                  placeholder="Tìm khách hàng theo tên, mã, hoặc số điện thoại"
                   value={searchTerm}
                   onChange={(e) => onSearchChange(e.target.value)}
                   onFocus={() => setIsExpanded(true)}
                   onBlur={() => setTimeout(() => setIsExpanded(false), 200)}
                   className="w-full bg-transparent text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
                 />
-                {!searchTerm && (
-                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">
-                    Nhập tên hoặc mã khách hàng để tìm kiếm
-                  </div>
-                )}
               </div>
               <div className="p-1 bg-muted/30 rounded">
                 <Search className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground flex-shrink-0" />
