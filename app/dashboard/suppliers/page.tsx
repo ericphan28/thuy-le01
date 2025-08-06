@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { SupplierFormModal } from '@/components/suppliers/supplier-form-modal'
 import { 
   Search, 
   Building2, 
@@ -45,6 +46,11 @@ export default function SuppliersPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(24) // Tăng số lượng hiển thị
+  
+  // Modal states
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
 
   const supabase = createClient()
 
@@ -147,11 +153,20 @@ export default function SuppliersPage() {
   }
 
   const handleEdit = (supplier: Supplier) => {
-    console.log('Edit supplier:', supplier)
+    setEditingSupplier(supplier)
+    setShowEditModal(true)
   }
 
   const handleDelete = (id: number) => {
     console.log('Delete supplier:', id)
+  }
+
+  const handleAddSupplier = () => {
+    setShowAddModal(true)
+  }
+
+  const handleModalSuccess = () => {
+    fetchSuppliers() // Refresh data after successful operation
   }
 
   // Calculate stats from real data
@@ -184,7 +199,10 @@ export default function SuppliersPage() {
             </div>
             
             <div className="flex items-center gap-2">
-              <Button className="bg-green-600 hover:bg-green-700 text-white font-medium text-sm px-3 py-2">
+              <Button 
+                onClick={handleAddSupplier}
+                className="bg-green-600 hover:bg-green-700 text-white font-medium text-sm px-3 py-2"
+              >
                 <Plus className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Thêm nhà cung cấp</span>
                 <span className="sm:hidden">Thêm</span>
@@ -457,6 +475,26 @@ export default function SuppliersPage() {
           </div>
         </div>
       )}
+
+      {/* Add Supplier Modal */}
+      <SupplierFormModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={handleModalSuccess}
+        mode="create"
+      />
+
+      {/* Edit Supplier Modal */}
+      <SupplierFormModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false)
+          setEditingSupplier(null)
+        }}
+        onSuccess={handleModalSuccess}
+        supplier={editingSupplier}
+        mode="edit"
+      />
     </div>
   )
 }
