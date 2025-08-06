@@ -8,10 +8,13 @@ import { createClient } from '@/lib/supabase/client'
 import { 
   Search, 
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ShoppingCart,
+  X
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ProductCard } from '@/components/pos/product-card'
+import { ProductSearch } from '@/components/pos/product-search'
 import { CustomerSelector } from '@/components/pos/customer-selector-ultra'
 import { CartSummary } from '@/components/pos/cart-summary'
 import { CheckoutPanel } from '@/components/pos/checkout-panel'
@@ -39,6 +42,18 @@ export default function POSPage() {
   const [discountType, setDiscountType] = useState<'percentage' | 'amount'>('percentage')
   const [discountValue, setDiscountValue] = useState(0)
   
+  // Advanced Search & Filter state
+  const [categories, setCategories] = useState<{category_id: number, category_name: string}[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'stock'>('name')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [quickFilters, setQuickFilters] = useState({
+    medicine: false,
+    prescription: false,
+    lowStock: false
+  })
+  const [showOnlyInStock, setShowOnlyInStock] = useState(true) // Mặc định chỉ hiển thị sản phẩm còn hàng
+  
   // Optimistic stock management
   const [optimisticStockUpdates, setOptimisticStockUpdates] = useState<Record<number, number>>({})
 
@@ -63,7 +78,7 @@ export default function POSPage() {
     setOptimisticStockUpdates({})
   }
 
-  // Fetch products với pagination và search
+  // Fetch products với pagination, search và advanced filters
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true)
@@ -86,21 +101,68 @@ export default function POSPage() {
         `)
         .eq('is_active', true)
         .eq('allow_sale', true)
-        .gt('current_stock', 0) // Chỉ hiển thị sản phẩm còn hàng
-        .order('product_name')
 
-      // Search functionality
+      // Stock filter - điều chỉnh theo toggle
+      if (showOnlyInStock) {
+        query = query.gt('current_stock', 0) // Chỉ hiển thị sản phẩm còn hàng
+      }
+
+      // Search functionality - improved to search multiple fields
       if (searchTerm) {
         query = query.or(`product_name.ilike.%${searchTerm}%,product_code.ilike.%${searchTerm}%`)
       }
 
-      // Count total for pagination
-      const { count } = await supabase
+      // Category filter
+      if (selectedCategory) {
+        query = query.eq('category_id', selectedCategory)
+      }
+
+      // Quick filters
+      if (quickFilters.medicine) {
+        query = query.eq('is_medicine', true)
+      }
+      if (quickFilters.prescription) {
+        query = query.eq('requires_prescription', true)
+      }
+      if (quickFilters.lowStock) {
+        query = query.lt('current_stock', 10) // Consider low stock < 10
+      }
+
+      // Sorting
+      const sortField = sortBy === 'name' ? 'product_name' : 
+                       sortBy === 'price' ? 'sale_price' : 'current_stock'
+      query = query.order(sortField, { ascending: sortOrder === 'asc' })
+
+      // Count total for pagination with same filters
+      let countQuery = supabase
         .from('products')
         .select('product_id', { count: 'exact', head: true })
         .eq('is_active', true)
         .eq('allow_sale', true)
-        .gt('current_stock', 0)
+
+      // Stock filter cho count query
+      if (showOnlyInStock) {
+        countQuery = countQuery.gt('current_stock', 0)
+      }
+
+      // Apply same filters to count query
+      if (searchTerm) {
+        countQuery = countQuery.or(`product_name.ilike.%${searchTerm}%,product_code.ilike.%${searchTerm}%`)
+      }
+      if (selectedCategory) {
+        countQuery = countQuery.eq('category_id', selectedCategory)
+      }
+      if (quickFilters.medicine) {
+        countQuery = countQuery.eq('is_medicine', true)
+      }
+      if (quickFilters.prescription) {
+        countQuery = countQuery.eq('requires_prescription', true)
+      }
+      if (quickFilters.lowStock) {
+        countQuery = countQuery.lt('current_stock', 10)
+      }
+
+      const { count } = await countQuery
 
       if (count) {
         setTotalCount(count)
@@ -130,7 +192,23 @@ export default function POSPage() {
     } finally {
       setLoading(false)
     }
-  }, [searchTerm, currentPage, supabase])
+  }, [searchTerm, currentPage, selectedCategory, sortBy, sortOrder, quickFilters, showOnlyInStock, supabase])
+
+  // Fetch categories for filter dropdown
+  const fetchCategories = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('product_categories')
+        .select('category_id, category_name')
+        .eq('is_active', true)
+        .order('category_name')
+
+      if (error) throw error
+      setCategories(data || [])
+    } catch (error) {
+      console.error('Error fetching categories:', error)
+    }
+  }, [supabase])
 
   // Fetch customers cho search
   const fetchCustomers = useCallback(async () => {
@@ -160,14 +238,50 @@ export default function POSPage() {
   }, [fetchProducts])
 
   useEffect(() => {
+    fetchCategories()
+  }, [fetchCategories])
+
+  useEffect(() => {
     const debounce = setTimeout(() => {
       fetchCustomers()
     }, 300)
     return () => clearTimeout(debounce)
   }, [fetchCustomers])
 
+  // Handler functions for advanced search
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value)
+    setCurrentPage(1) // Reset to first page when searching
+  }
+
+  const handleCategoryChange = (categoryId: number | null) => {
+    setSelectedCategory(categoryId)
+    setCurrentPage(1)
+  }
+
+  const handleSortChange = (newSortBy: 'name' | 'price' | 'stock', order: 'asc' | 'desc') => {
+    setSortBy(newSortBy)
+    setSortOrder(order)
+    setCurrentPage(1)
+  }
+
+  const handleQuickFilterChange = (filter: 'medicine' | 'prescription' | 'lowStock', value: boolean) => {
+    setQuickFilters(prev => ({
+      ...prev,
+      [filter]: value
+    }))
+    setCurrentPage(1)
+  }
+
   // Cart functions
   const addToCart = (product: Product) => {
+    // Kiểm tra nếu sản phẩm hết hàng
+    const currentStock = getCurrentStock(product)
+    if (currentStock <= 0) {
+      toast.error('Sản phẩm này đã hết hàng!')
+      return
+    }
+
     // Kiểm tra prescription requirement
     if (product.requires_prescription && !selectedCustomer) {
       toast.error('Sản phẩm này cần đơn thuốc. Vui lòng chọn khách hàng trước.')
@@ -175,7 +289,6 @@ export default function POSPage() {
     }
 
     // Get current stock with optimistic updates
-    const currentStock = getCurrentStock(product)
     const existingItem = cart.find(item => item.product.product_id === product.product_id)
     const currentCartQuantity = existingItem?.quantity || 0
     
@@ -433,9 +546,10 @@ export default function POSPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="supabase-container">
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-3 pt-3">
+        {/* Mobile: Stack vertically, Desktop: Side by side */}
+        <div className="flex flex-col xl:grid xl:grid-cols-4 gap-3 pt-3">
           {/* Products Section - Left Side */}
-          <div className="xl:col-span-3 space-y-3">
+          <div className="xl:col-span-3 space-y-3 order-2 xl:order-1">
             {/* Ultra Compact Customer Selection */}
             <CustomerSelector
               customers={customers}
@@ -449,36 +563,39 @@ export default function POSPage() {
             {/* Product Search and Grid */}
             <Card className="supabase-card">
               <CardHeader className="pb-3 border-b border-border">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                    <div className="p-1.5 bg-brand rounded-lg shadow-sm">
-                      <Search className="h-4 w-4 text-brand-foreground" />
-                    </div>
-                    Sản Phẩm
-                    <Badge variant="secondary" className="bg-brand/10 text-brand border-brand/20 ml-2">
-                      {totalCount}
-                    </Badge>
-                  </CardTitle>
-                  
-                  {/* Integrated Search Input */}
-                  <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <input
-                      placeholder="Tìm sản phẩm theo tên hoặc mã..."
-                      value={searchTerm}
-                      onChange={(e) => {
-                        setSearchTerm(e.target.value)
-                        setCurrentPage(1)
-                      }}
-                      className="supabase-input pl-10"
-                    />
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                  <div className="p-1.5 bg-brand rounded-lg shadow-sm">
+                    <Search className="h-4 w-4 text-brand-foreground" />
                   </div>
-                </div>
+                  Sản Phẩm
+                  <Badge variant="secondary" className="bg-brand/10 text-brand border-brand/20 ml-2">
+                    {totalCount}
+                  </Badge>
+                </CardTitle>
               </CardHeader>
               
-              <CardContent className="p-4">
+              <CardContent className="p-4 space-y-4">
+                {/* Advanced Product Search */}
+                <ProductSearch
+                  searchTerm={searchTerm}
+                  onSearchChange={handleSearchChange}
+                  categories={categories}
+                  selectedCategory={selectedCategory}
+                  onCategoryChange={handleCategoryChange}
+                  sortBy={sortBy}
+                  sortOrder={sortOrder}
+                  onSortChange={handleSortChange}
+                  quickFilters={quickFilters}
+                  onQuickFilterChange={handleQuickFilterChange}
+                  totalCount={totalCount}
+                  isLoading={loading}
+                  showOnlyInStock={showOnlyInStock}
+                  onShowOnlyInStockChange={setShowOnlyInStock}
+                />
+                
+                {/* Product Grid */}
                 {loading ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-4 gap-2 sm:gap-3">
                     {Array.from({ length: 20 }).map((_, i) => (
                       <div key={i} className="animate-pulse">
                         <div className="bg-muted h-32 rounded-lg"></div>
@@ -487,7 +604,7 @@ export default function POSPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-4 gap-2 sm:gap-3">
                       {products.map((product) => {
                         // Create product with optimistic stock
                         const productWithOptimisticStock = {
@@ -553,36 +670,214 @@ export default function POSPage() {
           </div>
 
           {/* Cart Section - Right Side */}
-          <div className="space-y-4">
-            {showCheckout && selectedCustomer ? (
-              <CheckoutPanel
-                customer={selectedCustomer}
-                total={total}
-                onCheckout={handleCheckout}
-                onCancel={() => setShowCheckout(false)}
-                loading={checkoutLoading}
-              />
-            ) : (
-              <CartSummary
-                cart={cart}
-                subtotal={subtotal}
-                discountAmount={discountAmount}
-                tax={tax}
-                total={total}
-                vatRate={vatRate}
-                discountType={discountType}
-                discountValue={discountValue}
-                onUpdateQuantity={updateQuantity}
-                onRemoveItem={removeFromCart}
-                onVatChange={setVatRate}
-                onDiscountTypeChange={setDiscountType}
-                onDiscountValueChange={setDiscountValue}
-                onCheckout={() => setShowCheckout(true)}
-                disabled={!selectedCustomer || cart.length === 0}
-              />
-            )}
+          <div className="space-y-4 order-1 xl:order-2">
+            {/* Mobile: Show cart summary with view details button */}
+            <div className="xl:hidden">
+              {cart.length > 0 ? (
+                <Card className="supabase-card">
+                  <CardContent className="p-3">
+                    <div className="space-y-3">
+                      {/* Header with actions */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ShoppingCart className="h-4 w-4 text-brand" />
+                          <span className="text-sm font-medium">
+                            {cart.length} sản phẩm
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-brand">
+                            {new Intl.NumberFormat('vi-VN', {
+                              style: 'currency',
+                              currency: 'VND'
+                            }).format(total)}
+                          </div>
+                          <div className="flex gap-2 mt-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setShowCheckout(true)}
+                              className="text-xs px-2 py-1"
+                            >
+                              Xem chi tiết
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                if (selectedCustomer) {
+                                  setShowCheckout(true)
+                                }
+                              }}
+                              disabled={!selectedCustomer || cart.length === 0}
+                              className="bg-brand hover:bg-brand/90 text-brand-foreground text-xs px-2 py-1"
+                            >
+                              Thanh toán
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Full cart items list with scroll */}
+                      <div className="max-h-48 overflow-y-auto space-y-2 border-t border-border pt-2">
+                        {cart.map((item) => (
+                          <div key={item.product.product_id} className="flex items-center justify-between bg-muted/30 p-2 rounded-lg">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium bg-brand text-brand-foreground px-1.5 py-0.5 rounded">
+                                  {item.quantity}x
+                                </span>
+                                <span className="text-xs truncate text-foreground">
+                                  {item.product.product_name}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground mt-0.5">
+                                {item.product.product_code}
+                              </div>
+                            </div>
+                            <div className="text-right ml-2">
+                              <div className="text-xs font-medium text-brand">
+                                {new Intl.NumberFormat('vi-VN', {
+                                  style: 'currency',
+                                  currency: 'VND'
+                                }).format(item.line_total)}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                {new Intl.NumberFormat('vi-VN', {
+                                  style: 'currency',
+                                  currency: 'VND'
+                                }).format(item.unit_price)}/sp
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="supabase-card">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-center text-muted-foreground">
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      <span className="text-sm">Giỏ hàng trống</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Desktop: Full cart display */}
+            <div className="hidden xl:block">
+              {showCheckout && selectedCustomer ? (
+                <CheckoutPanel
+                  customer={selectedCustomer}
+                  total={total}
+                  onCheckout={handleCheckout}
+                  onCancel={() => setShowCheckout(false)}
+                  loading={checkoutLoading}
+                />
+              ) : (
+                <CartSummary
+                  cart={cart}
+                  subtotal={subtotal}
+                  discountAmount={discountAmount}
+                  tax={tax}
+                  total={total}
+                  vatRate={vatRate}
+                  discountType={discountType}
+                  discountValue={discountValue}
+                  onUpdateQuantity={updateQuantity}
+                  onRemoveItem={removeFromCart}
+                  onVatChange={setVatRate}
+                  onDiscountTypeChange={setDiscountType}
+                  onDiscountValueChange={setDiscountValue}
+                  onCheckout={() => setShowCheckout(true)}
+                  disabled={!selectedCustomer || cart.length === 0}
+                />
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Mobile Cart Drawer - Full featured */}
+        {showCheckout && (
+          <div className="xl:hidden fixed inset-0 z-50 bg-black/50">
+            <div className="absolute inset-x-0 bottom-0 bg-background rounded-t-xl max-h-[90vh] flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="h-5 w-5 text-brand" />
+                  <h2 className="text-lg font-semibold">
+                    {selectedCustomer ? 'Thanh toán' : 'Giỏ hàng'}
+                  </h2>
+                  {cart.length > 0 && (
+                    <Badge variant="secondary" className="bg-brand/10 text-brand border-brand/20">
+                      {cart.length} sản phẩm
+                    </Badge>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCheckout(false)}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Content - Scrollable with full height */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {selectedCustomer ? (
+                  <CheckoutPanel
+                    customer={selectedCustomer}
+                    total={total}
+                    onCheckout={handleCheckout}
+                    onCancel={() => setShowCheckout(false)}
+                    loading={checkoutLoading}
+                  />
+                ) : (
+                  <div className="space-y-4 h-full">
+                    {/* Customer selection notice */}
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                      <p className="text-sm text-amber-800 dark:text-amber-200">
+                        Vui lòng chọn khách hàng để tiếp tục thanh toán
+                      </p>
+                    </div>
+
+                    {/* Cart items - Remove height restriction to show all items */}
+                    <div className="flex-1">
+                      <CartSummary
+                        cart={cart}
+                        subtotal={subtotal}
+                        discountAmount={discountAmount}
+                        tax={tax}
+                        total={total}
+                        vatRate={vatRate}
+                        discountType={discountType}
+                        discountValue={discountValue}
+                        onUpdateQuantity={updateQuantity}
+                        onRemoveItem={removeFromCart}
+                        onVatChange={setVatRate}
+                        onDiscountTypeChange={setDiscountType}
+                        onDiscountValueChange={setDiscountValue}
+                        onCheckout={() => {
+                          if (selectedCustomer) {
+                            // Stay in checkout mode if customer selected
+                          } else {
+                            setShowCheckout(false)
+                          }
+                        }}
+                        disabled={!selectedCustomer || cart.length === 0}
+                        isFullHeight={true}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
