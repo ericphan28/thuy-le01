@@ -6,8 +6,6 @@ export interface Product {
   product_name: string
   sale_price: number
   current_stock: number
-  requires_prescription: boolean
-  is_medicine: boolean
   category_id: number
   product_categories?: {
     category_id: number

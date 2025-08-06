@@ -16,8 +16,8 @@ import { toast } from 'sonner'
 import { ProductCard } from '@/components/pos/product-card'
 import { ProductSearch } from '@/components/pos/product-search'
 import { CustomerSelector } from '@/components/pos/customer-selector-ultra'
-import { CartSummary } from '@/components/pos/cart-summary'
-import { CheckoutPanel } from '@/components/pos/checkout-panel'
+import { CartSummaryOptimized } from '@/components/pos/cart-summary-optimized'
+import { CheckoutPanelOptimized } from '@/components/pos/checkout-panel-optimized'
 import type { Product, Customer, CartItem } from '@/lib/types/pos'
 
 const ITEMS_PER_PAGE = 20
@@ -279,12 +279,6 @@ export default function POSPage() {
     const currentStock = getCurrentStock(product)
     if (currentStock <= 0) {
       toast.error('Sản phẩm này đã hết hàng!')
-      return
-    }
-
-    // Kiểm tra prescription requirement
-    if (product.requires_prescription && !selectedCustomer) {
-      toast.error('Sản phẩm này cần đơn thuốc. Vui lòng chọn khách hàng trước.')
       return
     }
 
@@ -724,6 +718,47 @@ export default function POSPage() {
                 <Card className="supabase-card">
                   <CardContent className="p-3">
                     <div className="space-y-3">
+                      {/* Customer info - Compact display */}
+                      {selectedCustomer && (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-blue-900 dark:text-blue-100 truncate">
+                                  {selectedCustomer.customer_name}
+                                </span>
+                                {selectedCustomer.current_debt > 0 && (
+                                  <Badge 
+                                    variant={selectedCustomer.current_debt > (selectedCustomer.debt_limit || 0) ? "destructive" : "secondary"}
+                                    className="text-[10px] px-1.5 py-0.5"
+                                  >
+                                    {selectedCustomer.current_debt > (selectedCustomer.debt_limit || 0) ? "Vượt hạn mức" : "Có công nợ"}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 text-xs text-blue-700 dark:text-blue-300">
+                                <span>
+                                  Công nợ hiện tại: <span className="font-medium">
+                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedCustomer.current_debt || 0)}
+                                  </span>
+                                </span>
+                                <span>•</span>
+                                <span>
+                                  Sau GD: <span className={`font-medium ${(selectedCustomer.current_debt || 0) + total > (selectedCustomer.debt_limit || 0) ? 'text-red-600' : 'text-green-600'}`}>
+                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format((selectedCustomer.current_debt || 0) + total)}
+                                  </span>
+                                </span>
+                              </div>
+                              {selectedCustomer.debt_limit && (selectedCustomer.current_debt || 0) + total > selectedCustomer.debt_limit && (
+                                <div className="text-[10px] text-red-600 dark:text-red-400 mt-1">
+                                  ⚠️ Vượt hạn mức: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedCustomer.debt_limit)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Header with actions */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -746,7 +781,7 @@ export default function POSPage() {
                               onClick={() => setShowCheckout(true)}
                               className="text-xs px-2 py-1"
                             >
-                              Xem chi tiết
+                              Chi tiết
                             </Button>
                             <Button
                               size="sm"
@@ -764,39 +799,35 @@ export default function POSPage() {
                         </div>
                       </div>
 
-                      {/* Full cart items list with scroll */}
-                      <div className="max-h-48 overflow-y-auto space-y-2 border-t border-border pt-2">
-                        {cart.map((item) => (
-                          <div key={item.product.product_id} className="flex items-center justify-between bg-muted/30 p-2 rounded-lg">
+                      {/* Compact cart items list - Max 3 items visible */}
+                      <div className="max-h-32 overflow-y-auto space-y-1.5 border-t border-border pt-2">
+                        {cart.slice(0, 3).map((item) => (
+                          <div key={item.product.product_id} className="flex items-center justify-between bg-muted/30 p-2 rounded-md">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium bg-brand text-brand-foreground px-1.5 py-0.5 rounded">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium bg-brand text-brand-foreground px-1.5 py-0.5 rounded text-[10px]">
                                   {item.quantity}x
                                 </span>
                                 <span className="text-xs truncate text-foreground">
                                   {item.product.product_name}
                                 </span>
                               </div>
-                              <div className="text-[10px] text-muted-foreground mt-0.5">
-                                {item.product.product_code}
-                              </div>
                             </div>
-                            <div className="text-right ml-2">
-                              <div className="text-xs font-medium text-brand">
-                                {new Intl.NumberFormat('vi-VN', {
-                                  style: 'currency',
-                                  currency: 'VND'
-                                }).format(item.line_total)}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground">
-                                {new Intl.NumberFormat('vi-VN', {
-                                  style: 'currency',
-                                  currency: 'VND'
-                                }).format(item.unit_price)}/sp
-                              </div>
+                            <div className="text-xs font-medium text-brand ml-2">
+                              {new Intl.NumberFormat('vi-VN', {
+                                style: 'currency',
+                                currency: 'VND'
+                              }).format(item.line_total)}
                             </div>
                           </div>
                         ))}
+                        {cart.length > 3 && (
+                          <div className="text-center py-1">
+                            <span className="text-xs text-muted-foreground">
+                              ... và {cart.length - 3} sản phẩm khác
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -816,7 +847,7 @@ export default function POSPage() {
             {/* Desktop: Full cart display */}
             <div className="hidden xl:block">
               {showCheckout && selectedCustomer ? (
-                <CheckoutPanel
+                <CheckoutPanelOptimized
                   customer={selectedCustomer}
                   total={total}
                   onCheckout={handleCheckout}
@@ -824,20 +855,11 @@ export default function POSPage() {
                   loading={checkoutLoading}
                 />
               ) : (
-                <CartSummary
+                <CartSummaryOptimized
                   cart={cart}
-                  subtotal={subtotal}
-                  discountAmount={discountAmount}
-                  tax={tax}
                   total={total}
-                  vatRate={vatRate}
-                  discountType={discountType}
-                  discountValue={discountValue}
                   onUpdateQuantity={updateQuantity}
                   onRemoveItem={removeFromCart}
-                  onVatChange={setVatRate}
-                  onDiscountTypeChange={setDiscountType}
-                  onDiscountValueChange={setDiscountValue}
                   onCheckout={() => setShowCheckout(true)}
                   disabled={!selectedCustomer || cart.length === 0}
                 />
@@ -876,7 +898,7 @@ export default function POSPage() {
               {/* Content - Scrollable with full height */}
               <div className="flex-1 overflow-y-auto p-4">
                 {selectedCustomer ? (
-                  <CheckoutPanel
+                  <CheckoutPanelOptimized
                     customer={selectedCustomer}
                     total={total}
                     onCheckout={handleCheckout}
@@ -894,20 +916,11 @@ export default function POSPage() {
 
                     {/* Cart items - Remove height restriction to show all items */}
                     <div className="flex-1">
-                      <CartSummary
+                      <CartSummaryOptimized
                         cart={cart}
-                        subtotal={subtotal}
-                        discountAmount={discountAmount}
-                        tax={tax}
                         total={total}
-                        vatRate={vatRate}
-                        discountType={discountType}
-                        discountValue={discountValue}
                         onUpdateQuantity={updateQuantity}
                         onRemoveItem={removeFromCart}
-                        onVatChange={setVatRate}
-                        onDiscountTypeChange={setDiscountType}
-                        onDiscountValueChange={setDiscountValue}
                         onCheckout={() => {
                           if (selectedCustomer) {
                             // Stay in checkout mode if customer selected

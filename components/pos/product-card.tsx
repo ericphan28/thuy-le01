@@ -1,8 +1,7 @@
 import { motion } from 'framer-motion'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Package, FileText, ShoppingCart } from 'lucide-react'
+import { Package, ShoppingCart } from 'lucide-react'
 import type { Product } from '@/lib/types/pos'
 
 interface ProductCardProps {
@@ -22,21 +21,6 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
     >
       <Card className="supabase-product-card h-full cursor-pointer">
         <CardContent className="p-2 sm:p-3 h-full flex flex-col">
-          {/* Header với badge kê đơn - bỏ stock indicator */}
-          <div className="flex items-start justify-start mb-2">
-            {/* Chỉ giữ badge kê đơn vì quan trọng cho POS */}
-            {product.requires_prescription && (
-              <Badge 
-                variant="destructive" 
-                className="w-fit text-[10px] sm:text-xs font-medium px-1 sm:px-1.5 py-0.5"
-              >
-                <FileText className="w-2 h-2 sm:w-2.5 sm:h-2.5 mr-0.5 sm:mr-1" />
-                <span className="hidden sm:inline">Đơn thuốc</span>
-                <span className="sm:hidden">Kê đơn</span>
-              </Badge>
-            )}
-          </div>
-
           {/* Product info - compact với tên đầy đủ trên mobile */}
           <div className="flex-1 space-y-1.5 sm:space-y-2">
             <div className="min-h-[2.5rem] sm:min-h-[2rem]">
