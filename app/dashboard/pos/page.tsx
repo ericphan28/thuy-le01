@@ -374,7 +374,12 @@ export default function POSPage() {
   const total = afterDiscount + tax
 
   // Checkout process - Using Supabase Function
-  const handleCheckout = async (paymentData: { method: 'cash' | 'card' | 'transfer', receivedAmount?: number }) => {
+  const handleCheckout = async (paymentData: { 
+    method: 'cash' | 'card' | 'transfer'
+    paymentType: 'full' | 'partial' | 'debt'
+    receivedAmount?: number
+    partialAmount?: number
+  }) => {
     if (cart.length === 0 || !selectedCustomer) return
 
     const formatPrice = (price: number) => {
@@ -410,6 +415,32 @@ export default function POSPage() {
       
       console.log('📦 Cart Items for Function:', cartItems)
       
+      // Calculate payment amounts based on type
+      let paidAmount = 0
+      let debtAmount = 0
+      
+      switch (paymentData.paymentType) {
+        case 'full':
+          paidAmount = total
+          debtAmount = 0
+          break
+        case 'partial':
+          paidAmount = paymentData.partialAmount || 0
+          debtAmount = total - paidAmount
+          break
+        case 'debt':
+          paidAmount = 0
+          debtAmount = total
+          break
+      }
+      
+      console.log('💰 Payment Calculation:', {
+        paymentType: paymentData.paymentType,
+        total,
+        paidAmount,
+        debtAmount
+      })
+      
       // Call Supabase function
       const { data: functionResult, error: functionError } = await supabase
         .rpc('create_pos_invoice', {
@@ -420,6 +451,9 @@ export default function POSPage() {
           p_discount_value: discountValue,
           p_payment_method: paymentData.method,
           p_received_amount: paymentData.receivedAmount || null,
+          p_paid_amount: paidAmount,
+          p_debt_amount: debtAmount,
+          p_payment_type: paymentData.paymentType,
           p_branch_id: 1,
           p_created_by: 'POS System'
         })
@@ -430,6 +464,9 @@ export default function POSPage() {
       }
       
       console.log('📊 Function Result:', functionResult)
+      console.log('📊 Function Result Type:', typeof functionResult)
+      console.log('📊 Function Result Keys:', Object.keys(functionResult || {}))
+      console.log('📊 Function Result JSON:', JSON.stringify(functionResult, null, 2))
       
       // Check if function was successful
       if (!functionResult || !functionResult.success) {
@@ -439,8 +476,10 @@ export default function POSPage() {
         console.error('❌ Function Returned Error:', {
           error: errorMessage,
           error_code: errorCode,
-          error_details: functionResult?.error_details
+          error_details: functionResult?.error_details,
+          full_result: functionResult
         })
+        console.error('❌ Function Result Full JSON:', JSON.stringify(functionResult, null, 2))
         
         // Show specific error messages to user
         switch (errorCode) {
@@ -452,9 +491,6 @@ export default function POSPage() {
             break
           case 'INSUFFICIENT_PAYMENT':
             toast.error('Số tiền thanh toán không đủ')
-            break
-          case 'DEBT_LIMIT_EXCEEDED':
-            toast.error('Vượt quá hạn mức nợ của khách hàng')
             break
           case 'INVALID_VAT_RATE':
             toast.error('Tỷ lệ VAT không hợp lệ')
@@ -478,10 +514,21 @@ export default function POSPage() {
         console.log('� Change Amount:', formatPrice(changeAmount))
       }
       
-      // Show detailed success message
+      // Show detailed success message based on payment type
       let successMessage = `Hóa đơn ${invoiceCode} đã được tạo thành công!`
-      if (changeAmount > 0) {
-        successMessage += ` Tiền thừa: ${formatPrice(changeAmount)}`
+      
+      switch (paymentData.paymentType) {
+        case 'full':
+          if (changeAmount > 0) {
+            successMessage += ` Tiền thừa: ${formatPrice(changeAmount)}`
+          }
+          break
+        case 'partial':
+          successMessage += ` Đã thanh toán: ${formatPrice(paidAmount)}, ghi nợ: ${formatPrice(debtAmount)}`
+          break
+        case 'debt':
+          successMessage += ` Toàn bộ ${formatPrice(total)} đã được ghi vào công nợ`
+          break
       }
       
       // Show warnings if any

@@ -22,7 +22,9 @@ interface CheckoutPanelProps {
   total: number
   onCheckout: (paymentData: {
     method: 'cash' | 'card' | 'transfer'
+    paymentType: 'full' | 'partial' | 'debt'
     receivedAmount?: number
+    partialAmount?: number
   }) => void
   onCancel: () => void
   loading?: boolean
@@ -43,23 +45,42 @@ export function CheckoutPanel({ customer, total, onCheckout, onCancel, loading =
   const change = Math.max(0, receivedValue - total)
   const isInsufficientCash = paymentMethod === 'cash' && receivedValue < total
   
-  // Credit check
+  // Credit check - Warning instead of blocking
   const newDebt = customer ? customer.current_debt + total : 0
   const exceedsCreditLimit = customer ? newDebt > customer.debt_limit : false
   const creditUtilization = customer && customer.debt_limit > 0 
     ? (newDebt / customer.debt_limit) * 100 
     : 0
 
-  const canProceed = customer && 
-    !exceedsCreditLimit && 
-    (paymentMethod !== 'cash' || receivedValue >= total)
+  // Payment type options
+  const [paymentType, setPaymentType] = useState<'full' | 'partial' | 'debt'>('full')
+  const [partialAmount, setPartialAmount] = useState('')
+
+  // Allow checkout with warnings instead of blocking
+  const canProceed = customer && (() => {
+    switch (paymentType) {
+      case 'full':
+        return paymentMethod !== 'cash' || receivedValue >= total
+      case 'partial':
+        const partialValue = parseFloat(partialAmount) || 0
+        return partialValue > 0 && partialValue <= total
+      case 'debt':
+        return true // Always allow debt transactions
+      default:
+        return false
+    }
+  })()
 
   const handleCheckout = () => {
     if (!canProceed) return
 
+    const partialValue = partialAmount ? parseFloat(partialAmount) : 0
+
     onCheckout({
       method: paymentMethod,
-      receivedAmount: paymentMethod === 'cash' ? receivedValue : total
+      paymentType,
+      receivedAmount: paymentMethod === 'cash' ? receivedValue : total,
+      partialAmount: paymentType === 'partial' ? partialValue : undefined
     })
   }
 
@@ -228,8 +249,96 @@ export function CheckoutPanel({ customer, total, onCheckout, onCancel, loading =
           </div>
         </div>
 
+        {/* Payment Type Options */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-foreground">Hình thức thanh toán</h3>
+          <div className="grid grid-cols-1 gap-2">
+            <button
+              onClick={() => setPaymentType('full')}
+              className={`w-full p-3 rounded-xl border-2 transition-all duration-200 text-left ${
+                paymentType === 'full'
+                  ? 'bg-brand/10 border-brand text-brand'
+                  : 'bg-muted border-border text-muted-foreground hover:bg-muted/80 hover:border-border/80'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${
+                  paymentType === 'full' ? 'bg-brand' : 'bg-muted'
+                }`}>
+                  <CheckCircle className="h-4 w-4 text-primary-foreground" />
+                </div>
+                <div>
+                  <span className="font-medium">Thanh toán đủ</span>
+                  <p className="text-xs opacity-70">Thanh toán toàn bộ {formatPrice(total)}</p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setPaymentType('partial')}
+              className={`w-full p-3 rounded-xl border-2 transition-all duration-200 text-left ${
+                paymentType === 'partial'
+                  ? 'bg-brand/10 border-brand text-brand'
+                  : 'bg-muted border-border text-muted-foreground hover:bg-muted/80 hover:border-border/80'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${
+                  paymentType === 'partial' ? 'bg-brand' : 'bg-muted'
+                }`}>
+                  <Calculator className="h-4 w-4 text-primary-foreground" />
+                </div>
+                <div>
+                  <span className="font-medium">Thanh toán một phần</span>
+                  <p className="text-xs opacity-70">Trả một phần, còn lại ghi nợ</p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setPaymentType('debt')}
+              className={`w-full p-3 rounded-xl border-2 transition-all duration-200 text-left ${
+                paymentType === 'debt'
+                  ? 'bg-brand/10 border-brand text-brand'
+                  : 'bg-muted border-border text-muted-foreground hover:bg-muted/80 hover:border-border/80'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${
+                  paymentType === 'debt' ? 'bg-brand' : 'bg-muted'
+                }`}>
+                  <CreditCard className="h-4 w-4 text-primary-foreground" />
+                </div>
+                <div>
+                  <span className="font-medium">Ghi nợ toàn bộ</span>
+                  <p className="text-xs opacity-70">Ghi nợ toàn bộ, thanh toán sau</p>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Partial Payment Input */}
+        {paymentType === 'partial' && (
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Số tiền thanh toán</label>
+              <Input
+                type="number"
+                placeholder="Nhập số tiền thanh toán..."
+                value={partialAmount}
+                onChange={(e) => setPartialAmount(e.target.value)}
+                className="supabase-input"
+              />
+              <div className="text-xs text-muted-foreground">
+                Còn lại ghi nợ: {formatPrice(total - (parseFloat(partialAmount) || 0))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Cash Payment Details */}
-        {paymentMethod === 'cash' && (
+        {paymentMethod === 'cash' && paymentType === 'full' && (
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Khách trả</label>
@@ -285,11 +394,39 @@ export function CheckoutPanel({ customer, total, onCheckout, onCancel, loading =
 
         {/* Warning Messages */}
         {exceedsCreditLimit && (
-          <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl">
-            <div className="flex items-center gap-2 text-destructive">
+          <div className="p-3 bg-orange-50 border border-orange-200 rounded-xl">
+            <div className="flex items-center gap-2 text-orange-700 mb-2">
               <AlertTriangle className="h-4 w-4" />
               <span className="text-sm font-medium">
-                Giao dịch này sẽ vượt quá hạn mức tín dụng của khách hàng
+                Cảnh báo: Vượt hạn mức tín dụng
+              </span>
+            </div>
+            <div className="text-xs text-orange-600 space-y-1">
+              <p>• Hạn mức hiện tại: {formatPrice(customer?.debt_limit || 0)}</p>
+              <p>• Công nợ sau giao dịch: {formatPrice(newDebt)}</p>
+              <p>• Vượt: {formatPrice(newDebt - (customer?.debt_limit || 0))}</p>
+              <p className="mt-2 font-medium">Giao dịch vẫn có thể được thực hiện với thông báo này.</p>
+            </div>
+          </div>
+        )}
+
+        {paymentType === 'partial' && partialAmount && parseFloat(partialAmount) >= total && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+            <div className="flex items-center gap-2 text-blue-700">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="text-sm">
+                Số tiền thanh toán {'>'}= tổng hóa đơn. Chuyển sang &quot;Thanh toán đủ&quot;?
+              </span>
+            </div>
+          </div>
+        )}
+
+        {paymentType === 'debt' && (
+          <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl">
+            <div className="flex items-center gap-2 text-purple-700">
+              <CreditCard className="h-4 w-4" />
+              <span className="text-sm">
+                Toàn bộ {formatPrice(total)} sẽ được ghi vào công nợ của khách hàng.
               </span>
             </div>
           </div>

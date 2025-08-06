@@ -2753,7 +2753,7 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 875	KH000377	NHUNG VIETVET	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	102664000.00	198096.77	1	2025-08-05 08:15:45.23856	1	\N	Ngọc Bích	t	2025-06-18 03:48:41.41	2025-08-05 08:15:45.23856
 873	KH000379	THÚ Y KHANH THUỶ - VĨNH CỬU	1	1	907656669	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	3822648.00	593096.77	1	2025-08-05 08:24:29.140906	1	\N	Ngọc Bích	t	2025-06-18 09:19:52.027	2025-08-05 08:24:29.140906
 833	KH000421	Thắng bida (test)	1	1	907136029	ericphan28@gmail.com	Bida Thiên Long 2, Gia Kiệm	\N	\N	\N	\N	50000000.00	20000000.00	170000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2025-07-25 23:53:02.183	2025-08-05 15:39:21.892108
-835	KH000419	CHỊ TRINH - VĨNH AN	1	1	0888 445 792	\N	\N	\N	\N	\N	Nữ	50000000.00	63800000.00	8270000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-24 03:06:17.607	2025-08-05 15:44:10.237439
+835	KH000419	CHỊ TRINH - VĨNH AN	1	1	0888 445 792	\N	\N	\N	\N	\N	Nữ	50000000.00	66000000.00	8270000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-24 03:06:17.607	2025-08-06 00:22:22.592333
 885	KH000367	ANH THỨC - TAM HOÀNG	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	46205000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-07 07:45:06.42	2025-07-29 06:48:10.591439
 886	KH000366	CHỊ QUY - BÌNH DƯƠNG - LÔ MỚI	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	77740000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-07 04:34:44.966	2025-07-29 06:48:10.591439
 887	KH000365	ANH HUY - GÀ - ĐỨC HUY	1	1	0972 612 063	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	18480000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-05 03:43:35.857	2025-07-29 06:48:10.591439
@@ -3111,6 +3111,8 @@ COPY public.debt_transactions (transaction_id, customer_id, transaction_type, am
 2	833	debt_payment	-30000000.00	50000000.00	20000000.00	cash	trả nợ, con thiêu s  20tr	\N	POS System	2025-08-05 15:39:21.892108
 3	835	debt_increase	65000000.00	0.00	65000000.00	\N	trả tiền	\N	POS System	2025-08-05 15:41:29.381201
 4	835	debt_adjustment	-1200000.00	65000000.00	63800000.00	\N	gí mãi mới trả	\N	POS System	2025-08-05 15:44:10.237439
+5	835	debt_increase	1500000.00	63800000.00	65300000.00	\N	lấy thêm thuốc	\N	debt_page_user	2025-08-06 00:18:48.385224
+6	835	debt_increase	700000.00	65300000.00	66000000.00	\N	lấy thêm thuốc	\N	debt_page_user	2025-08-06 00:22:22.592333
 \.
 
 
@@ -6524,7 +6526,7 @@ SELECT pg_catalog.setval('public.customers_customer_id_seq', 1228, true);
 -- Name: debt_transactions_transaction_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.debt_transactions_transaction_id_seq', 4, true);
+SELECT pg_catalog.setval('public.debt_transactions_transaction_id_seq', 6, true);
 
 
 --

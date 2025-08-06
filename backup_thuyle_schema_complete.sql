@@ -5,7 +5,7 @@
 -- Dumped from database version 17.4
 -- Dumped by pg_dump version 17.4
 
--- Started on 2025-08-06 06:57:10
+-- Started on 2025-08-06 13:02:20
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -3809,7 +3809,7 @@ ALTER TABLE ONLY public.settings_change_log
     ADD CONSTRAINT settings_change_log_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(branch_id);
 
 
--- Completed on 2025-08-06 06:57:18
+-- Completed on 2025-08-06 13:02:28
 
 --
 -- PostgreSQL database dump complete
