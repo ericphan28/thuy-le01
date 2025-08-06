@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { Search, Filter, X, Pill, AlertTriangle, Package, ChevronDown } from 'lucide-react'
+import { Search, Filter, X, AlertTriangle, Package, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -30,11 +30,9 @@ interface ProductSearchProps {
   sortOrder: 'asc' | 'desc'
   onSortChange: (sortBy: 'name' | 'price' | 'stock', order: 'asc' | 'desc') => void
   quickFilters: {
-    medicine: boolean
-    prescription: boolean
     lowStock: boolean
   }
-  onQuickFilterChange: (filter: 'medicine' | 'prescription' | 'lowStock', value: boolean) => void
+  onQuickFilterChange: (filter: 'lowStock', value: boolean) => void
   totalCount: number
   isLoading?: boolean
   showOnlyInStock: boolean
@@ -95,8 +93,6 @@ export function ProductSearch({
 
   const clearAllFilters = () => {
     onCategoryChange(null)
-    onQuickFilterChange('medicine', false)
-    onQuickFilterChange('prescription', false)
     onQuickFilterChange('lowStock', false)
     onSearchChange('')
   }
@@ -176,59 +172,25 @@ export function ProductSearch({
               {/* Quick Filters */}
               <div className="space-y-3">
                 <label className="text-sm font-medium text-foreground">Bộ lọc nhanh</label>
-                
-                {/* Stock Toggle - Better mobile layout */}
-                <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border">
-                  <span className="text-sm font-medium">Hiển thị sản phẩm</span>
-                  <button
-                    onClick={() => onShowOnlyInStockChange(!showOnlyInStock)}
-                    className={`flex items-center gap-2 transition-colors ${
-                      showOnlyInStock 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : 'text-gray-500 dark:text-gray-400'
-                    }`}
-                  >
-                    <div className={`relative w-10 h-5 rounded-full transition-colors ${
-                      showOnlyInStock ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-                    }`}>
-                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-md transition-transform ${
-                        showOnlyInStock ? 'translate-x-5' : 'translate-x-0.5'
-                      }`} />
-                    </div>
-                    <span className="text-xs font-medium whitespace-nowrap">
-                      {showOnlyInStock ? 'Chỉ còn hàng' : 'Tất cả'}
-                    </span>
-                  </button>
-                </div>
 
-                {/* Filter badges - Better mobile wrapping */}
-                <div className="flex flex-wrap gap-2">
+                {/* Tối ưu filter badges - Gọn gàng hơn */}
+                <div className="flex items-center gap-2">
+                  {/* Toggle "Chỉ còn hàng" */}
                   <Badge
-                    variant={quickFilters.medicine ? "default" : "outline"}
+                    variant={showOnlyInStock ? "default" : "outline"}
                     className={`cursor-pointer transition-all text-xs ${
-                      quickFilters.medicine 
-                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                        : 'hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300'
+                      showOnlyInStock 
+                        ? 'bg-green-600 text-white hover:bg-green-700' 
+                        : 'hover:bg-green-50 hover:text-green-700 hover:border-green-300'
                     }`}
-                    onClick={() => onQuickFilterChange('medicine', !quickFilters.medicine)}
+                    onClick={() => onShowOnlyInStockChange(!showOnlyInStock)}
                   >
-                    <Pill className="w-3 h-3 mr-1" />
-                    Thuốc
+                    <Package className="w-3 h-3 mr-1" />
+                    <span className="hidden sm:inline">Chỉ còn hàng</span>
+                    <span className="sm:hidden">Còn hàng</span>
                   </Badge>
-                  
-                  <Badge
-                    variant={quickFilters.prescription ? "default" : "outline"}
-                    className={`cursor-pointer transition-all text-xs ${
-                      quickFilters.prescription 
-                        ? 'bg-orange-600 text-white hover:bg-orange-700' 
-                        : 'hover:bg-orange-50 hover:text-orange-700 hover:border-orange-300'
-                    }`}
-                    onClick={() => onQuickFilterChange('prescription', !quickFilters.prescription)}
-                  >
-                    <AlertTriangle className="w-3 h-3 mr-1" />
-                    Kê đơn
-                  </Badge>
-                  
+
+                  {/* Filter "Hàng sắp hết" */}
                   <Badge
                     variant={quickFilters.lowStock ? "default" : "outline"}
                     className={`cursor-pointer transition-all text-xs ${
@@ -238,8 +200,9 @@ export function ProductSearch({
                     }`}
                     onClick={() => onQuickFilterChange('lowStock', !quickFilters.lowStock)}
                   >
-                    <Package className="w-3 h-3 mr-1" />
-                    Sắp hết
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    <span className="hidden sm:inline">Hàng sắp hết</span>
+                    <span className="sm:hidden">Sắp hết</span>
                   </Badge>
                 </div>
               </div>
