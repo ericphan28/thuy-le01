@@ -71,7 +71,7 @@ const menuItems = [
     badge: null,
     children: [
       { title: "Danh Sách", href: "/dashboard/invoices" },
-      { title: "Tạo Mới", href: "/dashboard/invoices/create" },
+      { title: "Tạo Mới (POS)", href: "/dashboard/pos" },
       { title: "Báo Cáo", href: "/dashboard/invoices/reports" }
     ]
   },

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 import { 
   Search, 
   Receipt, 
@@ -14,7 +15,8 @@ import {
   User,
   Calendar,
   Clock,
-  CheckCircle
+  CheckCircle,
+  Eye
 } from 'lucide-react'
 
 // Invoice interface matching database schema
@@ -202,11 +204,13 @@ export default function InvoicesPage() {
             </div>
             
             <div className="flex items-center gap-2">
-              <Button className="bg-green-600 hover:bg-green-700 text-white font-medium text-sm px-3 py-2">
-                <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Tạo hóa đơn</span>
-                <span className="sm:hidden">Tạo</span>
-              </Button>
+              <Link href="/dashboard/pos">
+                <Button className="bg-green-600 hover:bg-green-700 text-white font-medium text-sm px-3 py-2">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Tạo hóa đơn</span>
+                  <span className="sm:hidden">Tạo</span>
+                </Button>
+              </Link>
               <Button variant="outline" className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-sm px-3 py-2">
                 <Download className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Xuất Excel</span>
@@ -338,22 +342,39 @@ export default function InvoicesPage() {
           return (
             <div
               key={invoice.invoice_id}
-              className="supabase-card p-3 sm:p-4 hover:shadow-lg transition-shadow"
+              className="supabase-card p-3 sm:p-4 hover:shadow-lg transition-shadow cursor-pointer"
             >
               {/* Invoice Header */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm leading-tight text-gray-900 dark:text-white truncate">
-                    {invoice.invoice_code}
-                  </h3>
+                  <Link 
+                    href={`/dashboard/invoices/${invoice.invoice_id}`}
+                    className="block hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  >
+                    <h3 className="font-semibold text-sm leading-tight text-gray-900 dark:text-white truncate">
+                      {invoice.invoice_code}
+                    </h3>
+                  </Link>
                   <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 mt-1">
                     <Calendar className="h-3 w-3" />
                     {formatDate(invoice.invoice_date)}
                   </div>
                 </div>
-                <Badge variant={statusBadge.color} className="text-xs px-2 py-1">
-                  {statusBadge.label}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant={statusBadge.color} className="text-xs px-2 py-1">
+                    {statusBadge.label}
+                  </Badge>
+                  <Link href={`/dashboard/invoices/${invoice.invoice_id}`}>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-0 hover:bg-blue-100 dark:hover:bg-blue-900"
+                      title="Xem chi tiết"
+                    >
+                      <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </Button>
+                  </Link>
+                </div>
               </div>
 
               {/* Customer Info */}
