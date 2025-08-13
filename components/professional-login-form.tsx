@@ -58,13 +58,11 @@ export function ProfessionalLoginForm({
         if (event === 'SIGNED_IN' && session) {
           toast.success('🎉 Đăng nhập thành công!', {
             description: 'Chào mừng bạn trở lại',
-            duration: 2000
+            duration: 1500
           })
           
-          // Small delay for better UX
-          setTimeout(() => {
-            router.replace('/dashboard')
-          }, 500)
+          // Immediate redirect without delay
+          router.push('/dashboard')
         }
       }
     )
@@ -125,9 +123,13 @@ export function ProfessionalLoginForm({
         return
       }
 
-      // Success case is handled by auth state listener
+      // Success case - force immediate redirect
       if (data.session) {
         console.log('Login successful, session:', data.session.user.email)
+        
+        // Force refresh to ensure middleware picks up new session
+        window.location.href = '/dashboard'
+        return
       }
 
     } catch (error) {

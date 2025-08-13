@@ -18,12 +18,31 @@ export function AuthWrapper({ children, requireAuth = false }: AuthWrapperProps)
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Auth check error:', error)
+          if (requireAuth) {
+            router.push('/auth/login')
+          }
+          setLoading(false)
+          return
+        }
 
-      if (requireAuth && !user) {
-        router.push('/auth/login')
+        const user = session?.user || null
+        setUser(user)
+        setLoading(false)
+
+        if (requireAuth && !user) {
+          router.push('/auth/login')
+        }
+      } catch (error) {
+        console.error('Auth wrapper error:', error)
+        setLoading(false)
+        if (requireAuth) {
+          router.push('/auth/login')
+        }
       }
     }
 
