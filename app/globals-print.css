@@ -1,0 +1,157 @@
+/* Print Styles for Invoice Detail Page */
+@media print {
+  /* Hide navigation and non-essential elements */
+  .print-hide,
+  nav,
+  aside,
+  header,
+  footer,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Set up page for printing */
+  body {
+    margin: 0;
+    padding: 20px;
+    font-size: 12pt;
+    line-height: 1.4;
+    color: black !important;
+    background: white !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
+
+  /* Make sure content fits on page */
+  .print-content {
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+  }
+
+  /* Typography for print */
+  h1, h2, h3, h4, h5, h6 {
+    color: black !important;
+    page-break-after: avoid;
+  }
+
+  /* Table styles for print */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 10pt;
+  }
+
+  table, th, td {
+    border: 1px solid black;
+  }
+
+  th, td {
+    padding: 6px;
+    text-align: left;
+  }
+
+  th {
+    background-color: #f0f0f0 !important;
+    font-weight: bold;
+  }
+
+  /* Avoid page breaks inside important content */
+  .print-keep-together {
+    page-break-inside: avoid;
+  }
+
+  /* Company header */
+  .print-header {
+    text-align: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid black;
+    padding-bottom: 10px;
+  }
+
+  .print-company-name {
+    font-size: 18pt;
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+
+  .print-invoice-title {
+    font-size: 16pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin: 20px 0;
+  }
+
+  /* Customer and invoice info */
+  .print-info-section {
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 1px solid black;
+  }
+
+  .print-info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+  }
+
+  /* Financial summary */
+  .print-summary {
+    float: right;
+    width: 40%;
+    margin-top: 20px;
+    border: 1px solid black;
+    padding: 10px;
+  }
+
+  .print-summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 3px;
+  }
+
+  .print-total {
+    border-top: 2px solid black;
+    margin-top: 10px;
+    padding-top: 5px;
+    font-weight: bold;
+    font-size: 12pt;
+  }
+
+  /* Signatures */
+  .print-signatures {
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .print-signature {
+    text-align: center;
+    width: 30%;
+  }
+
+  .print-signature-line {
+    border-bottom: 1px solid black;
+    margin-top: 30px;
+    margin-bottom: 5px;
+  }
+
+  /* Break pages appropriately */
+  .page-break {
+    page-break-before: always;
+  }
+
+  /* Ensure colors are visible in print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

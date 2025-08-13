@@ -25,6 +25,7 @@ import {
   Clock
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { CanvasVietnamesePDF } from '@/components/invoice/canvas-vietnamese-pdf'
 import type { 
   InvoiceFullData,
   InvoiceHeader
@@ -164,6 +165,11 @@ export default function InvoiceDetailPage() {
   const totals = calculateInvoiceTotals(header, details)
   const validation = validateInvoiceData(header, details)
 
+  // Show validation warnings if any
+  if (validation.warnings.length > 0) {
+    console.warn('Invoice validation warnings:', validation.warnings)
+  }
+
   // Helper function to get status icon
   const getStatusIcon = () => {
     switch (header.status.toLowerCase()) {
@@ -188,79 +194,166 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  // Show validation warnings if any
-  if (validation.warnings.length > 0) {
-    console.warn('Invoice validation warnings:', validation.warnings)
+  // Handle HTML invoice view
+  const handleViewHTML = () => {
+    const url = `/api/invoices/${invoiceId}/html`
+    window.open(url, '_blank', 'width=800,height=900,scrollbars=yes')
+  }
+
+  // Handle print function (PDF download) - SỬ DỤNG PDF CHUYÊN NGHIỆP
+  const handlePrint = async () => {
+    try {
+      toast.info('🔄 Đang tạo PDF chuyên nghiệp với font tiếng Việt chuẩn...')
+      
+      // Download PDF CHUYÊN NGHIỆP với Typography chuẩn doanh nghiệp Việt Nam
+      const response = await fetch(`/api/invoices/${invoiceId}/pdf`, {
+        headers: {
+          'Accept': 'application/pdf',
+          'Accept-Language': 'vi-VN'
+        }
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('PDF API error:', errorText)
+        toast.error('❌ Không thể tạo PDF chuyên nghiệp')
+        return
+      }
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      
+      // Create download link với tên file chuyên nghiệp
+      const link = document.createElement('a')
+      link.href = url
+      const dateStr = new Date().toISOString().split('T')[0]
+      link.download = `HoaDon_ChuyenNghiep_${header.invoice_code}_${dateStr}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      toast.success('✅ Đã tải PDF chuyên nghiệp với thiết kế hiện đại!')
+    } catch (error) {
+      console.error('Lỗi tạo PDF chuyên nghiệp:', error)
+      toast.error('❌ Có lỗi xảy ra khi tạo PDF: ' + (error instanceof Error ? error.message : 'Không xác định'))
+    }
+  }
+
+  // Handle browser print (HTML print)
+  const handleBrowserPrint = () => {
+    // Add print-specific content before printing
+    const printContent = document.querySelector('.print-content')
+    if (printContent) {
+      // Add print header dynamically
+      const printHeader = document.querySelector('.print-header')
+      if (printHeader) {
+        printHeader.classList.remove('hidden')
+      }
+      
+      window.print()
+      
+      // Hide print header after printing
+      if (printHeader) {
+        printHeader.classList.add('hidden')
+      }
+    } else {
+      window.print()
+    }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print-content">
+      {/* Print Header - chỉ hiện khi in */}
+      <div className="hidden print:block print-header">
+        <div className="print-company-name">XUÂN THÙY VETERINARY PHARMACY</div>
+        <div className="text-sm">Địa chỉ: [Địa chỉ công ty] | Điện thoại: [SĐT] | MST: [MST]</div>
+        <div className="print-invoice-title">HÓA ĐƠN BÁN HÀNG</div>
+      </div>
+
       {/* Header with navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="outline" 
-            onClick={() => router.back()}
-            className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Quay lại
-          </Button>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              Hóa đơn {header.invoice_code}
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Chi tiết hóa đơn bán hàng
-            </p>
+      <div className="flex flex-col gap-4 print-hide">
+        {/* Navigation & Title */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => router.back()}
+              className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Quay lại
+            </Button>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                Hóa đơn {header.invoice_code}
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Chi tiết hóa đơn bán hàng
+              </p>
+            </div>
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="bg-white dark:bg-gray-800">
-            <Edit className="h-4 w-4 mr-2" />
-            Sửa
-          </Button>
-          <Button variant="outline" className="bg-white dark:bg-gray-800">
-            <Printer className="h-4 w-4 mr-2" />
-            In
-          </Button>
+        {/* Action Buttons - Logic Layout */}
+        <div className="flex flex-wrap items-center gap-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+          {/* Primary Actions */}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="bg-white dark:bg-gray-800">
+              <Edit className="h-4 w-4 mr-1.5" />
+              Sửa
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="bg-blue-50 dark:bg-blue-900 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800"
+              onClick={handleViewHTML}
+            >
+              <FileText className="h-4 w-4 mr-1.5" />
+              Xem HTML đẹp
+            </Button>
+          </div>
+          
+          {/* PDF Export */}
+          <div className="border-l border-gray-200 dark:border-gray-700 pl-3">
+            <CanvasVietnamesePDF 
+              invoiceData={invoiceData}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Invoice Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Status Card */}
-        <Card className="supabase-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {getStatusIcon()}
-                <span className="font-medium">Trạng thái hóa đơn</span>
-              </div>
-              <Badge className={`${statusBadge.color} border-0`}>
-                {statusBadge.label}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Payment Status Card */}
-        <Card className="supabase-card">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {getPaymentIcon()}
-                <span className="font-medium">Trạng thái thanh toán</span>
-              </div>
-              {paymentBadge && (
-                <Badge className={`${paymentBadge.color} border-0`}>
-                  {paymentBadge.label}
-                </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Compact Status Bar */}
+      <div className="flex flex-wrap items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border print-hide">
+        {/* Status */}
+        <div className="flex items-center gap-2">
+          {getStatusIcon()}
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Trạng thái:</span>
+          <Badge className={`${statusBadge.color} border-0 text-xs`}>
+            {statusBadge.label}
+          </Badge>
+        </div>
+        
+        {/* Payment Status */}
+        <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-600 pl-4">
+          {getPaymentIcon()}
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Thanh toán:</span>
+          {paymentBadge && (
+            <Badge className={`${paymentBadge.color} border-0 text-xs`}>
+              {paymentBadge.label}
+            </Badge>
+          )}
+        </div>
+        
+        {/* Quick Info */}
+        <div className="flex items-center gap-4 ml-auto text-sm text-gray-600 dark:text-gray-400">
+          <span><Calendar className="h-4 w-4 inline mr-1" />{formatDate(header.invoice_date)}</span>
+          <span><Package className="h-4 w-4 inline mr-1" />{details.length} items</span>
+          <span className="font-semibold text-blue-600 dark:text-blue-400">
+            <DollarSign className="h-4 w-4 inline mr-1" />{formatPrice(header.total_amount)}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -552,10 +645,27 @@ export default function InvoiceDetailPage() {
               <CardTitle>Thao tác nhanh</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {/* Canvas PDF is now in the main header */}
               <Button 
                 variant="outline" 
                 className="w-full justify-start bg-white dark:bg-gray-800"
-                onClick={() => toast.info('Chức năng in hóa đơn sẽ được phát triển')}
+                onClick={handleViewHTML}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Xem hóa đơn đẹp
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start bg-white dark:bg-gray-800"
+                onClick={handlePrint}
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Tải PDF hóa đơn (Cũ)
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start bg-white dark:bg-gray-800"
+                onClick={handleBrowserPrint}
               >
                 <Printer className="h-4 w-4 mr-2" />
                 In hóa đơn
