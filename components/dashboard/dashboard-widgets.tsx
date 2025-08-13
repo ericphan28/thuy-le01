@@ -1,6 +1,9 @@
 import React from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { ExternalLink } from 'lucide-react'
 import type { TopProduct, RecentOrder } from '@/lib/types/dashboard'
 
 interface TopProductsProps {
@@ -174,18 +177,34 @@ export function RecentOrders({ orders, loading = false }: RecentOrdersProps) {
         ) : (
           <div className="space-y-4">
             {orders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors">
+              <div key={order.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100">
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">{order.customer_name}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium text-gray-900">{order.customer_name}</div>
+                    {order.invoice_code && (
+                      <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
+                        {order.invoice_code}
+                      </code>
+                    )}
+                  </div>
                   <div className="text-sm text-gray-500">
                     {order.items_count} sản phẩm • {formatDate(order.created_at)}
                   </div>
                 </div>
-                <div className="text-right flex flex-col items-end gap-1">
-                  <div className="font-semibold text-gray-900">
-                    {formatCurrency(order.total)}
+                <div className="text-right flex items-center gap-3">
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="font-semibold text-gray-900">
+                      {formatCurrency(order.total)}
+                    </div>
+                    {getStatusBadge(order.status)}
                   </div>
-                  {getStatusBadge(order.status)}
+                  {order.detail_url && (
+                    <Link href={order.detail_url}>
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </div>
             ))}

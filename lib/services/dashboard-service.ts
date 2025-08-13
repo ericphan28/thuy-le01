@@ -58,11 +58,11 @@ export class DashboardService {
         .gte('created_at', startOfLastMonth.toISOString())
         .lte('created_at', endOfLastMonth.toISOString())
 
-      // Tổng sản phẩm
+      // Tổng sản phẩm (products table có is_active field, không có status)
       const { count: totalProducts } = await this.supabase
         .from('products')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
+        .eq('is_active', true)
 
       // Tính toán
       const totalRevenue = currentRevenue?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0
@@ -137,28 +137,31 @@ export class DashboardService {
   // Lấy top sản phẩm bán chạy
   async getTopProducts(): Promise<TopProduct[]> {
     try {
+      // Truy vấn từ invoice_details - đã có đầy đủ thông tin sản phẩm
       const { data } = await this.supabase
         .from('invoice_details')
         .select(`
           product_id,
+          product_code,
+          product_name,
           quantity,
           unit_price,
           line_total,
-          product_name,
-          invoices!inner(
-            status,
-            invoice_date
-          )
+          invoice_date
         `)
-        .eq('invoices.status', 'completed')
-        .gte('invoices.invoice_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .gte('invoice_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .order('invoice_date', { ascending: false })
 
-      // Group by product
-      const productStats = data?.reduce((acc, item: any) => {
-        const productId = item.product_id?.toString() || 'unknown'
-        if (!acc[productId]) {
-          acc[productId] = {
-            id: productId,
+      if (!data || data.length === 0) {
+        return []
+      }
+
+      // Group by product và tính tổng
+      const productStats = data.reduce((acc, item: any) => {
+        const productKey = item.product_code || item.product_id?.toString() || 'unknown'
+        if (!acc[productKey]) {
+          acc[productKey] = {
+            id: item.product_id?.toString() || productKey,
             name: item.product_name || 'Unknown Product',
             category: 'General',
             revenue: 0,
@@ -166,10 +169,10 @@ export class DashboardService {
             growth: 0
           }
         }
-        acc[productId].revenue += item.line_total || 0
-        acc[productId].quantity_sold += item.quantity || 0
+        acc[productKey].revenue += item.line_total || 0
+        acc[productKey].quantity_sold += item.quantity || 0
         return acc
-      }, {} as Record<string, TopProduct>) || {}
+      }, {} as Record<string, TopProduct>)
 
       return Object.values(productStats)
         .sort((a, b) => b.revenue - a.revenue)
@@ -196,14 +199,33 @@ export class DashboardService {
         .order('invoice_date', { ascending: false })
         .limit(10)
 
-      return data?.map(invoice => ({
+      if (!data || data.length === 0) {
+        return []
+      }
+
+      // Đếm số items cho mỗi invoice từ invoice_details
+      const invoiceIds = data.map(inv => inv.invoice_id)
+      const { data: detailsCounts } = await this.supabase
+        .from('invoice_details')
+        .select('invoice_id, quantity')
+        .in('invoice_id', invoiceIds)
+
+      const itemCounts = detailsCounts?.reduce((acc, detail) => {
+        acc[detail.invoice_id] = (acc[detail.invoice_id] || 0) + (detail.quantity || 0)
+        return acc
+      }, {} as Record<number, number>) || {}
+
+      return data.map(invoice => ({
         id: invoice.invoice_id?.toString() || 'unknown',
         customer_name: invoice.customer_name || 'Unknown Customer',
         total: invoice.total_amount || 0,
         status: invoice.status as RecentOrder['status'],
         created_at: invoice.invoice_date,
-        items_count: 1 // Since we don't have invoice_details joined
-      })) || []
+        items_count: itemCounts[invoice.invoice_id] || 0,
+        invoice_code: invoice.invoice_code || `INV-${invoice.invoice_id}`,
+        // Link để xem chi tiết
+        detail_url: `/dashboard/invoices/${invoice.invoice_id}`
+      }))
     } catch (error) {
       console.error('Error fetching recent orders:', error)
       return []

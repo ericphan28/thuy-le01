@@ -31,6 +31,8 @@ export interface RecentOrder {
   status: 'pending' | 'processing' | 'completed' | 'cancelled'
   created_at: string
   items_count: number
+  invoice_code?: string
+  detail_url?: string
 }
 
 export interface CustomerData {
