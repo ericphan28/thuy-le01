@@ -1,7 +1,9 @@
 "use client"
 
 import { useSidebar } from "@/lib/store"
+import { useTodayRevenue } from "@/lib/hooks/use-today-revenue"
 import { cn } from "@/lib/utils"
+import { formatCompactVND } from "@/lib/utils/currency"
 import { 
   BarChart3, 
   Users, 
@@ -32,14 +34,15 @@ const menuItems = [
     badge: null
   },
   {
-    title: "Bán Hàng",
+    title: "Bán Hàng & POS",
     icon: ShoppingCart,
     href: "/dashboard/pos",
-    badge: "NEW",
+    badge: "HOT",
     children: [
-      { title: "Point of Sale", href: "/dashboard/pos" },
-      { title: "Đơn Hàng", href: "/sales/orders" },
-      { title: "Trả Hàng", href: "/sales/returns" }
+      { title: "🛒 Point of Sale", href: "/dashboard/pos" },
+      { title: "📋 Danh Sách Hóa Đơn", href: "/dashboard/invoices" },
+      { title: "🔄 Trả Hàng", href: "/dashboard/returns" },
+      { title: "📊 Báo Cáo Bán Hàng", href: "/dashboard/sales/reports" }
     ]
   },
   {
@@ -59,31 +62,21 @@ const menuItems = [
     href: "/dashboard/products",
     badge: null,
     children: [
-      { title: "Danh Sách", href: "/dashboard/products/list" },
+      { title: "Danh Sách", href: "/dashboard/products" },
       { title: "Danh Mục", href: "/dashboard/products/categories" },
       { title: "Đơn Vị", href: "/dashboard/products/units" }
     ]
   },
   {
-    title: "Hóa Đơn",
-    icon: Receipt,
-    href: "/dashboard/invoices",
-    badge: null,
-    children: [
-      { title: "Danh Sách", href: "/dashboard/invoices" },
-      { title: "Tạo Mới (POS)", href: "/dashboard/pos" },
-      { title: "Báo Cáo", href: "/dashboard/invoices/reports" }
-    ]
-  },
-  {
     title: "Kho Hàng",
     icon: Warehouse,
-    href: "/inventory",
+    href: "/dashboard/inventory",
     badge: "5",
     children: [
-      { title: "Tồn Kho", href: "/inventory/stock" },
-      { title: "Nhập Hàng", href: "/inventory/inbound" },
-      { title: "Kiểm Kho", href: "/inventory/count" }
+      { title: "📊 Tồn Kho", href: "/dashboard/inventory/stock" },
+      { title: "📥 Nhập Hàng", href: "/dashboard/inventory/inbound" },
+      { title: "🔍 Kiểm Kho", href: "/dashboard/inventory/count" },
+      { title: "⚠️ Cảnh Báo", href: "/dashboard/inventory/alerts" }
     ]
   },
   {
@@ -103,38 +96,39 @@ const menuItems = [
     href: "/dashboard/debt",
     badge: null,
     children: [
-      { title: "Sổ Quỹ", href: "/finance/cashbook" },
-      { title: "Công Nợ", href: "/dashboard/debt" },
-      { title: "Báo Cáo", href: "/finance/reports" }
+      { title: "💰 Sổ Quỹ", href: "/dashboard/finance/cashbook" },
+      { title: "🏦 Công Nợ", href: "/dashboard/debt" },
+      { title: "📊 Báo Cáo Tài Chính", href: "/dashboard/finance/reports" }
     ]
   },
   {
-    title: "Báo Cáo",
+    title: "Báo Cáo & Phân Tích",
     icon: BarChart3,
-    href: "/reports",
+    href: "/dashboard/reports",
     badge: null,
     children: [
-      { title: "Doanh Thu", href: "/reports/revenue" },
-      { title: "Lợi Nhuận", href: "/reports/profit" },
-      { title: "Top Sản Phẩm", href: "/reports/dashboard/products" }
+      { title: "📈 Doanh Thu", href: "/dashboard/reports/revenue" },
+      { title: "💰 Lợi Nhuận", href: "/dashboard/reports/profit" },
+      { title: "🏆 Top Sản Phẩm", href: "/dashboard/reports/products" },
+      { title: "👥 Phân Tích Khách Hàng", href: "/dashboard/reports/customers" }
     ]
-  },
-  {
-    title: "Chi Nhánh",
-    icon: Building2,
-    href: "/branches",
-    badge: null
   },
   {
     title: "Cài Đặt",
     icon: Settings,
     href: "/dashboard/settings",
-    badge: null
+    badge: null,
+    children: [
+      { title: "🏢 Chi Nhánh", href: "/dashboard/branches" },
+      { title: "⚙️ Hệ Thống", href: "/dashboard/settings" },
+      { title: "👨‍💼 Người Dùng", href: "/dashboard/users" }
+    ]
   }
 ]
 
 export function Sidebar() {
   const { isOpen, isMobile, setOpen, setMobile } = useSidebar()
+  const { revenue, orders, customers, loading, error } = useTodayRevenue()
   const pathname = usePathname()
 
   useEffect(() => {
@@ -398,18 +392,64 @@ export function Sidebar() {
                   className="rounded-xl bg-gradient-to-r from-blue-50 via-indigo-50 to-green-50 p-4 shadow-sm ring-1 ring-blue-100/50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-green-900/20 dark:ring-blue-800/30"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-emerald-500 shadow-lg">
-                      <TrendingUp className="h-5 w-5 text-white" />
+                    <div className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full shadow-lg transition-all duration-300",
+                      loading 
+                        ? "bg-gray-300 dark:bg-gray-600 animate-pulse" 
+                        : error 
+                        ? "bg-red-400 to-red-500" 
+                        : "bg-gradient-to-br from-green-400 to-emerald-500"
+                    )}>
+                      <TrendingUp className={cn(
+                        "h-5 w-5 transition-all duration-300",
+                        loading ? "text-gray-500" : "text-white"
+                      )} />
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
                         Doanh thu hôm nay
                       </p>
-                      <p className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent dark:from-green-400 dark:to-emerald-400">
-                        ₫2,456,000
-                      </p>
+                      {loading ? (
+                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-1"></div>
+                      ) : error ? (
+                        <p className="text-sm text-red-500 dark:text-red-400">
+                          Lỗi tải dữ liệu
+                        </p>
+                      ) : (
+                        <p className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent dark:from-green-400 dark:to-emerald-400">
+                          {formatCompactVND(revenue)}
+                        </p>
+                      )}
                     </div>
                   </div>
+                  
+                  {/* Quick stats */}
+                  {!loading && !error && (
+                    <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
+                      <div className="text-center p-2 bg-white/60 rounded-lg dark:bg-gray-800/60">
+                        <div className="font-semibold text-gray-700 dark:text-gray-300">Đơn hôm nay</div>
+                        <div className="text-blue-600 dark:text-blue-400 font-bold">{orders}</div>
+                      </div>
+                      <div className="text-center p-2 bg-white/60 rounded-lg dark:bg-gray-800/60">
+                        <div className="font-semibold text-gray-700 dark:text-gray-300">Khách mới</div>
+                        <div className="text-green-600 dark:text-green-400 font-bold">{customers}</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Loading state for stats */}
+                  {loading && (
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div className="text-center p-2 bg-white/60 rounded-lg">
+                        <div className="h-3 bg-gray-200 rounded animate-pulse mb-1"></div>
+                        <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                      <div className="text-center p-2 bg-white/60 rounded-lg">
+                        <div className="h-3 bg-gray-200 rounded animate-pulse mb-1"></div>
+                        <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
