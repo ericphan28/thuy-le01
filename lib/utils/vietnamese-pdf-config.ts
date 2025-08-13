@@ -62,7 +62,7 @@ export function normalizeVietnameseText(text: string): string {
 }
 
 // Helper function to setup PDF with Vietnamese support
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export function setupVietnamesePDF(pdf: any) {
   // Set default font to Times (better Vietnamese support)
   pdf.setFont(VIETNAMESE_PDF_CONFIG.fonts.primary, 'normal')

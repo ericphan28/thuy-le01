@@ -119,7 +119,7 @@ export function generateSimpleVietnamesePDF(invoiceData: InvoiceFullData): Blob 
     })
 
     // Get table end position
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     yPosition = (pdf as any).lastAutoTable.finalY + 15
     
     // Tổng kết tài chính - Bên phải

@@ -225,7 +225,7 @@ export function generateProfessionalVietnamesePDF(invoiceData: InvoiceFullData):
     })
 
     // Get table end position
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     currentY = (pdf as any).lastAutoTable.finalY + 15
     
     // ═══════════════════════════════════════════════════════════════

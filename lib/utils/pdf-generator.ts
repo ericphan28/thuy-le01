@@ -193,7 +193,7 @@ export function generateInvoicePDFDirectly(invoiceData: InvoiceFullData): Blob {
     })
 
     // Get final Y position after table
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     yPosition = (pdf as any).lastAutoTable.finalY + 10
     
     // Financial Summary Box

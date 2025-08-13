@@ -3,7 +3,7 @@
 --
 
 -- Dumped from database version 17.4
--- Dumped by pg_dump version 17.4
+-- Dumped by pg_dump version 17.5
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -151,467 +151,239 @@ COMMENT ON FUNCTION public.adjust_customer_debt(p_customer_id integer, p_adjustm
 
 
 --
--- Name: create_pos_invoice(integer, jsonb, numeric, character varying, numeric, character varying, numeric, integer, character varying); Type: FUNCTION; Schema: public; Owner: -
+-- Name: create_pos_invoice(integer, jsonb, numeric, character varying, numeric, character varying, numeric, numeric, numeric, character varying, integer, character varying); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric DEFAULT 0, p_discount_type character varying DEFAULT 'percentage'::character varying, p_discount_value numeric DEFAULT 0, p_payment_method character varying DEFAULT 'cash'::character varying, p_received_amount numeric DEFAULT NULL::numeric, p_branch_id integer DEFAULT 1, p_created_by character varying DEFAULT 'POS'::character varying) RETURNS jsonb
+CREATE FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric DEFAULT 0, p_discount_type character varying DEFAULT 'percentage'::character varying, p_discount_value numeric DEFAULT 0, p_payment_method character varying DEFAULT 'cash'::character varying, p_received_amount numeric DEFAULT NULL::numeric, p_paid_amount numeric DEFAULT NULL::numeric, p_debt_amount numeric DEFAULT 0, p_payment_type character varying DEFAULT 'full'::character varying, p_branch_id integer DEFAULT 1, p_created_by character varying DEFAULT 'POS'::character varying) RETURNS jsonb
     LANGUAGE plpgsql
     AS $$
 DECLARE
-    -- Variables for invoice creation
-    v_invoice_id INTEGER;
-    v_invoice_code VARCHAR(50);
-    v_customer_record customers%ROWTYPE;
-    v_cart_item JSONB;
-    v_product_record products%ROWTYPE;
-    
-    -- Calculation variables
-    v_subtotal NUMERIC := 0;
-    v_discount_amount NUMERIC := 0;
-    v_after_discount NUMERIC := 0;
-    v_vat_amount NUMERIC := 0;
-    v_total_amount NUMERIC := 0;
-    v_change_amount NUMERIC := 0;
-    
-    -- Business validation variables
-    v_total_debt_after NUMERIC := 0;
-    v_item_count INTEGER := 0;
-    v_total_quantity NUMERIC := 0;
-    
-    -- Error tracking
-    v_error_messages TEXT[] := ARRAY[]::TEXT[];
-    v_warnings TEXT[] := ARRAY[]::TEXT[];
-    
-    -- Invoice details array
-    v_invoice_details JSONB[] := ARRAY[]::JSONB[];
-    v_stock_updates JSONB[] := ARRAY[]::JSONB[];
-    
+    v_invoice_id integer;
+    v_invoice_code varchar(20);
+    v_customer customers%ROWTYPE;
+    v_product products%ROWTYPE;
+    v_subtotal numeric := 0;
+    v_discount_amount numeric := 0;
+    v_vat_amount numeric := 0;
+    v_total_amount numeric := 0;
+    v_change_amount numeric := 0;
+    v_cart_item jsonb;
+    v_line_total numeric;
+    v_warnings text[] := '{}';
+    v_new_debt numeric;
+    v_debt_warning text;
 BEGIN
-    -- =====================================================
-    -- 🔍 PHASE 1: INPUT VALIDATION & SETUP
-    -- =====================================================
-    
-    -- Validate required parameters
-    IF p_customer_id IS NULL OR p_cart_items IS NULL OR jsonb_array_length(p_cart_items) = 0 THEN
-        RETURN jsonb_build_object(
-            'success', false,
-            'error', 'Invalid input: customer_id and cart_items are required',
-            'error_code', 'INVALID_INPUT'
-        );
-    END IF;
-    
-    -- Validate VAT rate
-    IF p_vat_rate NOT IN (0, 5, 8, 10) THEN
-        RETURN jsonb_build_object(
-            'success', false,
-            'error', 'Invalid VAT rate. Must be 0, 5, 8, or 10',
-            'error_code', 'INVALID_VAT_RATE'
-        );
-    END IF;
-    
-    -- Validate discount type
-    IF p_discount_type NOT IN ('percentage', 'amount') THEN
-        RETURN jsonb_build_object(
-            'success', false,
-            'error', 'Invalid discount type. Must be percentage or amount',
-            'error_code', 'INVALID_DISCOUNT_TYPE'
-        );
-    END IF;
-    
-    -- Validate payment method
-    IF p_payment_method NOT IN ('cash', 'card', 'transfer') THEN
-        RETURN jsonb_build_object(
-            'success', false,
-            'error', 'Invalid payment method. Must be cash, card, or transfer',
-            'error_code', 'INVALID_PAYMENT_METHOD'
-        );
-    END IF;
-    
-    -- =====================================================
-    -- 🔍 PHASE 2: CUSTOMER VALIDATION
-    -- =====================================================
-    
-    -- Get customer record
-    SELECT * INTO v_customer_record 
-    FROM customers 
-    WHERE customer_id = p_customer_id AND is_active = true;
-    
+    -- Validate customer
+    SELECT * INTO v_customer FROM customers WHERE customer_id = p_customer_id AND is_active = true;
     IF NOT FOUND THEN
         RETURN jsonb_build_object(
             'success', false,
-            'error', 'Customer not found or inactive',
+            'error', 'Khách hàng không tồn tại hoặc không hoạt động',
             'error_code', 'CUSTOMER_NOT_FOUND'
         );
     END IF;
-    
-    -- =====================================================
-    -- 🔍 PHASE 3: CART VALIDATION & CALCULATION
-    -- =====================================================
-    
-    -- Process each cart item
+
+    -- Calculate subtotal and validate stock
     FOR v_cart_item IN SELECT * FROM jsonb_array_elements(p_cart_items)
     LOOP
-        -- Validate cart item structure
-        IF NOT (v_cart_item ? 'product_id' AND v_cart_item ? 'quantity' AND v_cart_item ? 'unit_price') THEN
-            v_error_messages := array_append(v_error_messages, 
-                'Invalid cart item structure. Required: product_id, quantity, unit_price');
-            CONTINUE;
-        END IF;
-        
-        -- Get product record
-        SELECT * INTO v_product_record 
-        FROM products 
-        WHERE product_id = (v_cart_item->>'product_id')::INTEGER 
-        AND is_active = true 
-        AND allow_sale = true;
+        SELECT * INTO v_product FROM products 
+        WHERE product_id = (v_cart_item->>'product_id')::integer;
         
         IF NOT FOUND THEN
-            v_error_messages := array_append(v_error_messages, 
-                format('Product ID %s not found or not available for sale', v_cart_item->>'product_id'));
-            CONTINUE;
+            RETURN jsonb_build_object(
+                'success', false,
+                'error', 'Sản phẩm không tồn tại: ' || (v_cart_item->>'product_id'),
+                'error_code', 'PRODUCT_NOT_FOUND'
+            );
         END IF;
-        
-        -- Validate stock availability
-        IF v_product_record.current_stock < (v_cart_item->>'quantity')::NUMERIC THEN
-            v_error_messages := array_append(v_error_messages, 
-                format('Insufficient stock for %s. Available: %s, Requested: %s', 
-                    v_product_record.product_name, 
-                    v_product_record.current_stock, 
-                    v_cart_item->>'quantity'));
-            CONTINUE;
+
+        -- Check stock
+        IF v_product.current_stock < (v_cart_item->>'quantity')::numeric THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error', 'Không đủ hàng: ' || v_product.product_name,
+                'error_code', 'INSUFFICIENT_STOCK'
+            );
         END IF;
-        
-        -- Check prescription requirement
-        IF v_product_record.requires_prescription THEN
-            v_warnings := array_append(v_warnings, 
-                format('Product %s requires prescription - ensure compliance', v_product_record.product_name));
-        END IF;
-        
-        -- Calculate line totals
-        DECLARE
-            v_line_quantity NUMERIC := (v_cart_item->>'quantity')::NUMERIC;
-            v_line_unit_price NUMERIC := (v_cart_item->>'unit_price')::NUMERIC;
-            v_line_total NUMERIC := v_line_quantity * v_line_unit_price;
-        BEGIN
-            -- Add to subtotal
-            v_subtotal := v_subtotal + v_line_total;
-            v_total_quantity := v_total_quantity + v_line_quantity;
-            v_item_count := v_item_count + 1;
-            
-            -- Store invoice detail data
-            v_invoice_details := array_append(v_invoice_details, jsonb_build_object(
-                'product_id', v_product_record.product_id,
-                'product_code', v_product_record.product_code,
-                'product_name', v_product_record.product_name,
-                'quantity', v_line_quantity,
-                'unit_price', v_line_unit_price,
-                'line_total', v_line_total,
-                'cost_price', COALESCE(v_product_record.cost_price, 0),
-                'profit_amount', (v_line_unit_price - COALESCE(v_product_record.cost_price, 0)) * v_line_quantity
-            ));
-            
-            -- Store stock update data
-            v_stock_updates := array_append(v_stock_updates, jsonb_build_object(
-                'product_id', v_product_record.product_id,
-                'old_stock', v_product_record.current_stock,
-                'quantity_sold', v_line_quantity,
-                'new_stock', v_product_record.current_stock - v_line_quantity
-            ));
-        END;
+
+        v_line_total := (v_cart_item->>'quantity')::numeric * (v_cart_item->>'unit_price')::numeric;
+        v_subtotal := v_subtotal + v_line_total;
     END LOOP;
-    
-    -- Check if we have any valid items
-    IF array_length(v_invoice_details, 1) = 0 THEN
-        RETURN jsonb_build_object(
-            'success', false,
-            'error', 'No valid items in cart',
-            'error_details', v_error_messages,
-            'error_code', 'NO_VALID_ITEMS'
-        );
-    END IF;
-    
-    -- Return errors if any critical validation failed
-    IF array_length(v_error_messages, 1) > 0 THEN
-        RETURN jsonb_build_object(
-            'success', false,
-            'error', 'Validation failed',
-            'error_details', v_error_messages,
-            'error_code', 'VALIDATION_FAILED'
-        );
-    END IF;
-    
-    -- =====================================================
-    -- 🔍 PHASE 4: FINANCIAL CALCULATIONS
-    -- =====================================================
-    
+
     -- Calculate discount
     IF p_discount_type = 'percentage' THEN
-        v_discount_amount := (v_subtotal * p_discount_value) / 100;
+        v_discount_amount := v_subtotal * (p_discount_value / 100);
     ELSE
         v_discount_amount := LEAST(p_discount_value, v_subtotal);
     END IF;
+
+    -- Calculate VAT and total
+    v_vat_amount := (v_subtotal - v_discount_amount) * (p_vat_rate / 100);
+    v_total_amount := v_subtotal - v_discount_amount + v_vat_amount;
+
+    -- Calculate debt after transaction
+    v_new_debt := v_customer.current_debt + COALESCE(p_debt_amount, 0);
     
-    -- Calculate amounts
-    v_after_discount := v_subtotal - v_discount_amount;
-    v_vat_amount := v_after_discount * (p_vat_rate / 100);
-    v_total_amount := v_after_discount + v_vat_amount;
-    
-    -- Calculate change if received amount provided
-    IF p_received_amount IS NOT NULL THEN
-        v_change_amount := p_received_amount - v_total_amount;
-        IF v_change_amount < 0 THEN
+    -- Generate debt warning if exceeds limit (warning only, not blocking)
+    IF v_new_debt > v_customer.debt_limit THEN
+        v_debt_warning := format(
+            'Cảnh báo: Công nợ sau giao dịch (%s) vượt hạn mức (%s) là %s',
+            to_char(v_new_debt, 'FM999,999,999,999'),
+            to_char(v_customer.debt_limit, 'FM999,999,999,999'),
+            to_char(v_new_debt - v_customer.debt_limit, 'FM999,999,999,999')
+        );
+        v_warnings := array_append(v_warnings, v_debt_warning);
+    END IF;
+
+    -- Validate payment for cash transactions
+    IF p_payment_method = 'cash' AND p_payment_type = 'full' THEN
+        IF COALESCE(p_received_amount, 0) < v_total_amount THEN
             RETURN jsonb_build_object(
                 'success', false,
-                'error', format('Insufficient payment. Required: %s, Received: %s', v_total_amount, p_received_amount),
+                'error', 'Số tiền thanh toán không đủ',
                 'error_code', 'INSUFFICIENT_PAYMENT'
             );
         END IF;
+        v_change_amount := COALESCE(p_received_amount, 0) - v_total_amount;
     END IF;
-    
-    -- =====================================================
-    -- 🔍 PHASE 5: DEBT LIMIT VALIDATION
-    -- =====================================================
-    
-    -- Calculate debt after this transaction
-    v_total_debt_after := v_customer_record.current_debt + 
-        CASE 
-            WHEN p_received_amount IS NULL THEN v_total_amount
-            WHEN p_received_amount < v_total_amount THEN (v_total_amount - p_received_amount)
-            ELSE 0
-        END;
-    
-    -- Check debt limit
-    IF v_total_debt_after > v_customer_record.debt_limit THEN
-        RETURN jsonb_build_object(
-            'success', false,
-            'error', format('Customer debt limit exceeded. Limit: %s, New total would be: %s', 
-                v_customer_record.debt_limit, v_total_debt_after),
-            'error_code', 'DEBT_LIMIT_EXCEEDED'
+
+    -- Generate invoice code (sử dụng invoice_code_seq riêng biệt)
+    v_invoice_code := 'INV' || to_char(CURRENT_DATE, 'YYMMDD') || 
+                      LPAD(nextval('invoice_code_seq')::text, 4, '0');
+
+    -- Create invoice
+    INSERT INTO invoices (
+        invoice_code, customer_id, customer_name, total_amount, 
+        customer_paid, invoice_date, branch_id, notes,
+        vat_rate, vat_amount, discount_type, discount_value,
+        status, created_at
+    ) VALUES (
+        v_invoice_code, p_customer_id, v_customer.customer_name, v_total_amount,
+        COALESCE(p_paid_amount, CASE WHEN p_payment_type = 'full' THEN v_total_amount ELSE 0 END),
+        CURRENT_TIMESTAMP, p_branch_id,
+        CASE WHEN p_payment_type != 'full' THEN 
+            format('Thanh toán %s: %s VND, Ghi nợ: %s VND, Phương thức: %s', 
+                   p_payment_type,
+                   COALESCE(p_paid_amount, 0), 
+                   COALESCE(p_debt_amount, 0),
+                   p_payment_method)
+        ELSE format('Thanh toán đầy đủ - Phương thức: %s', p_payment_method) END,
+        p_vat_rate, v_vat_amount, p_discount_type, p_discount_value,
+        CASE WHEN p_debt_amount > 0 THEN 'partial' ELSE 'completed' END,
+        CURRENT_TIMESTAMP
+    ) RETURNING invoice_id INTO v_invoice_id;
+
+    -- Create invoice details
+    FOR v_cart_item IN SELECT * FROM jsonb_array_elements(p_cart_items)
+    LOOP
+        SELECT * INTO v_product FROM products 
+        WHERE product_id = (v_cart_item->>'product_id')::integer;
+        
+        INSERT INTO invoice_details (
+            invoice_id, product_id, invoice_code, product_code, product_name,
+            customer_code, customer_name, branch_id, invoice_date,
+            quantity, unit_price, sale_price, line_total, subtotal,
+            customer_id, created_at
+        ) VALUES (
+            v_invoice_id,
+            (v_cart_item->>'product_id')::integer,
+            v_invoice_code,
+            v_product.product_code,
+            v_product.product_name,
+            v_customer.customer_code,
+            v_customer.customer_name,
+            p_branch_id,
+            CURRENT_TIMESTAMP,
+            (v_cart_item->>'quantity')::numeric,
+            (v_cart_item->>'unit_price')::numeric,
+            (v_cart_item->>'unit_price')::numeric,
+            (v_cart_item->>'quantity')::numeric * (v_cart_item->>'unit_price')::numeric,
+            (v_cart_item->>'quantity')::numeric * (v_cart_item->>'unit_price')::numeric,
+            p_customer_id,
+            CURRENT_TIMESTAMP
+        );
+
+        -- Update product stock
+        UPDATE products 
+        SET current_stock = current_stock - (v_cart_item->>'quantity')::numeric
+        WHERE product_id = (v_cart_item->>'product_id')::integer;
+    END LOOP;
+
+    -- Update customer debt if applicable
+    IF p_debt_amount > 0 THEN
+        UPDATE customers 
+        SET current_debt = current_debt + p_debt_amount,
+            last_purchase_date = CURRENT_TIMESTAMP
+        WHERE customer_id = p_customer_id;
+    END IF;
+
+    -- Create debt transaction record if debt involved
+    IF p_debt_amount > 0 THEN
+        INSERT INTO debt_transactions (
+            customer_id, invoice_id, transaction_type, amount,
+            old_debt, new_debt, payment_method, notes, created_by
+        ) VALUES (
+            p_customer_id, v_invoice_id, 'debt_increase', p_debt_amount,
+            v_customer.current_debt, v_new_debt, p_payment_method,
+            format('Ghi nợ từ hóa đơn %s (%s)', v_invoice_code, p_payment_type),
+            p_created_by
         );
     END IF;
-    
-    -- =====================================================
-    -- 🔍 PHASE 6: CREATE INVOICE (TRANSACTION START)
-    -- =====================================================
-    
-    -- Generate unique invoice code
-    v_invoice_code := 'HD' || extract(epoch from now())::bigint;
-    
-    -- 🔥 FINAL: Clean notes format without redundant "POS" prefix
-    INSERT INTO invoices (
-        invoice_code,
-        invoice_date,
-        customer_id,
-        customer_name,
-        branch_id,
-        total_amount,
-        customer_paid,
-        discount_type,
-        discount_value,
-        vat_rate,
-        vat_amount,
-        notes,
-        status,
-        created_at,
-        updated_at
-    ) VALUES (
-        v_invoice_code,
-        NOW(),
-        p_customer_id,
-        v_customer_record.customer_name,
-        p_branch_id,
-        v_total_amount,
-        COALESCE(p_received_amount, 0),
-        p_discount_type,
-        p_discount_value,
-        p_vat_rate,
-        v_vat_amount,
-        -- ✅ CLEAN: No redundant "POS" prefix, just meaningful info
-        CASE 
-            WHEN p_discount_value > 0 AND p_vat_rate > 0 THEN
-                format('%s | %s items | Giảm %s | VAT %s%%',
-                    CASE p_payment_method 
-                        WHEN 'cash' THEN 'Tiền mặt'
-                        WHEN 'card' THEN 'Thẻ'
-                        WHEN 'transfer' THEN 'Chuyển khoản'
-                        ELSE p_payment_method
-                    END,
-                    v_item_count,
-                    CASE 
-                        WHEN p_discount_type = 'percentage' THEN p_discount_value || '%'
-                        ELSE (p_discount_value::INTEGER / 1000) || 'k'
-                    END,
-                    p_vat_rate
-                )
-            WHEN p_discount_value > 0 THEN
-                format('%s | %s items | Giảm %s',
-                    CASE p_payment_method 
-                        WHEN 'cash' THEN 'Tiền mặt'
-                        WHEN 'card' THEN 'Thẻ'
-                        WHEN 'transfer' THEN 'Chuyển khoản'
-                        ELSE p_payment_method
-                    END,
-                    v_item_count,
-                    CASE 
-                        WHEN p_discount_type = 'percentage' THEN p_discount_value || '%'
-                        ELSE (p_discount_value::INTEGER / 1000) || 'k'
-                    END
-                )
-            WHEN p_vat_rate > 0 THEN
-                format('%s | %s items | VAT %s%%',
-                    CASE p_payment_method 
-                        WHEN 'cash' THEN 'Tiền mặt'
-                        WHEN 'card' THEN 'Thẻ'
-                        WHEN 'transfer' THEN 'Chuyển khoản'
-                        ELSE p_payment_method
-                    END,
-                    v_item_count,
-                    p_vat_rate
-                )
-            ELSE
-                format('%s | %s items',
-                    CASE p_payment_method 
-                        WHEN 'cash' THEN 'Tiền mặt'
-                        WHEN 'card' THEN 'Thẻ'
-                        WHEN 'transfer' THEN 'Chuyển khoản'
-                        ELSE p_payment_method
-                    END,
-                    v_item_count
-                )
-        END,
-        'completed',
-        NOW(),
-        NOW()
-    ) RETURNING invoice_id INTO v_invoice_id;
-    
-    -- =====================================================
-    -- 🔍 PHASE 7: CREATE INVOICE DETAILS
-    -- =====================================================
-    
-    -- Insert invoice details for each cart item
-    FOR i IN 1..array_length(v_invoice_details, 1)
-    LOOP
-        DECLARE
-            v_detail JSONB := v_invoice_details[i];
-        BEGIN
-            INSERT INTO invoice_details (
-                invoice_id, product_id, invoice_code, product_code, product_name,
-                customer_name, customer_id, branch_id, invoice_date,
-                quantity, unit_price, sale_price, line_total, subtotal,
-                cost_price, profit_amount,
-                cash_payment, card_payment, transfer_payment, wallet_payment, points_payment, customer_paid,
-                discount_percent, discount_amount, total_discount, status, created_at
-            ) VALUES (
-                v_invoice_id, (v_detail->>'product_id')::INTEGER, v_invoice_code,
-                v_detail->>'product_code', v_detail->>'product_name',
-                v_customer_record.customer_name, p_customer_id, p_branch_id, NOW(),
-                (v_detail->>'quantity')::NUMERIC, (v_detail->>'unit_price')::NUMERIC,
-                (v_detail->>'unit_price')::NUMERIC, (v_detail->>'line_total')::NUMERIC,
-                (v_detail->>'line_total')::NUMERIC, (v_detail->>'cost_price')::NUMERIC,
-                (v_detail->>'profit_amount')::NUMERIC,
-                CASE WHEN p_payment_method = 'cash' THEN (v_detail->>'line_total')::NUMERIC ELSE 0 END,
-                CASE WHEN p_payment_method = 'card' THEN (v_detail->>'line_total')::NUMERIC ELSE 0 END,
-                CASE WHEN p_payment_method = 'transfer' THEN (v_detail->>'line_total')::NUMERIC ELSE 0 END,
-                0, 0, COALESCE(p_received_amount, 0), 0, 0, 0, 'completed', NOW()
-            );
-        END;
-    END LOOP;
-    
-    -- =====================================================
-    -- 🔍 PHASE 8: UPDATE PRODUCT STOCK
-    -- =====================================================
-    
-    -- Update stock for each product
-    FOR i IN 1..array_length(v_stock_updates, 1)
-    LOOP
-        DECLARE
-            v_stock_update JSONB := v_stock_updates[i];
-        BEGIN
-            UPDATE products 
-            SET current_stock = (v_stock_update->>'new_stock')::NUMERIC, updated_at = NOW()
-            WHERE product_id = (v_stock_update->>'product_id')::INTEGER;
-        END;
-    END LOOP;
-    
-    -- =====================================================
-    -- 🔍 PHASE 9: UPDATE CUSTOMER STATISTICS
-    -- =====================================================
-    
-    -- Update customer record
-    UPDATE customers 
-    SET 
-        current_debt = v_total_debt_after,
-        total_revenue = total_revenue + v_total_amount,
-        total_profit = total_profit + (
-            SELECT SUM((detail->>'profit_amount')::NUMERIC) 
-            FROM unnest(v_invoice_details) AS detail
-        ),
-        purchase_count = purchase_count + 1,
-        last_purchase_date = NOW(),
-        updated_at = NOW()
-    WHERE customer_id = p_customer_id;
-    
-    -- =====================================================
-    -- 🔍 PHASE 10: SUCCESS RESPONSE
-    -- =====================================================
-    
+
+    -- Return success with comprehensive information
     RETURN jsonb_build_object(
         'success', true,
         'invoice_id', v_invoice_id,
         'invoice_code', v_invoice_code,
-        'customer_id', p_customer_id,
-        'customer_name', v_customer_record.customer_name,
+        'customer_name', v_customer.customer_name,
         'totals', jsonb_build_object(
-            'subtotal', v_subtotal,
+            'subtotal_amount', v_subtotal,
             'discount_amount', v_discount_amount,
             'vat_amount', v_vat_amount,
             'total_amount', v_total_amount,
-            'received_amount', p_received_amount,
+            'paid_amount', COALESCE(p_paid_amount, CASE WHEN p_payment_type = 'full' THEN v_total_amount ELSE 0 END),
+            'debt_amount', COALESCE(p_debt_amount, 0),
             'change_amount', v_change_amount
         ),
-        'summary', jsonb_build_object(
-            'item_count', v_item_count,
-            'total_quantity', v_total_quantity,
-            'payment_method', p_payment_method,
-            'vat_rate', p_vat_rate,
-            'discount_type', p_discount_type,
-            'discount_value', p_discount_value
+        'payment_info', jsonb_build_object(
+            'method', p_payment_method,
+            'type', p_payment_type,
+            'received_amount', p_received_amount
         ),
         'customer_info', jsonb_build_object(
-            'new_debt', v_total_debt_after,
-            'debt_limit', v_customer_record.debt_limit,
-            'debt_remaining', v_customer_record.debt_limit - v_total_debt_after
+            'customer_id', v_customer.customer_id,
+            'customer_name', v_customer.customer_name,
+            'previous_debt', v_customer.current_debt,
+            'new_debt', v_new_debt,
+            'debt_limit', v_customer.debt_limit
         ),
         'warnings', v_warnings,
-        'created_at', NOW(),
-        'message', format('Invoice %s created successfully for %s VND', v_invoice_code, v_total_amount)
+        'summary', format(
+            'Hóa đơn %s - Khách hàng: %s - Tổng: %s - Thanh toán: %s',
+            v_invoice_code,
+            v_customer.customer_name,
+            to_char(v_total_amount, 'FM999,999,999,999'),
+            p_payment_type
+        )
     );
 
 EXCEPTION
     WHEN OTHERS THEN
         RETURN jsonb_build_object(
             'success', false,
-            'error', 'Database error occurred',
-            'error_code', 'DATABASE_ERROR',
-            'error_message', SQLERRM,
-            'error_state', SQLSTATE,
-            'debug_info', jsonb_build_object(
-                'customer_id', p_customer_id,
-                'invoice_code', v_invoice_code,
-                'calculated_total', v_total_amount,
-                'items_processed', array_length(v_invoice_details, 1)
-            )
+            'error', 'Lỗi hệ thống: ' || SQLERRM,
+            'error_code', 'SYSTEM_ERROR'
         );
 END;
 $$;
 
 
 --
--- Name: FUNCTION create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric, p_discount_type character varying, p_discount_value numeric, p_payment_method character varying, p_received_amount numeric, p_branch_id integer, p_created_by character varying); Type: COMMENT; Schema: public; Owner: -
+-- Name: FUNCTION create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric, p_discount_type character varying, p_discount_value numeric, p_payment_method character varying, p_received_amount numeric, p_paid_amount numeric, p_debt_amount numeric, p_payment_type character varying, p_branch_id integer, p_created_by character varying); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric, p_discount_type character varying, p_discount_value numeric, p_payment_method character varying, p_received_amount numeric, p_branch_id integer, p_created_by character varying) IS 'FINAL POS Checkout Function: Clean, efficient invoice creation with dedicated VAT/discount columns.
-Uses meaningful notes format without redundant prefixes. Handles complete business logic validation.';
+COMMENT ON FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric, p_discount_type character varying, p_discount_value numeric, p_payment_method character varying, p_received_amount numeric, p_paid_amount numeric, p_debt_amount numeric, p_payment_type character varying, p_branch_id integer, p_created_by character varying) IS 'Enhanced POS Checkout Function with debt management integration. 
+Supports full, partial, and debt payment types with warning system for debt limit exceeding.';
 
 
 --
@@ -1969,6 +1741,18 @@ ALTER SEQUENCE public.financial_transactions_transaction_id_seq OWNED BY public.
 
 
 --
+-- Name: invoice_code_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.invoice_code_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
 -- Name: invoice_details; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2701,7 +2485,6 @@ COPY public.customer_types (type_id, type_code, type_name, description, is_activ
 --
 
 COPY public.customers (customer_id, customer_code, customer_name, customer_type_id, branch_created_id, phone, email, address, company_name, tax_code, id_number, gender, debt_limit, current_debt, total_revenue, total_profit, purchase_count, last_purchase_date, status, notes, created_by, is_active, created_at, updated_at) FROM stdin;
-831	KH000423	ANH HẢI (TUẤN)	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	120000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-26 03:31:11.68	2025-07-29 06:48:10.46569
 834	KH000420	CHỊ LIỄU - LONG THÀNH	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	10760000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-25 09:38:10.697	2025-07-29 06:48:10.46569
 836	KH000418	ANH KHÁNH - TAM HOÀNG - SOKLU 2	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	10490000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-23 04:12:38.577	2025-07-29 06:48:10.46569
 837	KH000417	EM HẢI - TÂN PHÚ	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	5392000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-22 08:51:47.45	2025-07-29 06:48:10.46569
@@ -2751,9 +2534,9 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 883	KH000369	ANH HẢI CJ	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	5430000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-10 08:29:24.857	2025-07-29 06:48:10.591439
 884	KH000368	CÔ LUÂN - BÀU HÀM	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	800000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-10 08:20:30.85	2025-07-29 06:48:10.591439
 875	KH000377	NHUNG VIETVET	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	102664000.00	198096.77	1	2025-08-05 08:15:45.23856	1	\N	Ngọc Bích	t	2025-06-18 03:48:41.41	2025-08-05 08:15:45.23856
-873	KH000379	THÚ Y KHANH THUỶ - VĨNH CỬU	1	1	907656669	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	3822648.00	593096.77	1	2025-08-05 08:24:29.140906	1	\N	Ngọc Bích	t	2025-06-18 09:19:52.027	2025-08-05 08:24:29.140906
-833	KH000421	Thắng bida (test)	1	1	907136029	ericphan28@gmail.com	Bida Thiên Long 2, Gia Kiệm	\N	\N	\N	\N	50000000.00	20000000.00	170000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2025-07-25 23:53:02.183	2025-08-05 15:39:21.892108
+831	KH000423	ANH HẢI (TUẤN)	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	391200.00	120000.00	0.00	0	2025-08-06 12:45:58.938618	1	\N	Ngọc Bích	t	2025-07-26 03:31:11.68	2025-07-29 06:48:10.46569
 835	KH000419	CHỊ TRINH - VĨNH AN	1	1	0888 445 792	\N	\N	\N	\N	\N	Nữ	50000000.00	66000000.00	8270000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-24 03:06:17.607	2025-08-06 00:22:22.592333
+873	KH000379	THÚ Y KHANH THUỶ - VĨNH CỬU	1	1	907656669	\N	\N	\N	\N	\N	Nam	50000000.00	2950000.00	3822648.00	593096.77	1	2025-08-06 09:39:19.718783	1	\N	Ngọc Bích	t	2025-06-18 09:19:52.027	2025-08-05 08:24:29.140906
 885	KH000367	ANH THỨC - TAM HOÀNG	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	46205000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-07 07:45:06.42	2025-07-29 06:48:10.591439
 886	KH000366	CHỊ QUY - BÌNH DƯƠNG - LÔ MỚI	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	77740000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-07 04:34:44.966	2025-07-29 06:48:10.591439
 887	KH000365	ANH HUY - GÀ - ĐỨC HUY	1	1	0972 612 063	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	18480000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-05 03:43:35.857	2025-07-29 06:48:10.591439
@@ -2805,8 +2588,8 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 934	KH000317	CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	118350000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-04-08 08:16:00.267	2025-07-29 06:48:10.77834
 935	KH000316	ANH HẠNH - VÔ NHIỄM	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	1680000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-04-02 02:48:37.187	2025-07-29 06:48:10.77834
 936	KH000315	ANH VŨ - GÀ ĐẺ	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	11480000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-04-01 00:08:28.887	2025-07-29 06:48:10.77834
-937	KH000314	ANH TUẤN - VỊT - TÍN NGHĨA	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	1800000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-03-29 02:00:34.567	2025-07-29 06:48:10.77834
 938	KH000313	ANH NAM NOVA	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	0.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-03-27 07:46:12.087	2025-07-29 06:48:10.77834
+937	KH000314	ANH TUẤN - VỊT - TÍN NGHĨA	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	720000.00	1800000.00	0.00	0	2025-08-10 02:08:19.340138	1	\N	Ngọc Bích	t	2025-03-29 02:00:34.567	2025-07-29 06:48:10.77834
 939	KH000312	ANH THÁI - VỊT - LÔ 2	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	37760000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-03-27 00:13:58.703	2025-07-29 06:48:10.77834
 940	KH000310	ĐÔNG CHÍCH	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	570000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-03-26 09:33:55.289	2025-07-29 06:48:10.77834
 941	KH000309	CÔ THẾ MARTINO	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	12630000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-03-25 00:14:26.463	2025-07-29 06:48:10.77834
@@ -3025,7 +2808,6 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 1152	KH0000084	ANH ĐIỀN - VỊT-P.THỊNH (P.LÂM)	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	0.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.996	2025-07-29 06:48:11.450257
 1153	KH0000083	CÔ LOAN - VỊT - AN LỘC	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	29400000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.996	2025-07-29 06:48:11.450257
 1154	KH0000082	ANH THÁI - VỊT - PHÚC NHẠC	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	42320000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.993	2025-07-29 06:48:11.450257
-1155	KH0000080	ANH PHONG - VỊT (NHÀ)	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	168440000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.993	2025-07-29 06:48:11.450257
 1156	KH0000079	ANH QUÂN CÁM BOSS	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	13745000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.993	2025-07-29 06:48:11.450257
 1157	KH0000078	ANH KHỎE  - TAM HOÀNG	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	103963000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.99	2025-07-29 06:48:11.450257
 1158	KH0000077	ANH TÂM - MARTINO - VỊT (NHÀ)	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	149985000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.99	2025-07-29 06:48:11.450257
@@ -3050,6 +2832,7 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 1178	KH0000054	CHÚ CHƯƠNG - TAM HOÀNG	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	52210000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.967	2025-07-29 06:48:11.450257
 1179	KH0000053	CÔ LAN ( TUẤN) - TAM HOÀNG	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	118420000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.967	2025-07-29 06:48:11.450257
 1170	KH0000064	CHÚ CHIỂU - GÀ TA - ĐỨC LONG	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	600000.00	185096.77	1	2025-08-05 08:00:19.181657	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.977	2025-08-05 08:00:19.181657
+1155	KH0000080	ANH PHONG - VỊT (NHÀ)	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	168440000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	f	2024-12-09 07:13:49.993	2025-08-06 18:24:23.956
 1183	KH0000049	ANH CU - TAM HOÀNG HƯNG LỘC	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	149200000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.963	2025-07-29 06:48:11.558485
 1184	KH0000048	CÔ CHƯNG - TAM HOÀNG - NAGOA	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	133150000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.959	2025-07-29 06:48:11.558485
 1185	KH0000047	ANH LÂM (8K) - TRẠI 4	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	124220000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.959	2025-07-29 06:48:11.558485
@@ -3065,7 +2848,6 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 1195	KH0000036	ANH PHONG - SUỐI ĐÁ 2	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	148180000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.95	2025-07-29 06:48:11.558485
 1196	KH0000035	ANH VŨ - BÌNH LỘC	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	61810000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.947	2025-07-29 06:48:11.558485
 1197	KH0000034	ANH TUYÊN - MARTINO	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	33460000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.947	2025-07-29 06:48:11.558485
-1198	KH0000033	CÔ QUYỀN - ĐỨC LONG	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	260328000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.947	2025-07-29 06:48:11.558485
 1199	KH0000032	ANH HÙNG - CẦU CƯỜNG	1	1	0355 657 789	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	18195000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.943	2025-07-29 06:48:11.558485
 1200	KH0000031	CÔ BÌNH - AN LỘC	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	33115000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.943	2025-07-29 06:48:11.558485
 1201	KH0000030	ANH KHẢI - SOKLU	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	47620000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.943	2025-07-29 06:48:11.558485
@@ -3099,6 +2881,8 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 830	KH000424	CHỊ TRINH - VĨNH CỬU 4K	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	1018500.00	338193.54	1	2025-08-05 08:04:12.175956	1	\N	Ngọc Bích	t	2025-07-28 03:43:08.569	2025-08-05 08:04:12.175956
 832	KH000422	ANH HẢI (THUÝ)	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	1038500.00	198096.77	1	2025-08-05 08:23:16.964938	1	\N	Ngọc Bích	t	2025-07-26 00:11:29.56	2025-08-05 08:23:16.964938
 925	KH000327	ANH THUỶ - VỊT - ĐỨC HUY	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	3883000.00	230096.77	1	2025-08-05 08:53:57.727982	1	\N	Ngọc Bích	t	2025-04-24 09:57:30.95	2025-08-05 08:53:57.727982
+1198	KH0000033	CÔ QUYỀN 1 - ĐỨC LONG	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	260328000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.947	2025-08-06 18:30:33.642
+833	KH000421	Thắng bida (test)	1	1	907136029	ericphan28@gmail.com	Bida Thiên Long 2, Gia Kiệm	\N	\N	\N	\N	50000000.00	19062500.00	170000.00	0.00	0	2025-08-11 11:21:02.467332	1	\N	Thu Y Thuy Trang	t	2025-07-25 23:53:02.183	2025-08-11 11:22:17.770479
 \.
 
 
@@ -3113,6 +2897,17 @@ COPY public.debt_transactions (transaction_id, customer_id, transaction_type, am
 4	835	debt_adjustment	-1200000.00	65000000.00	63800000.00	\N	gí mãi mới trả	\N	POS System	2025-08-05 15:44:10.237439
 5	835	debt_increase	1500000.00	63800000.00	65300000.00	\N	lấy thêm thuốc	\N	debt_page_user	2025-08-06 00:18:48.385224
 6	835	debt_increase	700000.00	65300000.00	66000000.00	\N	lấy thêm thuốc	\N	debt_page_user	2025-08-06 00:22:22.592333
+7	833	debt_increase	801500.00	20000000.00	20801500.00	cash	Ghi nợ từ hóa đơn INV2508060003 (partial)	755	POS System	2025-08-06 06:35:34.302495
+8	833	debt_payment	-3500000.00	20801500.00	17301500.00	cash	trả tiền mặt	\N	debt_page_user	2025-08-06 06:40:04.187086
+9	873	debt_increase	2950000.00	0.00	2950000.00	cash	Ghi nợ từ hóa đơn INV2508060004 (debt)	757	POS System	2025-08-06 09:39:19.718783
+10	833	debt_increase	2540000.00	17301500.00	19841500.00	cash	Ghi nợ từ hóa đơn INV2508060005 (debt)	758	POS System	2025-08-06 10:55:32.415395
+11	831	debt_increase	391200.00	0.00	391200.00	cash	Ghi nợ từ hóa đơn INV2508060006 (partial)	759	POS System	2025-08-06 12:45:58.938618
+12	833	debt_increase	1260000.00	19841500.00	21101500.00	cash	Ghi nợ từ hóa đơn INV2508060007 (partial)	760	POS System	2025-08-06 12:50:43.070254
+13	833	debt_increase	491000.00	21101500.00	21592500.00	cash	Ghi nợ từ hóa đơn INV2508060008 (partial)	761	POS System	2025-08-06 12:52:47.639838
+14	833	debt_increase	1770000.00	21592500.00	23362500.00	cash	Ghi nợ từ hóa đơn INV2508060009 (partial)	762	POS System	2025-08-06 12:57:39.945966
+15	937	debt_increase	720000.00	0.00	720000.00	card	Ghi nợ từ hóa đơn INV2508100010 (partial)	763	POS System	2025-08-10 02:08:19.340138
+16	833	debt_increase	700000.00	23362500.00	24062500.00	cash	Ghi nợ từ hóa đơn INV2508110011 (partial)	764	POS System	2025-08-11 11:21:02.467332
+17	833	debt_payment	-5000000.00	24062500.00	19062500.00	cash	Gì nợ	\N	debt_page_user	2025-08-11 11:22:17.770479
 \.
 
 
@@ -4840,6 +4635,42 @@ COPY public.invoice_details (detail_id, invoice_id, product_id, invoice_code, pr
 2844	750	1630	HD1754382269	SP000178	#CÚM AVAC RE5 (250ml)	\N	THÚ Y KHANH THUỶ - VĨNH CỬU	1	\N	\N	\N	2025-08-05 08:24:29.140906	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	200000.00	0.00	2430648.00	200000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	200000.00	0.00	0.00	200000.00	200000.00	155000.00	45000.00	2025-08-05 08:24:29.140906	873
 2845	751	1622	HD1754384038	SP000186	#CIRCO (2000DS)	\N	ANH THUỶ - VỊT - ĐỨC HUY	1	\N	\N	\N	2025-08-05 08:53:57.727982	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	783000.00	400000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	1.00	400000.00	0.00	0.00	400000.00	400000.00	259903.23	140096.77	2025-08-05 08:53:57.727982	925
 2846	751	1630	HD1754384038	SP000178	#CÚM AVAC RE5 (250ml)	\N	ANH THUỶ - VỊT - ĐỨC HUY	1	\N	\N	\N	2025-08-05 08:53:57.727982	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	783000.00	400000.00	0.00	0.00	0.00	0.00	\N	completed	\N	\N	\N	2.00	200000.00	0.00	0.00	200000.00	400000.00	155000.00	90000.00	2025-08-05 08:53:57.727982	925
+2849	755	1755	INV2508060003	SP000049	#AGR POX (1000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 06:35:34.302495	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	220000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	220000.00	0.00	0.00	220000.00	220000.00	0.00	0.00	2025-08-06 06:35:34.302495	833
+2850	755	1630	INV2508060003	SP000178	#CÚM AVAC RE5 (250ml)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 06:35:34.302495	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	200000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	200000.00	0.00	0.00	200000.00	200000.00	0.00	0.00	2025-08-06 06:35:34.302495	833
+2851	755	1613	INV2508060003	SP000195	#GUMBORO 228E (2500DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 06:35:34.302495	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	650000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	650000.00	0.00	0.00	650000.00	650000.00	0.00	0.00	2025-08-06 06:35:34.302495	833
+2852	755	1614	INV2508060003	SP000194	#GUMBORO 228E (1000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 06:35:34.302495	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	300000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	300000.00	0.00	0.00	300000.00	300000.00	0.00	0.00	2025-08-06 06:35:34.302495	833
+2853	757	1622	INV2508060004	SP000186	#CIRCO (2000DS)	KH000379	THÚ Y KHANH THUỶ - VĨNH CỬU	1	\N	\N	\N	2025-08-06 09:39:19.718783	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	400000.00	0.00	0.00	400000.00	400000.00	0.00	0.00	2025-08-06 09:39:19.718783	873
+2854	757	1755	INV2508060004	SP000049	#AGR POX (1000DS)	KH000379	THÚ Y KHANH THUỶ - VĨNH CỬU	1	\N	\N	\N	2025-08-06 09:39:19.718783	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	220000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	220000.00	0.00	0.00	220000.00	220000.00	0.00	0.00	2025-08-06 09:39:19.718783	873
+2855	757	1847	INV2508060004	SP000677	#AGR IZOVAC ND-EDS-IB	KH000379	THÚ Y KHANH THUỶ - VĨNH CỬU	1	\N	\N	\N	2025-08-06 09:39:19.718783	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	1600000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	1600000.00	0.00	0.00	1600000.00	1600000.00	0.00	0.00	2025-08-06 09:39:19.718783	873
+2856	757	1732	INV2508060004	SP000072	AGR AVITRACE (1lit)	KH000379	THÚ Y KHANH THUỶ - VĨNH CỬU	1	\N	\N	\N	2025-08-06 09:39:19.718783	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	280000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	280000.00	0.00	0.00	280000.00	280000.00	0.00	0.00	2025-08-06 09:39:19.718783	873
+2857	757	1737	INV2508060004	SP000067	AGR AVITOXIN (1lit)	KH000379	THÚ Y KHANH THUỶ - VĨNH CỬU	1	\N	\N	\N	2025-08-06 09:39:19.718783	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	450000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	450000.00	0.00	0.00	450000.00	450000.00	0.00	0.00	2025-08-06 09:39:19.718783	873
+2858	758	1622	INV2508060005	SP000186	#CIRCO (2000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 10:55:32.415395	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	800000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	2.00	400000.00	0.00	0.00	400000.00	800000.00	0.00	0.00	2025-08-06 10:55:32.415395	833
+2859	758	1630	INV2508060005	SP000178	#CÚM AVAC RE5 (250ml)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 10:55:32.415395	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	800000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	4.00	200000.00	0.00	0.00	200000.00	800000.00	0.00	0.00	2025-08-06 10:55:32.415395	833
+2860	758	1628	INV2508060005	SP000180	#ECOLI,BẠI HUYẾT RINGPU (250ml)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 10:55:32.415395	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	500000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	2.00	250000.00	0.00	0.00	250000.00	500000.00	0.00	0.00	2025-08-06 10:55:32.415395	833
+2861	758	1755	INV2508060005	SP000049	#AGR POX (1000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 10:55:32.415395	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	440000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	2.00	220000.00	0.00	0.00	220000.00	440000.00	0.00	0.00	2025-08-06 10:55:32.415395	833
+2862	759	1955	INV2508060006	SP000565	#CÚM H5 + H9 (250ml)	KH000423	ANH HẢI (TUẤN)	1	\N	\N	\N	2025-08-06 12:45:58.938618	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	200000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	200000.00	0.00	0.00	200000.00	200000.00	0.00	0.00	2025-08-06 12:45:58.938618	831
+2863	759	1630	INV2508060006	SP000178	#CÚM AVAC RE5 (250ml)	KH000423	ANH HẢI (TUẤN)	1	\N	\N	\N	2025-08-06 12:45:58.938618	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	200000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	200000.00	0.00	0.00	200000.00	200000.00	0.00	0.00	2025-08-06 12:45:58.938618	831
+2864	759	1942	INV2508060006	SP000578	#DỊCH TẢ HANVET	KH000423	ANH HẢI (TUẤN)	1	\N	\N	\N	2025-08-06 12:45:58.938618	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	70000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	70000.00	0.00	0.00	70000.00	70000.00	0.00	0.00	2025-08-06 12:45:58.938618	831
+2865	759	1755	INV2508060006	SP000049	#AGR POX (1000DS)	KH000423	ANH HẢI (TUẤN)	1	\N	\N	\N	2025-08-06 12:45:58.938618	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	220000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	220000.00	0.00	0.00	220000.00	220000.00	0.00	0.00	2025-08-06 12:45:58.938618	831
+2866	760	1755	INV2508060007	SP000049	#AGR POX (1000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:50:43.070254	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	220000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	220000.00	0.00	0.00	220000.00	220000.00	0.00	0.00	2025-08-06 12:50:43.070254	833
+2867	760	1622	INV2508060007	SP000186	#CIRCO (2000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:50:43.070254	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	800000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	2.00	400000.00	0.00	0.00	400000.00	800000.00	0.00	0.00	2025-08-06 12:50:43.070254	833
+2868	760	1630	INV2508060007	SP000178	#CÚM AVAC RE5 (250ml)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:50:43.070254	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	200000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	200000.00	0.00	0.00	200000.00	200000.00	0.00	0.00	2025-08-06 12:50:43.070254	833
+2869	760	1955	INV2508060007	SP000565	#CÚM H5 + H9 (250ml)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:50:43.070254	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	200000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	200000.00	0.00	0.00	200000.00	200000.00	0.00	0.00	2025-08-06 12:50:43.070254	833
+2870	760	1628	INV2508060007	SP000180	#ECOLI,BẠI HUYẾT RINGPU (250ml)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:50:43.070254	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	250000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	250000.00	0.00	0.00	250000.00	250000.00	0.00	0.00	2025-08-06 12:50:43.070254	833
+2871	761	1755	INV2508060008	SP000049	#AGR POX (1000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:52:47.639838	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	220000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	220000.00	0.00	0.00	220000.00	220000.00	0.00	0.00	2025-08-06 12:52:47.639838	833
+2872	761	1640	INV2508060008	SP000168	#DỊCH TẢ VỊT-NAVETCO (1000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:52:47.639838	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	280000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	4.00	70000.00	0.00	0.00	70000.00	280000.00	0.00	0.00	2025-08-06 12:52:47.639838	833
+2873	761	1622	INV2508060008	SP000186	#CIRCO (2000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:52:47.639838	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	400000.00	0.00	0.00	400000.00	400000.00	0.00	0.00	2025-08-06 12:52:47.639838	833
+2874	762	1622	INV2508060009	SP000186	#CIRCO (2000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:57:39.945966	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	400000.00	0.00	0.00	400000.00	400000.00	0.00	0.00	2025-08-06 12:57:39.945966	833
+2875	762	1630	INV2508060009	SP000178	#CÚM AVAC RE5 (250ml)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:57:39.945966	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	2.00	200000.00	0.00	0.00	200000.00	400000.00	0.00	0.00	2025-08-06 12:57:39.945966	833
+2876	762	1955	INV2508060009	SP000565	#CÚM H5 + H9 (250ml)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:57:39.945966	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	2.00	200000.00	0.00	0.00	200000.00	400000.00	0.00	0.00	2025-08-06 12:57:39.945966	833
+2877	762	1628	INV2508060009	SP000180	#ECOLI,BẠI HUYẾT RINGPU (250ml)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:57:39.945966	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	500000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	2.00	250000.00	0.00	0.00	250000.00	500000.00	0.00	0.00	2025-08-06 12:57:39.945966	833
+2878	762	1640	INV2508060009	SP000168	#DỊCH TẢ VỊT-NAVETCO (1000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-06 12:57:39.945966	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	70000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	70000.00	0.00	0.00	70000.00	70000.00	0.00	0.00	2025-08-06 12:57:39.945966	833
+2879	763	1622	INV2508100010	SP000186	#CIRCO (2000DS)	KH000314	ANH TUẤN - VỊT - TÍN NGHĨA	1	\N	\N	\N	2025-08-10 02:08:19.340138	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	800000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	2.00	400000.00	0.00	0.00	400000.00	800000.00	0.00	0.00	2025-08-10 02:08:19.340138	937
+2880	763	1755	INV2508100010	SP000049	#AGR POX (1000DS)	KH000314	ANH TUẤN - VỊT - TÍN NGHĨA	1	\N	\N	\N	2025-08-10 02:08:19.340138	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	220000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	220000.00	0.00	0.00	220000.00	220000.00	0.00	0.00	2025-08-10 02:08:19.340138	937
+2881	763	1630	INV2508100010	SP000178	#CÚM AVAC RE5 (250ml)	KH000314	ANH TUẤN - VỊT - TÍN NGHĨA	1	\N	\N	\N	2025-08-10 02:08:19.340138	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	200000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	200000.00	0.00	0.00	200000.00	200000.00	0.00	0.00	2025-08-10 02:08:19.340138	937
+2882	764	1622	INV2508110011	SP000186	#CIRCO (2000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-11 11:21:02.467332	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	400000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	400000.00	0.00	0.00	400000.00	400000.00	0.00	0.00	2025-08-11 11:21:02.467332	833
+2883	764	1617	INV2508110011	SP000191	#MAX 5CLON30 (1000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-11 11:21:02.467332	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	200000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	200000.00	0.00	0.00	200000.00	200000.00	0.00	0.00	2025-08-11 11:21:02.467332	833
+2884	764	1755	INV2508110011	SP000049	#AGR POX (1000DS)	KH000421	Thắng bida (test)	1	\N	\N	\N	2025-08-11 11:21:02.467332	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	220000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	220000.00	0.00	0.00	220000.00	220000.00	0.00	0.00	2025-08-11 11:21:02.467332	833
 2812	738	\N	HD004605.01	SP000616{DEL}	CEVAMUNE (VIÊN)	KH000385	QUYỀN - TAM HOÀNG LÔ MỚI	1	\N	\N	\N	1970-01-01 00:00:45.839	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	80000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00		\N				1.00	80000.00	0.00	0.00	80000.00	80000.00	0.00	0.00	2025-07-30 01:20:39.244021	868
 1419	5	1584	HD005350	SP000224	#TG TẢ + CÚM (500ml)	KH000182	CÔ TUYẾT THU - PHÚ CƯỜNG 11K	1	\N	\N	\N	1970-01-01 00:00:45.866	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	13000000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00		\N				10.00	1300000.00	0.00	0.00	1300000.00	13000000.00	0.00	0.00	2025-07-30 01:20:32.586738	1115
 1420	6	1673	HD005349	SP000134	VAC PAC PLUS (5g)	KH000184	ĐINH QUỐC TUẤN	1	\N	\N	\N	1970-01-01 00:00:45.866	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	60000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00		\N				2.00	30000.00	0.00	0.00	30000.00	60000.00	0.00	0.00	2025-07-30 01:20:32.586738	1060
@@ -5587,6 +5418,10 @@ COPY public.invoices (invoice_id, invoice_code, invoice_date, return_code, custo
 746	HD1754380819	2025-08-05 08:00:19.181657	\N	1170	CHÚ CHIỂU - GÀ TA - ĐỨC LONG	1	600000.00	600000.00	Thanh toán tiền mặt | 2 items | Tạo bởi: POS System | Đã thu: 600000 | Thối lại: 0.0000000000000000000000000000000000000000	completed	2025-08-05 08:00:19.181657	2025-08-05 08:00:19.181657	percentage	0.00	0.00	0.00
 749	HD1754382197	2025-08-05 08:23:16.964938	\N	832	ANH HẢI (THUÝ)	1	598500.00	598500.00	POS | Tiền mặt | 2 items | Giảm 50k | VAT 5%	completed	2025-08-05 08:23:16.964938	2025-08-05 08:23:16.964938	amount	50000.00	5.00	28500.00
 752	PAY1754408362	2025-08-05 15:39:21.892108	\N	833	Thắng bida (test)	1	30000000.00	30000000.00	Thu tiền nợ - trả nợ, con thiêu s  20tr	debt_payment	2025-08-05 15:39:21.892108	2025-08-05 15:39:21.892108	percentage	0.00	0.00	0.00
+755	INV2508060003	2025-08-06 06:35:34.302495	\N	833	Thắng bida (test)	1	1301500.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 801500 VND, Phương thức: cash	partial	2025-08-06 06:35:34.302495	2025-08-06 06:35:34.302495	percentage	5.00	0.00	0.00
+758	INV2508060005	2025-08-06 10:55:32.415395	\N	833	Thắng bida (test)	1	2540000.00	0.00	Thanh toán debt: 0 VND, Ghi nợ: 2540000 VND, Phương thức: cash	partial	2025-08-06 10:55:32.415395	2025-08-06 10:55:32.415395	percentage	0.00	0.00	0.00
+761	INV2508060008	2025-08-06 12:52:47.639838	\N	833	Thắng bida (test)	1	891000.00	400000.00	Thanh toán partial: 400000 VND, Ghi nợ: 491000 VND, Phương thức: cash	partial	2025-08-06 12:52:47.639838	2025-08-06 12:52:47.639838	amount	90000.00	10.00	81000.00
+764	INV2508110011	2025-08-11 11:21:02.467332	\N	833	Thắng bida (test)	1	820000.00	120000.00	Thanh toán partial: 120000 VND, Ghi nợ: 700000 VND, Phương thức: cash	partial	2025-08-11 11:21:02.467332	2025-08-11 11:21:02.467332	percentage	0.00	0.00	0.00
 282	HD005066	2025-07-18 09:56:36.503	\N	1203	CHỊ LOAN ( ĐỊNH)	1	5800000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00
 357	HD004989	2025-07-15 11:54:47.662	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	5280000.00	0.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00
 381	HD004966.01	2025-07-14 16:25:29.287	\N	1048	ANH TRIỆU - GIA KIỆM	1	200000.00	0.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00
@@ -5600,6 +5435,10 @@ COPY public.invoices (invoice_id, invoice_code, invoice_date, return_code, custo
 744	HD1754328295337	2025-08-04 17:24:55.337	\N	932	ANH KHÁNH - VỊT - SOKLU	1	660000.00	660000.00	Thanh toán bằng thẻ	completed	2025-08-04 17:24:53.98314	2025-08-04 17:24:53.98314	percentage	0.00	0.00	0.00
 747	HD1754381052	2025-08-05 08:04:12.175956	\N	830	CHỊ TRINH - VĨNH CỬU 4K	1	1018500.00	1018500.00	Thanh toán tiền mặt | 2 items | Tạo bởi: POS System | Đã thu: 1018500 | Thối lại: 0.00000000000000000000	completed	2025-08-05 08:04:12.175956	2025-08-05 08:04:12.175956	amount	50000.00	5.00	48500.00
 750	HD1754382269	2025-08-05 08:24:29.140906	\N	873	THÚ Y KHANH THUỶ - VĨNH CỬU	1	2430648.00	2430648.00	POS | Tiền mặt | 4 items | Giảm 7% | VAT 8%	completed	2025-08-05 08:24:29.140906	2025-08-05 08:24:29.140906	percentage	7.00	8.00	180048.00
+756	PAY1754462404	2025-08-06 06:40:04.187086	\N	833	Thắng bida (test)	1	3500000.00	3500000.00	Thu tiền nợ - trả tiền mặt	debt_payment	2025-08-06 06:40:04.187086	2025-08-06 06:40:04.187086	percentage	0.00	0.00	0.00
+759	INV2508060006	2025-08-06 12:45:58.938618	\N	831	ANH HẢI (TUẤN)	1	691200.00	300000.00	Thanh toán partial: 300000 VND, Ghi nợ: 391200 VND, Phương thức: cash	partial	2025-08-06 12:45:58.938618	2025-08-06 12:45:58.938618	amount	50000.00	8.00	51200.00
+762	INV2508060009	2025-08-06 12:57:39.945966	\N	833	Thắng bida (test)	1	1870000.00	100000.00	Thanh toán partial: 100000 VND, Ghi nợ: 1770000 VND, Phương thức: cash	partial	2025-08-06 12:57:39.945966	2025-08-06 12:57:39.945966	amount	70000.00	10.00	170000.00
+765	PAY1754911338	2025-08-11 11:22:17.770479	\N	833	Thắng bida (test)	1	5000000.00	5000000.00	Thu tiền nợ - Gì nợ	debt_payment	2025-08-11 11:22:17.770479	2025-08-11 11:22:17.770479	percentage	0.00	0.00	0.00
 310	HD005038	2025-07-17 11:07:21.637	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	700000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00
 319	HD005029	2025-07-17 08:01:31.273	\N	843	CHÚ MẪN - CÚT - VÕ DÕNG	1	650000.00	650000.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00
 394	HD004952	2025-07-14 08:15:38.13	\N	1215	ANH TÂM ( ANH CÔNG)	1	2150000.00	0.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00
@@ -5609,6 +5448,9 @@ COPY public.invoices (invoice_id, invoice_code, invoice_date, return_code, custo
 745	HD1754361111	2025-08-05 02:31:51.073582	\N	1076	ANH CHIẾN-KHÁNH	1	1890000.00	1890000.00	{"summary": "Thanh toán thẻ | VAT 5% (90000.00000000000000000000000000000000 VND) | Giảm giá 10% = 200000.000000000000 VND | Tạm tính: 2000000 VND | Thành tiền: 1890000.00000000000000000000000000000000 VND", "vat_rate": 5, "warnings": [], "created_by": "POS System", "item_count": 2, "vat_amount": 90000.00000000000000000000000000000000, "change_amount": 0.00000000000000000000000000000000, "discount_type": "percentage", "discount_value": 10, "payment_method": "card", "total_quantity": 3, "discount_amount": 200000.000000000000, "subtotal_amount": 2000000}	completed	2025-08-05 02:31:51.073582	2025-08-05 02:31:51.073582	percentage	0.00	0.00	0.00
 748	HD1754381745	2025-08-05 08:15:45.23856	\N	875	NHUNG VIETVET	1	570000.00	570000.00	POS | Tiền mặt | 2 items | Giảm 50000%	completed	2025-08-05 08:15:45.23856	2025-08-05 08:15:45.23856	amount	50000.00	0.00	0.00
 751	HD1754384038	2025-08-05 08:53:57.727982	\N	925	ANH THUỶ - VỊT - ĐỨC HUY	1	783000.00	783000.00	Tiền mặt | 2 items | Giảm 75k | VAT 8%	completed	2025-08-05 08:53:57.727982	2025-08-05 08:53:57.727982	amount	75000.00	8.00	58000.00
+757	INV2508060004	2025-08-06 09:39:19.718783	\N	873	THÚ Y KHANH THUỶ - VĨNH CỬU	1	2950000.00	0.00	Thanh toán debt: 0 VND, Ghi nợ: 2950000 VND, Phương thức: cash	partial	2025-08-06 09:39:19.718783	2025-08-06 09:39:19.718783	percentage	0.00	0.00	0.00
+760	INV2508060007	2025-08-06 12:50:43.070254	\N	833	Thắng bida (test)	1	1760000.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 1260000 VND, Phương thức: cash	partial	2025-08-06 12:50:43.070254	2025-08-06 12:50:43.070254	amount	70000.00	10.00	160000.00
+763	INV2508100010	2025-08-10 02:08:19.340138	\N	937	ANH TUẤN - VỊT - TÍN NGHĨA	1	1220000.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 720000 VND, Phương thức: card	partial	2025-08-10 02:08:19.340138	2025-08-10 02:08:19.340138	percentage	0.00	0.00	0.00
 \.
 
 
@@ -5739,7 +5581,6 @@ COPY public.products (product_id, product_code, product_name, category_id, base_
 1625	SP000183	CEFOTAXIM (lọ 2g)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	12416.00	30000.00	-145.00	0.00	-145.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.373	2025-07-29 06:48:53.589531
 1626	SP000182	CEFOTAXIM (Bột 2g)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	9200.00	30000.00	6082.00	0.00	6082.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.373	2025-07-29 06:48:53.589531
 1627	SP000181	#ND-IB-H9 (250ml)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	195000.00	450000.00	137.00	0.00	137.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.373	2025-07-29 06:48:53.589531
-1628	SP000180	#ECOLI,BẠI HUYẾT RINGPU (250ml)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	175000.00	250000.00	79.00	0.00	79.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.373	2025-07-29 06:48:53.589531
 1629	SP000179	Kháng Thể Ringpu (100ml)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	220000.00	350000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.373	2025-07-29 06:48:53.589531
 1481	SP000333	VV OXYVET 50 (100g)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	40000.00	50000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:50.919	2025-07-29 06:48:52.133925
 1482	SP000332	VV OXYVET 50 (1Kg)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	280000.00	450000.00	3.00	0.00	3.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:50.919	2025-07-29 06:48:52.133925
@@ -5834,15 +5675,14 @@ COPY public.products (product_id, product_code, product_name, category_id, base_
 1589	SP000219	#VAKSIMUNE ND INAKTIF (500ml)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	618000.00	750000.00	0.00	0.00	0.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:51.935	2025-07-29 06:48:53.161273
 1590	SP000218	#TG IBD M+ (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	206000.00	250000.00	36.00	0.00	36.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:51.936	2025-07-29 06:48:53.161273
 1612	SP000196	#GUMBORO D78 (2500DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	390000.00	500000.00	12.00	0.00	12.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.272	2025-07-29 06:48:53.484799
-1613	SP000195	#GUMBORO 228E (2500DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	545000.00	650000.00	33.00	0.00	33.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.272	2025-07-29 06:48:53.484799
-1614	SP000194	#GUMBORO 228E (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	235000.00	300000.00	4.00	0.00	4.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.272	2025-07-29 06:48:53.484799
 1615	SP000193	#MAX 5CLON30 (5000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	420000.00	540000.00	21.00	0.00	21.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.272	2025-07-29 06:48:53.484799
 1616	SP000192	#MAX 5CLON30 (2500DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	225000.00	280000.00	36.00	0.00	36.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.273	2025-07-29 06:48:53.484799
-1617	SP000191	#MAX 5CLON30 (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	160000.00	200000.00	10.00	0.00	10.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.273	2025-07-29 06:48:53.484799
 1618	SP000190	#NEWCAVAC (500ml)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	755000.00	900000.00	2.00	0.00	2.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.273	2025-07-29 06:48:53.484799
 1619	SP000189	VMD SEPTRYL 240 - Vemedim (100ml)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	33740.74	40000.00	158.00	0.00	158.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.273	2025-07-29 06:48:53.484799
 1620	SP000188	#INTERFERON (10ml)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	110000.00	150000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.273	2025-07-29 06:48:53.484799
 1641	SP000167	#DỊCH TẢ VỊT- AVAC (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	54000.00	70000.00	0.00	0.00	0.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.575	2025-07-29 06:48:53.789102
+1613	SP000195	#GUMBORO 228E (2500DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	545000.00	650000.00	32.00	0.00	33.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.272	2025-07-29 06:48:53.484799
+1617	SP000191	#MAX 5CLON30 (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	160000.00	200000.00	9.00	0.00	10.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.273	2025-07-29 06:48:53.484799
 1651	SP000156	CATAXIM (250ml)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	340000.00	350000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.678	2025-07-29 06:48:53.895377
 1652	SP000155	PAXXCELL(10g)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	910000.00	1100000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.678	2025-07-29 06:48:53.895377
 1653	SP000154	PAXXCELL (4g)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	430000.00	450000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.678	2025-07-29 06:48:53.895377
@@ -5941,8 +5781,8 @@ COPY public.products (product_id, product_code, product_name, category_id, base_
 1759	SP000045	#IZOVAC GUMBORO 3 (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	170000.00	200000.00	25.00	0.00	25.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.781	2025-07-29 06:48:54.999774
 1783	SP000004	NOVAVETER FENDOX PLUS (1lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	1250000.00	1450000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:54.135	2025-07-29 06:48:55.660734
 1760	SP000044	#IZOVAC H120 - LASOTA (2500DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	223000.00	280000.00	75.00	0.00	76.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.781	2025-07-29 06:48:54.999774
-1640	SP000168	#DỊCH TẢ VỊT-NAVETCO (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	37000.00	70000.00	26.00	0.00	27.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.476	2025-07-29 06:48:53.691393
-1755	SP000049	#AGR POX (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	162000.00	220000.00	59.00	0.00	66.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.78	2025-08-05 08:24:29.140906
+1640	SP000168	#DỊCH TẢ VỊT-NAVETCO (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	37000.00	70000.00	21.00	0.00	27.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.476	2025-07-29 06:48:53.691393
+1755	SP000049	#AGR POX (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	162000.00	220000.00	50.00	0.00	66.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.78	2025-08-05 08:24:29.140906
 1642	SP000166	#VIÊM GAN VỊT - AVAC (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	54000.00	85000.00	0.00	0.00	0.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.575	2025-07-29 06:48:53.789102
 1643	SP000165	ALpha D3 (1Kg)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	130000.00	160000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.575	2025-07-29 06:48:53.789102
 1644	SP000164	CLOSTAB (1Kg)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	350000.00	350000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.575	2025-07-29 06:48:53.789102
@@ -5973,12 +5813,10 @@ COPY public.products (product_id, product_code, product_name, category_id, base_
 1709	SP000096	AGR ALL-LYTE (5Kg)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	305000.00	450000.00	3.00	0.00	3.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.213	2025-07-29 06:48:54.428735
 1710	SP000095	AGR ALL-LYTE (1Kg)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	0.00	90000.00	2.00	0.00	2.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.213	2025-07-29 06:48:54.428735
 1731	SP000073	AGR AVILIV (1lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	259000.00	300000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.538	2025-07-29 06:48:54.755565
-1732	SP000072	AGR AVITRACE (1lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	241000.00	280000.00	6.00	0.00	6.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.538	2025-07-29 06:48:54.755565
 1733	SP000071	AGR AVICAP (1lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	151000.00	200000.00	6.00	0.00	6.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.539	2025-07-29 06:48:54.755565
 1734	SP000070	AGR AVIMIX (5lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	1217000.00	1500000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.539	2025-07-29 06:48:54.755565
 1735	SP000069	AGR AVIMIX (1lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	267000.00	300000.00	15.00	0.00	15.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.539	2025-07-29 06:48:54.755565
 1736	SP000068	AGR AVITOXIN (5lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	1545000.00	1900000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.539	2025-07-29 06:48:54.755565
-1737	SP000067	AGR AVITOXIN (1lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	308608.70	450000.00	2.00	0.00	2.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.539	2025-07-29 06:48:54.755565
 1738	SP000066	AGR BUTASAN 10 (100ml)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	75000.00	100000.00	24.00	0.00	24.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.539	2025-07-29 06:48:54.755565
 1739	SP000065	AGR DEXA JECT (100ml)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	35000.00	50000.00	23.00	0.00	23.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.539	2025-07-29 06:48:54.755565
 1740	SP000064	AGR CHYPSIN (100ml)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	85000.00	110000.00	32.00	0.00	32.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.54	2025-07-29 06:48:54.755565
@@ -5994,6 +5832,7 @@ COPY public.products (product_id, product_code, product_name, category_id, base_
 1781	SP000006	NOVAVETER ENROVET ORAL (1lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	420000.00	500000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:54.134	2025-07-29 06:48:55.458657
 1784	SP000003	NOVAVETER MAXFLO(23%) (1lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	983000.00	1150000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:54.135	2025-07-29 06:48:55.798859
 1761	SP000043	#IZOVAC H120 - LASOTA (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	111000.00	130000.00	13.00	0.00	14.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.914	2025-07-29 06:48:55.132139
+1732	SP000072	AGR AVITRACE (1lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	241000.00	280000.00	5.00	0.00	6.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.538	2025-07-29 06:48:54.755565
 1785	SP000002	NOVAVETER TICOSIN ORAL (1lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	1057000.00	1400000.00	0.00	0.00	0.00	0.00	4000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:54.135	2025-07-29 06:48:55.894123
 1786	TEST_LARGE	Test Large Number	\N	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	0.00	0.00	999999999999.99	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 07:38:58.35401	2025-07-29 07:38:58.35401
 1787	SP000738	AN-DINE ( lít)	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	0.00	180000.00	-1.00	0.00	-1.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:18.851	2025-07-29 12:57:19.974742
@@ -6097,7 +5936,7 @@ COPY public.products (product_id, product_code, product_name, category_id, base_
 1985	SP000534	TIGER_BCOMPLEX (1KG) (XÁ)	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	94000.00	130000.00	26.00	0.00	26.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:41.864	2025-07-29 12:57:42.875626
 1988	SP000531	TIGER BỔ GAN (1KG) (10:1)	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	113000.00	140000.00	0.00	0.00	0.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:42.207	2025-07-29 12:57:43.205461
 1991	SP000528	TIGER-NUTRILACZYM (1Kg) (10:1)	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	107000.00	140000.00	0.00	0.00	0.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:42.528	2025-07-29 12:57:43.525282
-1955	SP000565	#CÚM H5 + H9 (250ml)	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	110000.00	200000.00	138.00	0.00	140.00	0.00	50000000.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:38.753	2025-07-29 12:57:39.760168
+1955	SP000565	#CÚM H5 + H9 (250ml)	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	110000.00	200000.00	134.00	0.00	140.00	0.00	50000000.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:38.753	2025-07-29 12:57:39.760168
 1839	SP000685	VIÊM GAN CNC 1000ds	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	60000.00	80000.00	0.00	0.00	0.00	0.00	50000000.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:26.397	2025-07-29 12:57:27.41223
 1842	SP000682	VV AMOXIN 100g	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	0.00	70000.00	1.00	0.00	1.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:26.755	2025-07-29 12:57:27.751628
 1845	SP000679	GENTACINE 250ml	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	0.00	250000.00	17.00	0.00	17.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:27.062	2025-07-29 12:57:28.065145
@@ -6319,12 +6158,15 @@ COPY public.products (product_id, product_code, product_name, category_id, base_
 2104	SP000400	VV-CHYMOSIN (1KG)	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	145000.00	220000.00	20.00	0.00	20.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:54.312	2025-07-29 12:57:55.314384
 2107	SP000397	AGR NYSTATIN (100G)	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	23000.00	30000.00	4.00	0.00	4.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:54.616	2025-07-29 12:57:55.611416
 2110	SP000394	AGR DOXSURE 50% POWER (1KG)	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	1650000.00	1800000.00	19.00	0.00	19.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:54.934	2025-07-29 12:57:55.940309
-1942	SP000578	#DỊCH TẢ HANVET	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	46499.92	70000.00	41.00	0.00	42.00	0.00	50000000.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:37.325	2025-07-29 12:57:38.335049
 1611	SP000197	#GUMBORO D78 (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	165000.00	200000.00	11.00	0.00	12.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.272	2025-07-29 06:48:53.484799
-1622	SP000186	#CIRCO (2000DS)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	259903.23	400000.00	110.00	0.00	121.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.372	2025-08-05 08:53:57.727982
+1622	SP000186	#CIRCO (2000DS)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	259903.23	400000.00	100.00	0.00	121.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.372	2025-08-05 08:53:57.727982
 1962	SP000558	AGR BUTASAL ATP GOLD 100ml	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	90000.00	120000.00	5.00	0.00	6.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:39.493	2025-07-29 12:57:40.494079
-1630	SP000178	#CÚM AVAC RE5 (250ml)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	155000.00	200000.00	46.00	0.00	54.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.373	2025-08-05 08:53:57.727982
-1847	SP000677	#AGR IZOVAC ND-EDS-IB	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	1250000.00	1600000.00	1.00	0.00	5.00	0.00	50000000.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:27.289	2025-08-05 08:24:29.140906
+1847	SP000677	#AGR IZOVAC ND-EDS-IB	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	1250000.00	1600000.00	0.00	0.00	5.00	0.00	50000000.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:27.289	2025-08-05 08:24:29.140906
+1737	SP000067	AGR AVITOXIN (1lit)	1	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	308608.70	450000.00	1.00	0.00	2.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.539	2025-07-29 06:48:54.755565
+1942	SP000578	#DỊCH TẢ HANVET	1	1	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	46499.92	70000.00	40.00	0.00	42.00	0.00	50000000.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:37.325	2025-07-29 12:57:38.335049
+1614	SP000194	#GUMBORO 228E (1000DS)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	235000.00	300000.00	3.00	0.00	4.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.272	2025-07-29 06:48:53.484799
+1630	SP000178	#CÚM AVAC RE5 (250ml)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	155000.00	200000.00	36.00	0.00	54.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.373	2025-08-05 08:53:57.727982
+1628	SP000180	#ECOLI,BẠI HUYẾT RINGPU (250ml)	2	6	\N	Hàng hóa	\N	\N	\N	\N	\N	0.00	175000.00	250000.00	74.00	0.00	79.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.373	2025-07-29 06:48:53.589531
 \.
 
 
@@ -6397,7 +6239,6 @@ COPY public.suppliers (supplier_id, supplier_code, supplier_name, phone, email, 
 145	NCC000018	NHUNG VIETVET	12456	\N	\N	\N	\N	30	\N	t	2024-12-26 02:54:07.227	2025-07-29 06:48:11.695348
 146	NCC000017	CÔNG TY TOÀN THẮNG	123546	\N	\N	\N	\N	30	\N	t	2024-12-24 09:12:03.243	2025-07-29 06:48:11.695348
 147	NCC000016	MƯỢN ANH HƯNG MARTINO	524620	\N	\N	\N	\N	30	\N	t	2024-12-23 23:53:08.549	2025-07-29 06:48:11.695348
-148	NCC000015	CÔNG AGRIVIET	0362 043 411	\N	\N	\N	\N	30	\N	t	2024-12-23 09:17:15.877	2025-07-29 06:48:11.695348
 149	NCC000014	HƯNG AGRIVIET	0928 736 868	\N	\N	\N	\N	30	\N	t	2024-12-23 09:14:23.393	2025-07-29 06:48:11.695348
 150	NCC000013	Đ.Lý Tuyết Hùng	10000	\N	\N	\N	\N	30	\N	t	2024-12-23 09:02:03.56	2025-07-29 06:48:11.695348
 151	NCC000012	CÔNG TY TOPCIN	123456	\N	\N	\N	\N	30	\N	t	2024-12-20 07:51:48.807	2025-07-29 06:48:11.695348
@@ -6412,6 +6253,8 @@ COPY public.suppliers (supplier_id, supplier_code, supplier_name, phone, email, 
 160	NCC000003	VACCINE VỊT	12345678	\N	\N	\N	\N	30	\N	t	2024-12-13 01:56:09.2	2025-07-29 06:48:11.695348
 161	NCC000002	CÔNG TY AGRIVIET	1234567	\N	\N	\N	\N	30	\N	t	2024-12-10 09:51:41.213	2025-07-29 06:48:11.695348
 162	NCC000001	CÔNG TY VIETVET	123456	\N	\N	\N	\N	30	\N	t	2024-12-10 09:20:17.697	2025-07-29 06:48:11.790548
+163	NCC0052	Bida Thiên Lông 2	0909582083	ericphan28@gmail.com	D2/062A, Nam Sơn, Quang  Trung, Thống Nhất, Đồng Nai	Bà Chiến - cô Yến	1234567890123	45	rất khó chịu đôi khi lại dễ	t	2025-08-06 15:16:03.402275	2025-08-06 15:17:56.54
+148	NCC000015	CÔNG AGRIVIET	0362043411	\N	\N	A Việt	\N	30	\N	f	2024-12-23 09:17:15.877	2025-08-06 15:19:06.962
 \.
 
 
@@ -6519,14 +6362,14 @@ SELECT pg_catalog.setval('public.customer_types_type_id_seq', 15, true);
 -- Name: customers_customer_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.customers_customer_id_seq', 1228, true);
+SELECT pg_catalog.setval('public.customers_customer_id_seq', 1230, true);
 
 
 --
 -- Name: debt_transactions_transaction_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.debt_transactions_transaction_id_seq', 6, true);
+SELECT pg_catalog.setval('public.debt_transactions_transaction_id_seq', 17, true);
 
 
 --
@@ -6537,17 +6380,24 @@ SELECT pg_catalog.setval('public.financial_transactions_transaction_id_seq', 281
 
 
 --
+-- Name: invoice_code_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.invoice_code_seq', 11, true);
+
+
+--
 -- Name: invoice_details_detail_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.invoice_details_detail_id_seq', 2846, true);
+SELECT pg_catalog.setval('public.invoice_details_detail_id_seq', 2884, true);
 
 
 --
 -- Name: invoices_invoice_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.invoices_invoice_id_seq', 752, true);
+SELECT pg_catalog.setval('public.invoices_invoice_id_seq', 765, true);
 
 
 --
@@ -6596,7 +6446,7 @@ SELECT pg_catalog.setval('public.settings_change_log_log_id_seq', 1, false);
 -- Name: suppliers_supplier_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.suppliers_supplier_id_seq', 162, true);
+SELECT pg_catalog.setval('public.suppliers_supplier_id_seq', 163, true);
 
 
 --

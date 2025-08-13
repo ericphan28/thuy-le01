@@ -50,9 +50,7 @@ export async function GET(
       : headerData.customers
 
     // Generate HTML directly
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const subtotal = detailsData.reduce((sum: number, item: any) => sum + item.line_total, 0)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalDiscount = detailsData.reduce((sum: number, item: any) => sum + (item.discount_amount || 0), 0)
     const vatAmount = (subtotal - totalDiscount) * (headerData.vat_rate / 100)
     const grandTotal = subtotal - totalDiscount + vatAmount
@@ -171,7 +169,6 @@ export async function GET(
             </thead>
             <tbody>
               ${
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 detailsData.map((item: any, index: number) => `
                 <tr style="${index % 2 === 0 ? 'background-color: white;' : 'background-color: #f9fafb;'}">
                   <td style="border: 1px solid #d1d5db; padding: 8px; text-align: center; font-weight: 500;">
