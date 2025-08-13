@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav"
 import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
 import { Toaster } from "react-hot-toast"
@@ -13,7 +14,10 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-green-50/10 dark:from-gray-900 dark:via-blue-900/5 dark:to-green-900/5 overflow-hidden">
-      <Sidebar />
+      {/* Desktop Sidebar - Hidden on Mobile */}
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
       
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
@@ -25,7 +29,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             "dark:from-gray-900/80 dark:via-slate-800/40 dark:to-blue-900/10",
             "backdrop-blur-sm scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent",
             // Performance optimizations
-            "will-change-scroll transform-gpu"
+            "will-change-scroll transform-gpu",
+            // Mobile bottom nav spacing
+            "pb-16 md:pb-0"
           )}
           style={{
             scrollBehavior: 'smooth',
@@ -53,6 +59,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </main>
       </div>
+      
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
       
       <Toaster 
         position="top-right"
