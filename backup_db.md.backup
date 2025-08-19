@@ -8,7 +8,7 @@ $env:PGPASSWORD = "gjDB4sxf56Yq1mNq"
 pg_dump --host=aws-0-ap-southeast-1.pooler.supabase.com --port=6543 --username=postgres.ospkleabpejgyvdevkmv --dbname=postgres --schema=public --data-only --no-owner --no-privileges --file=backup_thuyle_data.sql
 
 
-# Backup toàn bộ (cấu trúc + dữ liệu)
+# Backup toàn bộ (cấu trúc + dữ liệu + auth.users)
 $env:PGPASSWORD = "gjDB4sxf56Yq1mNq"
-pg_dump --host=aws-0-ap-southeast-1.pooler.supabase.com --port=6543 --username=postgres.ospkleabpejgyvdevkmv --dbname=postgres --schema=public --no-owner --no-privileges --file=backup_thuyle_complete.sql
+pg_dump --host=aws-0-ap-southeast-1.pooler.supabase.com --port=6543 --username=postgres.ospkleabpejgyvdevkmv --dbname=postgres --schema=public --table=auth.users --no-owner --no-privileges --file=backup_thuyle_complete.sql
 

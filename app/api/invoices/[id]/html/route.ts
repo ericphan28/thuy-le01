@@ -9,6 +9,7 @@ export async function GET(
   try {
     const { id } = await context.params
     const supabase = createClient()
+    const isCompact = request.nextUrl.searchParams.get('compact') === '1'
 
     // Fetch invoice data
     const { data: headerData, error: headerError } = await supabase
@@ -298,12 +299,23 @@ export async function GET(
   <title>Hóa đơn ${headerData.invoice_code} - Xuân Thùy Veterinary</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    ${isCompact ? `
+    .invoice-template { font-size: 10pt !important; padding: 10mm !important; }
+    .invoice-template h1 { font-size: 20px !important; margin: 4px 0 8px !important; }
+    .invoice-template h2 { font-size: 16px !important; margin: 4px 0 8px !important; }
+    .invoice-template h3 { font-size: 13px !important; margin: 4px 0 8px !important; }
+    .invoice-template table th, .invoice-template table td { padding: 6px !important; }
+    .company-header { margin-bottom: 12px !important; padding-bottom: 8px !important; }
+    ` : ''}
     @media print {
-      body { margin: 0; padding: 0; }
-      .invoice-template { margin: 0; }
+      body { margin: 0; padding: 0; /* Optional small scale to prevent overflow on edge cases */ ${isCompact ? 'zoom: 0.96;' : 'zoom: 0.98;'} }
+      .invoice-template { margin: 0; ${isCompact ? 'padding: 9mm !important;' : 'padding: 12mm !important;'} min-height: auto !important; }
+      .print-container { margin: 0 !important; box-shadow: none !important; }
+      .no-print { display: none !important; }
+      table, thead, tbody, tfoot, tr, th, td { page-break-inside: avoid; break-inside: avoid; }
       @page { 
         size: A4; 
-        margin: 0.5cm; 
+        margin: ${isCompact ? '0.3cm' : '0.4cm'}; 
       }
     }
     body {
@@ -333,12 +345,24 @@ export async function GET(
     
     // Add print button for web view
     if (!window.matchMedia('print').matches) {
-      const printBtn = document.createElement('button');
+  const printBtn = document.createElement('button');
       printBtn.innerText = 'In hóa đơn';
-      printBtn.className = 'fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded shadow-lg hover:bg-blue-700 z-50';
+  printBtn.className = 'no-print fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded shadow-lg hover:bg-blue-700 z-50';
       printBtn.onclick = printInvoice;
       document.body.appendChild(printBtn);
     }
+
+    // Auto-trigger print if query param auto=1
+    (function() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('auto') === '1') {
+          setTimeout(() => window.print(), 100);
+        }
+      } catch (e) {
+        // no-op
+      }
+    })();
   </script>
 </body>
 </html>`

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { DashboardService } from '@/lib/services/dashboard-service'
 import type { DashboardStats, RevenueData, TopProduct, RecentOrder } from '@/lib/types/dashboard'
 
@@ -10,13 +10,9 @@ export function useDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const dashboardService = new DashboardService()
+  const dashboardService = useMemo(() => new DashboardService(), [])
 
-  useEffect(() => {
-    loadDashboardData()
-  }, [])
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -47,11 +43,15 @@ export function useDashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [dashboardService])
 
-  const refetch = () => {
+  useEffect(() => {
     loadDashboardData()
-  }
+  }, [loadDashboardData])
+
+  const refetch = useCallback(() => {
+    loadDashboardData()
+  }, [loadDashboardData])
 
   return {
     stats,

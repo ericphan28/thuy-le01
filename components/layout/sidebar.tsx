@@ -62,7 +62,8 @@ const menuItems = [
     href: "/dashboard/products",
     badge: null,
     children: [
-      { title: "Danh Sách", href: "/dashboard/products" },
+      { title: "Danh Mục Sản Phẩm", href: "/dashboard/products/catalog" },
+      { title: "Quản Lý Cơ Bản", href: "/dashboard/products" },
       { title: "Danh Mục", href: "/dashboard/products/categories" },
       { title: "Đơn Vị", href: "/dashboard/products/units" }
     ]
@@ -73,7 +74,9 @@ const menuItems = [
     href: "/dashboard/inventory",
     badge: "5",
     children: [
-      { title: "📊 Tồn Kho", href: "/dashboard/inventory/stock" },
+      { title: "📊 Tồn Kho", href: "/dashboard/inventory" },
+      { title: "📋 Chi Tiết Tồn Kho", href: "/dashboard/inventory/stock" },
+      { title: "📝 Xuất Nhập Kho", href: "/dashboard/inventory/movements" },
       { title: "📥 Nhập Hàng", href: "/dashboard/inventory/inbound" },
       { title: "🔍 Kiểm Kho", href: "/dashboard/inventory/count" },
       { title: "⚠️ Cảnh Báo", href: "/dashboard/inventory/alerts" }

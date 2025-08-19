@@ -11,6 +11,7 @@ interface VietnamesePDFButtonProps {
   className?: string
 }
 
+// Tạm thời vô hiệu hóa nút tải PDF tiếng Việt
 export function VietnamesePDFButton({ 
   invoiceId, 
   invoiceCode, 
@@ -76,54 +77,7 @@ export function VietnamesePDFButton({
     }
   }
 
-  return (
-    <Button
-      onClick={handleDownload}
-      disabled={isGenerating}
-      className={`
-        relative overflow-hidden group
-        bg-gradient-to-r from-blue-600 to-blue-700 
-        hover:from-blue-700 hover:to-blue-800
-        border-0 text-white shadow-lg 
-        transition-all duration-300 ease-in-out
-        hover:shadow-xl hover:scale-105
-        disabled:opacity-70 disabled:cursor-not-allowed
-        ${className}
-      `}
-      size="lg"
-    >
-      {/* Background animation */}
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
-      
-      {/* Content */}
-      <div className="relative flex items-center gap-2.5">
-        {isGenerating ? (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="font-semibold">Đang tạo PDF...</span>
-          </>
-        ) : isCompleted ? (
-          <>
-            <CheckCircle className="h-5 w-5 text-green-300" />
-            <span className="font-semibold">Hoàn thành!</span>
-          </>
-        ) : (
-          <>
-            <div className="relative">
-              <FileText className="h-5 w-5 transition-transform group-hover:scale-110" />
-              <Download className="h-3 w-3 absolute -bottom-1 -right-1 text-blue-200" />
-            </div>
-            <span className="font-semibold">
-              🇻🇳 Tải PDF Tiếng Việt
-            </span>
-          </>
-        )}
-      </div>
-
-      {/* Shine effect */}
-      <div className="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-10 group-hover:animate-[shine_0.8s_ease-in-out] transition-opacity" />
-    </Button>
-  )
+  return null
 }
 
 // Add custom shine animation to globals.css or add it inline

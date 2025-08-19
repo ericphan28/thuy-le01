@@ -18,6 +18,7 @@ import {
   CheckCircle,
   Eye
 } from 'lucide-react'
+import { Printer, FileDown } from 'lucide-react'
 
 // Invoice interface matching database schema
 interface VeterinaryInvoice {
@@ -374,6 +375,38 @@ export default function InvoicesPage() {
                       <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </Button>
                   </Link>
+                  {/* Print (A4 HTML page) */}
+                  <a
+                    href={`/print/invoice/${invoice.invoice_id}?auto=1&compact=1`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="In hóa đơn (A4)"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 hover:bg-green-100 dark:hover:bg-green-900"
+                    >
+                      <Printer className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    </Button>
+                  </a>
+                  {/* Download PDF (tạm ẩn) */}
+                  {/*
+                  <a
+                    href={`/api/invoices/${invoice.invoice_id}/pdf-vietnamese`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Tải PDF"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 hover:bg-emerald-100 dark:hover:bg-emerald-900"
+                    >
+                      <FileDown className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
+                    </Button>
+                  </a>
+                  */}
                 </div>
               </div>
 

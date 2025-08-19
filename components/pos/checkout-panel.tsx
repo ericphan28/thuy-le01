@@ -333,6 +333,9 @@ export function CheckoutPanel({ customer, total, onCheckout, onCancel, loading =
               <div className="text-xs text-muted-foreground">
                 Còn lại ghi nợ: {formatPrice(total - (parseFloat(partialAmount) || 0))}
               </div>
+              <div className="text-xs text-muted-foreground">
+                Tổng công nợ: {formatPrice((customer?.current_debt || 0) + (total - (parseFloat(partialAmount) || 0)))}
+              </div>
             </div>
           </div>
         )}

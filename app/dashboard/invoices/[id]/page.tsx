@@ -194,50 +194,16 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  // Handle HTML invoice view
+  // Handle HTML invoice view (không auto print)
   const handleViewHTML = () => {
-    const url = `/api/invoices/${invoiceId}/html`
+    const url = `/print/invoice/${invoiceId}?compact=1`
     window.open(url, '_blank', 'width=800,height=900,scrollbars=yes')
   }
 
-  // Handle print function (PDF download) - SỬ DỤNG PDF CHUYÊN NGHIỆP
+  // Handle print function (mở trang in giống nút Print ngoài danh sách)
   const handlePrint = async () => {
-    try {
-      toast.info('🔄 Đang tạo PDF chuyên nghiệp với font tiếng Việt chuẩn...')
-      
-      // Download PDF CHUYÊN NGHIỆP với Typography chuẩn doanh nghiệp Việt Nam
-      const response = await fetch(`/api/invoices/${invoiceId}/pdf`, {
-        headers: {
-          'Accept': 'application/pdf',
-          'Accept-Language': 'vi-VN'
-        }
-      })
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('PDF API error:', errorText)
-        toast.error('❌ Không thể tạo PDF chuyên nghiệp')
-        return
-      }
-      
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      
-      // Create download link với tên file chuyên nghiệp
-      const link = document.createElement('a')
-      link.href = url
-      const dateStr = new Date().toISOString().split('T')[0]
-      link.download = `HoaDon_ChuyenNghiep_${header.invoice_code}_${dateStr}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-      
-      toast.success('✅ Đã tải PDF chuyên nghiệp với thiết kế hiện đại!')
-    } catch (error) {
-      console.error('Lỗi tạo PDF chuyên nghiệp:', error)
-      toast.error('❌ Có lỗi xảy ra khi tạo PDF: ' + (error instanceof Error ? error.message : 'Không xác định'))
-    }
+    const url = `/print/invoice/${invoiceId}?auto=1&compact=1`
+    window.open(url, '_blank', 'width=800,height=900,scrollbars=yes')
   }
 
   // Handle browser print (HTML print)
@@ -311,7 +277,7 @@ export default function InvoiceDetailPage() {
               onClick={handleViewHTML}
             >
               <FileText className="h-4 w-4 mr-1.5" />
-              Xem HTML đẹp
+              Xem hóa đơn (HTML)
             </Button>
           </div>
           
@@ -646,30 +612,26 @@ export default function InvoiceDetailPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {/* Canvas PDF is now in the main header */}
-              <Button 
-                variant="outline" 
-                className="w-full justify-start bg-white dark:bg-gray-800"
-                onClick={handleViewHTML}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Xem hóa đơn đẹp
-              </Button>
+              {/* Bỏ mục Xem HTML trong Thao tác nhanh theo yêu cầu */}
               <Button 
                 variant="outline" 
                 className="w-full justify-start bg-white dark:bg-gray-800"
                 onClick={handlePrint}
               >
                 <Printer className="h-4 w-4 mr-2" />
-                Tải PDF hóa đơn (Cũ)
+                In hóa đơn
               </Button>
+              {/* Trình duyệt in trực tiếp (tùy chọn) */}
+              {/*
               <Button 
                 variant="outline" 
                 className="w-full justify-start bg-white dark:bg-gray-800"
                 onClick={handleBrowserPrint}
               >
                 <Printer className="h-4 w-4 mr-2" />
-                In hóa đơn
+                In hóa đơn (trình duyệt)
               </Button>
+              */}
               <Button 
                 variant="outline" 
                 className="w-full justify-start bg-white dark:bg-gray-800"

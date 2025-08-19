@@ -67,7 +67,7 @@ export default function VeterinaryCustomersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterType, setFilterType] = useState<'all' | 'vip' | 'high' | 'low_data' | 'churn_risk' | 'inactive'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'vip' | 'high' | 'low_data' | 'churn_risk' | 'inactive' | 'has_debt'>('all')
   const [totalCount, setTotalCount] = useState<number>(0)
   const [inactiveCount, setInactiveCount] = useState<number>(0)
   
@@ -90,6 +90,145 @@ export default function VeterinaryCustomersPage() {
     try {
       setLoading(true)
       setError(null)
+
+      // Special handling: filter 'has_debt' should page only customers with current_debt > 0
+      if (filterType === 'has_debt') {
+        // 1) Pull debt customers from RPC using same logic as Debt dashboard
+        const { data: debtRows, error: debtErr } = await supabase
+          .rpc('search_debt_customers', {
+            search_term: searchTerm || '',
+            debt_status_filter: 'all',
+            risk_level_filter: 'all',
+            limit_count: 100000
+          })
+
+        if (debtErr) {
+          console.error('Supabase RPC error (search_debt_customers):', debtErr)
+          setError(`Lỗi database: ${debtErr.message}`)
+          setCustomers([])
+          setTotalCount(0)
+          setLoading(false)
+          return
+        }
+
+        // 2) Keep only customers that owe the store (current_debt > 0)
+        const debtCustomers = (debtRows as any[] | null) || []
+        const owing = debtCustomers.filter((r: any) => Number(r?.current_debt || 0) > 0)
+
+        // 3) Update total for pagination and slice current page
+        const total = owing.length
+        setTotalCount(total)
+
+        const startIndex = (currentPage - 1) * itemsPerPage
+        const pageSlice = owing.slice(startIndex, startIndex + itemsPerPage)
+        const pageIds = pageSlice.map((r: any) => Number(r.customer_id))
+
+        // Early exit if empty page
+        if (pageIds.length === 0) {
+          setCustomers([])
+          // still compute inactive count for header
+          const { count: inactiveCountResult } = await supabase
+            .from('customers')
+            .select('*', { count: 'exact', head: true })
+            .eq('is_active', false)
+          setInactiveCount(inactiveCountResult || 0)
+          setLoading(false)
+          return
+        }
+
+        // 4) Fetch base customer info only for those IDs (active customers by default)
+        let baseQuery = supabase
+          .from('customers')
+          .select(`
+            customer_id,
+            customer_code,
+            customer_name,
+            customer_type_id,
+            branch_created_id,
+            phone,
+            email,
+            address,
+            company_name,
+            tax_code,
+            gender,
+            debt_limit,
+            current_debt,
+            total_revenue,
+            total_profit,
+            purchase_count,
+            last_purchase_date,
+            status,
+            is_active,
+            created_at,
+            customer_types!fk_customers_customer_type_id (
+              type_id,
+              type_name
+            ),
+            branches!customers_branch_created_id_fkey (
+              branch_id,
+              branch_name
+            )
+          `)
+          .in('customer_id', pageIds)
+          .eq('is_active', true)
+
+        const { data: pageData, error: pageErr } = await baseQuery
+        if (pageErr) {
+          console.error('Supabase error (fetch page customers by IDs):', pageErr)
+          setError(`Lỗi database: ${pageErr.message}`)
+          setCustomers([])
+          setLoading(false)
+          return
+        }
+
+        // 5) Normalize rows and merge debt value from RPC for consistency
+        const debtMap = new Map<number, number>()
+        pageSlice.forEach((r: any) => debtMap.set(Number(r.customer_id), Number(r.current_debt || 0)))
+
+        const transformedCustomers: VeterinaryCustomer[] = (pageData || []).map((item: any) => ({
+          ...item,
+          id_number: (item.id_number as string | null) || null,
+          notes: (item.notes as string | null) || null,
+          created_by: (item.created_by as string | null) || null,
+          updated_at: (item.updated_at as string) || (item.created_at as string),
+          customer_types: Array.isArray(item.customer_types) ? item.customer_types[0] : item.customer_types,
+          branches: Array.isArray(item.branches) ? item.branches[0] : item.branches,
+          current_debt: debtMap.get(Number(item.customer_id)) ?? Number(item.current_debt || 0)
+        }))
+
+        // 6) Compute purchase counts for these customers
+        let countsById: Record<number, number> = {}
+        const { data: invoiceRows, error: invoiceErr } = await supabase
+          .from('invoices')
+          .select('customer_id')
+          .in('customer_id', pageIds)
+        if (!invoiceErr && Array.isArray(invoiceRows)) {
+          countsById = invoiceRows.reduce((acc: Record<number, number>, row: any) => {
+            const cid = Number(row.customer_id)
+            acc[cid] = (acc[cid] || 0) + 1
+            return acc
+          }, {})
+        }
+
+        const finalCustomers = transformedCustomers
+          // preserve order as in pageSlice (priority from RPC)
+          .sort((a, b) => pageIds.indexOf(a.customer_id) - pageIds.indexOf(b.customer_id))
+          .map(c => ({
+            ...c,
+            purchase_count: Math.max(Number(c.purchase_count || 0), countsById[c.customer_id] || 0)
+          }))
+
+        // inactive counter for header
+        const { count: inactiveCountResult } = await supabase
+          .from('customers')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_active', false)
+        setInactiveCount(inactiveCountResult || 0)
+
+        setCustomers(finalCustomers)
+        setLoading(false)
+        return
+      }
 
       // Get total count for filtered customers
       let countQuery = supabase
@@ -130,7 +269,7 @@ export default function VeterinaryCustomersPage() {
       setInactiveCount(inactiveCountResult || 0)
 
       // Main query with pagination
-      let query = supabase
+    let query = supabase
         .from('customers')
         .select(`
           customer_id,
@@ -160,7 +299,7 @@ export default function VeterinaryCustomersPage() {
           branches!customers_branch_created_id_fkey (
             branch_id,
             branch_name
-          )
+      )
         `)
         
       // Set base filter for active/inactive
@@ -201,7 +340,7 @@ export default function VeterinaryCustomersPage() {
       const startIndex = (currentPage - 1) * itemsPerPage
       query = query.range(startIndex, startIndex + itemsPerPage - 1)
 
-      const { data, error: fetchError } = await query
+  const { data, error: fetchError } = await query
 
       if (fetchError) {
         console.error('Supabase error:', fetchError)
@@ -210,17 +349,63 @@ export default function VeterinaryCustomersPage() {
       }
 
       // Transform data with safe field access
-      const transformedCustomers: VeterinaryCustomer[] = (data || []).map((item: Record<string, unknown>) => ({
+      const transformedCustomers: VeterinaryCustomer[] = (data || []).map((item: any) => ({
         ...item,
-        id_number: item.id_number as string | null || null,
-        notes: item.notes as string | null || null,
-        created_by: item.created_by as string | null || null,
-        updated_at: item.updated_at as string || item.created_at as string,
+        id_number: (item.id_number as string | null) || null,
+        notes: (item.notes as string | null) || null,
+        created_by: (item.created_by as string | null) || null,
+        updated_at: (item.updated_at as string) || (item.created_at as string),
         customer_types: Array.isArray(item.customer_types) ? item.customer_types[0] : item.customer_types,
-        branches: Array.isArray(item.branches) ? item.branches[0] : item.branches
-      } as VeterinaryCustomer))
+        branches: Array.isArray(item.branches) ? item.branches[0] : item.branches,
+      }))
 
-      setCustomers(transformedCustomers)
+      // Secondary fetch: compute invoice counts for the current page's customers
+      const pageIds = transformedCustomers.map(c => c.customer_id)
+      let countsById: Record<number, number> = {}
+      if (pageIds.length > 0) {
+        const { data: invoiceRows, error: invoiceErr } = await supabase
+          .from('invoices')
+          .select('customer_id')
+          .in('customer_id', pageIds)
+
+        if (!invoiceErr && Array.isArray(invoiceRows)) {
+          countsById = invoiceRows.reduce((acc: Record<number, number>, row: any) => {
+            const cid = Number(row.customer_id)
+            acc[cid] = (acc[cid] || 0) + 1
+            return acc
+          }, {})
+        }
+      }
+
+      // Third fetch: get up-to-date current_debt using the same RPC as debt page
+      // Then map only for the current page's customers
+      let debtById: Record<number, number> = {}
+      try {
+        const { data: debtCustomers, error: debtRpcErr } = await supabase.rpc('search_debt_customers', {
+          search_term: '',
+          debt_status_filter: 'all',
+          risk_level_filter: 'all',
+          limit_count: 10000
+        })
+        if (!debtRpcErr && Array.isArray(debtCustomers)) {
+          debtById = (debtCustomers as any[]).reduce((acc: Record<number, number>, row: any) => {
+            const cid = Number(row.customer_id)
+            if (pageIds.includes(cid)) {
+              acc[cid] = Number(row.current_debt || 0)
+            }
+            return acc
+          }, {})
+        }
+      } catch {}
+
+      const finalCustomers = transformedCustomers.map(c => ({
+        ...c,
+        purchase_count: Math.max(Number(c.purchase_count || 0), countsById[c.customer_id] || 0),
+        current_debt: typeof debtById[c.customer_id] === 'number' ? debtById[c.customer_id] : Number(c.current_debt || 0)
+      }))
+
+  // For non 'has_debt' cases, use the computed list as-is
+  setCustomers(finalCustomers)
     } catch (err) {
       console.error('Customers fetch error:', err)
       setError('Không thể tải danh sách khách hàng')
@@ -526,6 +711,14 @@ export default function VeterinaryCustomersPage() {
                 Tất cả
               </Button>
               <Button
+                variant={filterType === 'has_debt' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterType('has_debt')}
+                className="h-8 px-2 text-xs"
+              >
+                Có nợ
+              </Button>
+              <Button
                 variant={filterType === 'vip' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilterType('vip')}
@@ -680,6 +873,12 @@ export default function VeterinaryCustomersPage() {
                       <span className="text-xs text-muted-foreground">Đơn hàng:</span>
                       <span className="text-xs font-semibold text-foreground">
                         {customer.purchase_count}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-muted-foreground">Công nợ:</span>
+                      <span className={`text-xs font-semibold ${customer.current_debt > 0 ? 'text-red-600' : 'text-foreground'}`}>
+                        {formatCurrency(customer.current_debt || 0)}
                       </span>
                     </div>
                   </div>

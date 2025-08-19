@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "sonner";
 import "./globals.css";
 import "./globals-print.css";
 
@@ -36,6 +37,7 @@ export default function RootLayout({
           <div className="min-h-screen bg-background">
             {children}
           </div>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

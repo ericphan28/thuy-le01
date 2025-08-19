@@ -243,6 +243,9 @@ export function CheckoutPanelOptimized({
             <div className="text-xs text-muted-foreground">
               Còn lại: {formatPrice(total - (parseFloat(partialAmount) || 0))}
             </div>
+            <div className="text-xs text-muted-foreground">
+              Tổng công nợ: {formatPrice((customer?.current_debt || 0) + (total - (parseFloat(partialAmount) || 0)))}
+            </div>
           </div>
         )}
 
