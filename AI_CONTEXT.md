@@ -1,5 +1,26 @@
 # 🐾 Xuân Thùy Veterinary Pharmacy - AI Assistant Context Document
 
+> Rapid context for new Copilot sessions – Updated: August 19, 2025
+
+## 🚀 Recent Updates (Aug 19, 2025)
+
+- Customers page
+   - Accurate order counts via secondary query to `invoices` by visible `customer_id`s
+   - “Có nợ” filter now uses server-side data from RPC `search_debt_customers` and paginates IDs with debt > 0
+   - Cards show “Công nợ” in red; quick toggle to see indebted customers
+- Debt system
+   - Single source of truth via RPCs: `search_debt_customers`, `get_debt_dashboard_stats`
+   - Views: `debt_summary`, `debt_transactions_history`; RPCs `pay_customer_debt`, `adjust_customer_debt`
+- Printing & PDF
+   - New compact HTML invoice print route: `app/print/invoice/[id]/page.tsx` with `?auto=1&compact=1`
+   - Header pulls business settings: `business_name`, `business_address`, `business_phone` from `system_settings`
+   - Totals include “Tổng công nợ” = `current_debt + remaining` (only when remaining > 0)
+   - Windows fix for Puppeteer executable path in `lib/utils/puppeteer-pdf-service.ts`; PDF button temporarily hidden where unreliable
+- POS checkout
+   - Show “Tổng công nợ” under “Còn lại” in both `components/pos/checkout-panel(-optimized).tsx`
+
+Use this section as the canonical delta since Aug 13 notes below.
+
 > **Tài liệu cho AI Assistants - Cập nhật: August 13, 2025**
 > **🚨 READ THIS FIRST: Comprehensive project context for new Copilot sessions**
 

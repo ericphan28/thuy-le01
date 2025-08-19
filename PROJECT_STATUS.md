@@ -7,7 +7,14 @@
 **Quy mô:** 1000+ khách hàng, 51 nhà cung cấp, 1049+ sản phẩm, 739+ hóa đơn với REAL DATA  
 **Developer:** Thắng Phan - Gia Kiệm Số (ericphan28@gmail.com, Zalo: 0907136029)
 
-## 🎯 Tình trạng Project hiện tại - CẬP NHẬT 13/08/2025
+## 🎯 Tình trạng Project hiện tại - CẬP NHẬT 19/08/2025
+
+### 🔄 Cập nhật nhanh (19/08/2025)
+- Khách hàng: Filter “Có nợ” dùng RPC `search_debt_customers`, phân trang theo danh sách ID nợ > 0, hiển thị Công nợ chính xác (màu đỏ)
+- Khách hàng: Số đơn hàng tính đúng bằng truy vấn invoices theo danh sách khách hàng hiển thị
+- POS: Hiển thị “Tổng công nợ” ngay dưới “Còn lại” trong màn hình thanh toán
+- In hóa đơn: Trang in HTML compact (`/print/invoice/[id]`) thêm header thông tin doanh nghiệp (từ `system_settings`) và dòng “Tổng công nợ” = công nợ hiện tại + còn lại khi còn lại > 0
+- PDF: Sửa phát hiện đường dẫn Chromium cho Windows, tạm ẩn nút PDF khi không ổn định
 
 ### ✅ HOÀN THÀNH (Phase 1-2-3-4-5 - Real Data Dashboard Integration) - PRODUCTION READY
 
