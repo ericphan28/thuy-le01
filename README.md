@@ -14,6 +14,8 @@
   <a href="#tech-stack"><strong>Công nghệ</strong></a> ·
   <a href="#project-status"><strong>Trạng thái</strong></a> ·
   <a href="#business-modules"><strong>Modules nghiệp vụ</strong></a> ·
+  <a href="docs/PRICING_BUSINESS_OVERVIEW.md"><strong>Pricing Business</strong></a> ·
+  <a href="docs/PRICING_TECH_OVERVIEW.md"><strong>Pricing Tech</strong></a> ·
   <a href="#getting-started"><strong>Bắt đầu</strong></a>
 </p>
 <br/>
