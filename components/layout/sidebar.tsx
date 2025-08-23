@@ -117,6 +117,19 @@ const menuItems = [
     ]
   },
   {
+    title: "Chính sách giá",
+    icon: TrendingUp,
+    href: "/dashboard/pricing",
+    badge: null,
+    children: [
+      { title: "Bảng giá", href: "/dashboard/pricing/books" },
+      { title: "Hợp đồng giá", href: "/dashboard/pricing/contracts" },
+      { title: "Khuyến mãi", href: "/dashboard/pricing/promotions" },
+      { title: "Bậc số lượng", href: "/dashboard/pricing/tiers" },
+      { title: "Mô phỏng giá", href: "/dashboard/pricing/preview" }
+    ]
+  },
+  {
     title: "Cài Đặt",
     icon: Settings,
     href: "/dashboard/settings",
