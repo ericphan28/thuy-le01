@@ -1,15 +1,15 @@
 # Backup toàn bộ schema public - Tables, Views, Functions, Indexes, Triggers
 # Lưu ý: Không commit mật khẩu vào repo. Dùng -W để nhập mật khẩu khi chạy.
-$env:PGPASSWORD = "3n5o8nUPJO01Dmgu"
+$env:PGPASSWORD = "JL2HBBGgI3RW1Kt0"
 pg_dump -W --host=aws-0-ap-southeast-1.pooler.supabase.com --port=6543 --username=postgres.ospkleabpejgyvdevkmv --dbname=postgres --schema=public --schema-only --no-owner --no-privileges --verbose --file=backup_thuyle_schema_complete.sql
 
 
 # Backup chỉ dữ liệu (không có cấu trúc)
-$env:PGPASSWORD = "3n5o8nUPJO01Dmgu"
+$env:PGPASSWORD = "JL2HBBGgI3RW1Kt0"
 pg_dump -W --host=aws-0-ap-southeast-1.pooler.supabase.com --port=6543 --username=postgres.ospkleabpejgyvdevkmv --dbname=postgres --schema=public --data-only --no-owner --no-privileges --file=backup_thuyle_data.sql
 
 
 # Backup toàn bộ (cấu trúc + dữ liệu + auth.users)
-$env:PGPASSWORD = "3n5o8nUPJO01Dmgu"
+$env:PGPASSWORD = "JL2HBBGgI3RW1Kt0"
 pg_dump -W --host=aws-0-ap-southeast-1.pooler.supabase.com --port=6543 --username=postgres.ospkleabpejgyvdevkmv --dbname=postgres --schema=public --table=auth.users --no-owner --no-privileges --file=backup_thuyle_complete.sql
 

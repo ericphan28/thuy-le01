@@ -122,11 +122,11 @@ const menuItems = [
     href: "/dashboard/pricing",
     badge: null,
     children: [
-      { title: "Bảng giá", href: "/dashboard/pricing/books" },
-      { title: "Hợp đồng giá", href: "/dashboard/pricing/contracts" },
-      { title: "Khuyến mãi", href: "/dashboard/pricing/promotions" },
-      { title: "Bậc số lượng", href: "/dashboard/pricing/tiers" },
-      { title: "Mô phỏng giá", href: "/dashboard/pricing/preview" }
+      { title: "🎯 Mô phỏng giá", href: "/dashboard/pricing/simulator" },
+      { title: "📖 Bảng giá", href: "/dashboard/pricing/books" },
+      { title: "🏷️ Khuyến mãi", href: "/dashboard/pricing/promotions" },
+      { title: "📊 Hợp đồng giá", href: "/dashboard/pricing/contracts" },
+      { title: "📈 Bậc số lượng", href: "/dashboard/pricing/tiers" }
     ]
   },
   {
