@@ -1,4 +1,43 @@
-# 📊 Project Status - Xuân Thùy Veterinary Management System
+# 📊 Proj## 🎯 Tình trạng Project hiện tại - CẬP NHẬT 26/08/2025
+
+### 🔄 Cập nhật mới nhất (26/08/2025) - VOLUME TIERS SYSTEM COMPLETED ✅
+- **💰 Hệ thống Bậc số lượng**: Hoàn thành 100% với full CRUD operations
+  - Form tạo bậc số lượng với validation real-time
+  - Enhanced management page với dark mode support
+  - Integration vào POS system và pricing engine
+  - Database schema alignment (loại bỏ max_qty field)
+- **🎨 Dark Mode Support**: Toàn bộ pricing UI components
+- **⚡ Performance**: TypeScript type safety, useCallback optimization
+- **🏗️ Architecture**: Clean Client/Server component separation
+- **🚀 Production Ready**: Build success, zero errors/warnings
+
+### 🔄 Cập nhật trước (19/08/2025)
+- Khách hàng: Filter "Có nợ" dùng RPC `search_debt_customers`, phân trang theo danh sách ID nợ > 0
+- POS: Hiển thị "Tổng công nợ" trong màn hình thanh toán
+- In hóa đơn: Header thông tin doanh nghiệp và tổng công nợ
+
+### ✅ HOÀN THÀNH (Phase 1-6 - PRICING SYSTEM INTEGRATION) - PRODUCTION READY
+
+#### 💰 **PRICING SYSTEM COMPLETE** (HOÀN THÀNH 26/08/2025)
+- ✅ **Volume Tiers Management:** Full CRUD với enhanced UI
+  - Create form với scope selection (product/category)
+  - Real-time validation và preview functionality  
+  - Enhanced management page `/dashboard/pricing/tiers/enhanced`
+  - Dark mode support với CSS variables
+- ✅ **Pricing Engine Integration:** Automatic discount calculation
+  - Integration vào POS cart system
+  - Real-time volume discount display
+  - Pricing service với manual database joins
+  - Performance optimized với useCallback/useMemo
+- ✅ **Database Schema:** Aligned với business requirements
+  - Removed max_qty field (chỉ có min_qty)
+  - Manual relationship handling thay vì foreign keys
+  - Clean migration và data consistency
+- ✅ **UI Components:** Professional pricing interface
+  - Client/Server component separation đúng chuẩn
+  - Delete confirmation với client component wrapper
+  - Responsive design cho mobile/desktop
+  - Loading states và error handling - Xuân Thùy Veterinary Management System
 
 ## 🏢 Thông tin Doanh nghiệp
 
@@ -18,12 +57,12 @@
 
 ### ✅ HOÀN THÀNH (Phase 1-2-3-4-5 - Real Data Dashboard Integration) - PRODUCTION READY
 
-#### 🚀 **BUILD & DEPLOYMENT STATUS** (CẬP NHẬT 13/08/2025)
-- ✅ **Build Success:** Next.js 15.4.5 compilation successful với Real Dashboard Analytics
-- ✅ **TypeScript:** Zero compilation errors, comprehensive type safety cho dashboard system
-- ✅ **Code Quality:** ESLint compliant, production optimized với real data integration
-- ✅ **Performance:** Live data loading với optimized Supabase queries
-- ✅ **Analytics:** Real-time dashboard với production database integration
+#### 🚀 **BUILD & DEPLOYMENT STATUS** (CẬP NHẬT 26/08/2025)
+- ✅ **Build Success:** Next.js 15.4.5 với Volume Tiers System integration
+- ✅ **TypeScript:** Zero errors, comprehensive type safety cho pricing system
+- ✅ **Code Quality:** ESLint compliant, production optimized
+- ✅ **Performance:** Optimized React components với pricing calculations
+- ✅ **Pricing Integration:** Real-time volume discounts trong POS system
 
 #### 🎉 **REAL DASHBOARD ANALYTICS COMPLETE** (HOÀN THÀNH 13/08/2025)
 - ✅ **Live Data Integration:** Dashboard connection với production Supabase database
