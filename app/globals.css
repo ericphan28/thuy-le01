@@ -29,6 +29,14 @@
     /* Brand Colors - Supabase Green */
     --brand: 142 76% 36%;
     --brand-foreground: 0 0% 100%;
+    
+    /* Volume Tiers Light Mode Colors */
+    --volume-tier-success: 142 76% 36%;
+    --volume-tier-success-foreground: 0 0% 100%;
+    --volume-tier-success-muted: 142 76% 95%;
+    --volume-tier-warning: 48 100% 67%;
+    --volume-tier-warning-foreground: 26 83% 14%;
+    --volume-tier-warning-muted: 48 100% 95%;
   }
 
   .dark {
@@ -56,6 +64,14 @@
     /* Brand Colors - Supabase Green for Dark Mode */
     --brand: 142 76% 36%;
     --brand-foreground: 210 40% 98%;
+    
+    /* Volume Tiers Dark Mode Colors */
+    --volume-tier-success: 142 76% 36%;
+    --volume-tier-success-foreground: 210 40% 98%;
+    --volume-tier-success-muted: 142 76% 15%;
+    --volume-tier-warning: 48 100% 67%;
+    --volume-tier-warning-foreground: 26 83% 14%;
+    --volume-tier-warning-muted: 48 100% 20%;
   }
 
   * {
@@ -261,6 +277,29 @@
 
   .bg-muted {
     background-color: hsl(var(--muted));
+  }
+
+  /* Volume Tiers Utility Classes */
+  .volume-tier-success {
+    background-color: hsl(var(--volume-tier-success-muted));
+    color: hsl(var(--volume-tier-success));
+    border-color: hsl(var(--volume-tier-success) / 0.3);
+  }
+
+  .volume-tier-success-badge {
+    background-color: hsl(var(--volume-tier-success));
+    color: hsl(var(--volume-tier-success-foreground));
+  }
+
+  .volume-tier-warning {
+    background-color: hsl(var(--volume-tier-warning-muted));
+    color: hsl(var(--volume-tier-warning-foreground));
+    border-color: hsl(var(--volume-tier-warning) / 0.3);
+  }
+
+  .volume-tier-warning-badge {
+    background-color: hsl(var(--volume-tier-warning));
+    color: hsl(var(--volume-tier-warning-foreground));
   }
 
   /* Dark Mode Specific Improvements */

@@ -13,3 +13,7 @@ pg_dump -W --host=aws-0-ap-southeast-1.pooler.supabase.com --port=6543 --usernam
 $env:PGPASSWORD = "JL2HBBGgI3RW1Kt0"
 pg_dump -W --host=aws-0-ap-southeast-1.pooler.supabase.com --port=6543 --username=postgres.ospkleabpejgyvdevkmv --dbname=postgres --schema=public --table=auth.users --no-owner --no-privileges --file=backup_thuyle_complete.sql
 
+
+# Backup toàn bộ (cấu trúc + dữ liệu)
+$env:PGPASSWORD = "JL2HBBGgI3RW1Kt0"
+pg_dump -W --host=aws-0-ap-southeast-1.pooler.supabase.com --port=6543 --username=postgres.ospkleabpejgyvdevkmv --dbname=postgres --schema=public --no-owner --no-privileges --file=backup_thuyle_complete.sql

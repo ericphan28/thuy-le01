@@ -2,26 +2,9 @@ import { createClient } from "@/lib/supabase/server"
 import { Badge } from "@/components/ui/badge"
 import Link from 'next/link'
 import PriceSimulatorForm from '@/components/pricing/price-simulator-form'
+import PriceSimulatorStats from '@/components/pricing/price-simulator-stats'
 
 export default async function PriceSimulatorPage() {
-  const supabase = await createClient()
-  
-  // Lấy danh sách products để làm dropdown suggestions
-  const { data: products } = await supabase
-    .from('products')
-    .select('product_code, name, current_price, category_id')
-    .eq('is_active', true)
-    .order('name')
-    .limit(100)
-
-  // Lấy customers để test price rules theo customer
-  const { data: customers } = await supabase
-    .from('customers')
-    .select('customer_id, name, phone')
-    .eq('is_active', true)
-    .order('name')
-    .limit(50)
-
   return (
     <div className="container mx-auto py-6 px-4">
       {/* Header */}
@@ -45,6 +28,12 @@ export default async function PriceSimulatorPage() {
           >
             📖 Bảng giá
           </Link>
+          <Link 
+            href="/dashboard/pricing/reset" 
+            className="px-4 py-2 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors"
+          >
+            🔄 Reset bảng giá
+          </Link>
         </div>
       </div>
 
@@ -63,39 +52,12 @@ export default async function PriceSimulatorPage() {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Left side - Input Form */}
         <div className="space-y-6">
-          <PriceSimulatorForm 
-            products={products || []}
-            customers={customers || []}
-          />
+          <PriceSimulatorForm />
         </div>
 
         {/* Right side - Quick Stats */}
         <div className="space-y-4">
-          <div className="bg-white border rounded-lg p-4">
-            <h3 className="font-semibold mb-3">📊 Thống kê nhanh</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Tổng sản phẩm:</span>
-                <Badge variant="secondary">{products?.length || 0}</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Khách hàng VIP:</span>
-                <Badge variant="secondary">{customers?.length || 0}</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Quy tắc giá:</span>
-                <Badge variant="outline">Đang tải...</Badge>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent calculations */}
-          <div className="bg-white border rounded-lg p-4">
-            <h3 className="font-semibold mb-3">🕒 Tính toán gần đây</h3>
-            <div className="text-sm text-gray-500">
-              Chưa có tính toán nào. Hãy thử mô phỏng giá cho sản phẩm đầu tiên!
-            </div>
-          </div>
+          <PriceSimulatorStats />
         </div>
       </div>
 

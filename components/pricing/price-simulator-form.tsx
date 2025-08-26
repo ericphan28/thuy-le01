@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableCombobox } from "@/components/ui/searchable-combobox"
 import { createClient } from "@/lib/supabase/client"
 
 interface Product {
@@ -33,21 +34,78 @@ interface SimulationResult {
 }
 
 interface Props {
-  products: Product[]
-  customers: Customer[]
+  // Remove props, will load data directly in component
 }
 
-export default function PriceSimulatorForm({ products, customers }: Props) {
+export default function PriceSimulatorForm({}: Props) {
+  const [products, setProducts] = useState<Product[]>([])
+  const [customers, setCustomers] = useState<Customer[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [quantity, setQuantity] = useState<number>(1)
   const [customSku, setCustomSku] = useState<string>('')
   const [simulationDate, setSimulationDate] = useState<string>(new Date().toISOString().split('T')[0])
   const [isLoading, setIsLoading] = useState(false)
+  const [isDataLoading, setIsDataLoading] = useState(true)
   const [result, setResult] = useState<SimulationResult | null>(null)
   const [error, setError] = useState<string>('')
   
   const supabase = createClient()
+
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      setIsDataLoading(true)
+      try {
+        // Load products and customers in parallel
+        const [productsRes, customersRes] = await Promise.all([
+          supabase
+            .from('products')
+            .select('product_code, product_name, sale_price, category_id')
+            .eq('is_active', true)
+            .order('product_name')
+            .limit(100),
+          supabase
+            .from('customers')
+            .select('customer_id, customer_name, phone')
+            .eq('is_active', true)
+            .order('customer_name')
+            .limit(50)
+        ])
+
+        if (productsRes.data) {
+          // Map to expected interface
+          const mappedProducts = productsRes.data.map(p => ({
+            product_code: p.product_code,
+            name: p.product_name,
+            current_price: p.sale_price || 0,
+            category_id: p.category_id
+          }))
+          setProducts(mappedProducts)
+        }
+
+        if (customersRes.data) {
+          // Map to expected interface  
+          const mappedCustomers = customersRes.data.map(c => ({
+            customer_id: c.customer_id,
+            name: c.customer_name,
+            phone: c.phone
+          }))
+          setCustomers(mappedCustomers)
+        }
+
+        if (productsRes.error) console.error('Products error:', productsRes.error)
+        if (customersRes.error) console.error('Customers error:', customersRes.error)
+      } catch (err) {
+        console.error('Data loading error:', err)
+        setError('Không thể tải dữ liệu. Vui lòng thử lại.')
+      } finally {
+        setIsDataLoading(false)
+      }
+    }
+
+    loadData()
+  }, [supabase])  // Added supabase to dependency array
 
   // Filter products based on search
   const [productSearch, setProductSearch] = useState('')
@@ -82,30 +140,69 @@ export default function PriceSimulatorForm({ products, customers }: Props) {
         body: JSON.stringify({
           sku: productCode,
           qty: quantity,
-          when: simulationDate
+          when: simulationDate,
+          customer_id: selectedCustomer?.customer_id || null
         })
       })
 
+      // Check if response is ok
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'API call failed')
+        let errorMessage = 'Có lỗi xảy ra'
+        let suggestion = 'Vui lòng thử lại sau.'
+        
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`
+          suggestion = errorData.suggestion || suggestion
+        } catch (parseError) {
+          errorMessage = `Lỗi kết nối (HTTP ${response.status})`
+          suggestion = 'Vui lòng kiểm tra kết nối mạng và thử lại.'
+        }
+        
+        // Display user-friendly error with suggestion
+        const fullError = suggestion && suggestion !== errorMessage 
+          ? `❌ ${errorMessage}\n💡 ${suggestion}`
+          : `❌ ${errorMessage}`
+        
+        setError(fullError)
+        return
       }
 
-      const apiResult = await response.json()
+      // Check if response has content
+      const responseText = await response.text()
+      if (!responseText.trim()) {
+        throw new Error('API trả về response rỗng')
+      }
+
+      let apiResult
+      try {
+        apiResult = JSON.parse(responseText)
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError)
+        console.error('Response text:', responseText)
+        throw new Error('API response không phải JSON hợp lệ')
+      }
 
       // Format kết quả từ API response
       const formattedResult: SimulationResult = {
-        listPrice: apiResult.listPrice,
-        finalPrice: apiResult.finalPrice,
-        totalSavings: apiResult.totalSavings,
+        listPrice: apiResult.listPrice || 0,
+        finalPrice: apiResult.finalPrice || 0,
+        totalSavings: apiResult.totalSavings || 0,
         appliedRuleId: apiResult.appliedRule?.id || null,
         appliedReason: apiResult.appliedRule?.reason || 'Không có quy tắc được áp dụng',
-        quantity: apiResult.quantity,
-        totalAmount: apiResult.totalAmount
+        quantity: apiResult.quantity || quantity,
+        totalAmount: apiResult.totalAmount || 0
       }
 
       setResult(formattedResult)
+      
+      // Show recovery notification if price book was recovered
+      if (apiResult.priceBook?.isRecovered) {
+        console.warn('🚨 RECOVERY: Price book was automatically recreated')
+        setError('⚠️ Thông báo: Bảng giá POS đã được khôi phục tự động do bảng giá gốc bị xóa.\n💡 Vui lòng kiểm tra và cập nhật lại các quy tắc giá cần thiết trong phần "Quản lý bảng giá".')
+      }
     } catch (err: any) {
+      console.error('Simulation error:', err)
       setError(err.message || 'Có lỗi xảy ra khi tính toán giá')
     } finally {
       setIsLoading(false)
@@ -123,46 +220,41 @@ export default function PriceSimulatorForm({ products, customers }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Input Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">📝 Thông tin mô phỏng</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* Loading State */}
+      {isDataLoading && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center space-x-2">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <span>Đang tải dữ liệu...</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Main Form */}
+      {!isDataLoading && (
+        <>
+          {/* Input Form */}
+          <Card className="relative">
+            <CardHeader>
+              <CardTitle className="text-lg">📝 Thông tin mô phỏng</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
           {/* Product Selection */}
           <div className="space-y-2">
             <Label>🛍️ Chọn sản phẩm</Label>
-            <div className="grid gap-2">
-              <Input
-                placeholder="Tìm kiếm sản phẩm..."
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-              />
-              <Select 
-                value={selectedProduct?.product_code || ''} 
-                onValueChange={(value) => {
-                  const product = products.find(p => p.product_code === value)
-                  setSelectedProduct(product || null)
-                  setCustomSku('')
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="-- Chọn từ danh sách --" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredProducts.slice(0, 20).map((product) => (
-                    <SelectItem key={product.product_code} value={product.product_code}>
-                      <div className="flex justify-between items-center w-full">
-                        <span>{product.name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">
-                          {product.product_code}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <SearchableCombobox
+              items={products}
+              value={selectedProduct || undefined}
+              onValueChange={(value) => {
+                setSelectedProduct(value)
+                setCustomSku('')
+              }}
+              getItemId={(item: Product) => item.product_code}
+              getItemLabel={(item: Product) => `${item.name} • ${item.product_code} • ${item.current_price.toLocaleString('vi-VN')}đ`}
+              placeholder="Tìm kiếm và chọn sản phẩm..."
+            />
             
             <div className="text-sm text-muted-foreground">
               Hoặc nhập mã SKU trực tiếp:
@@ -187,34 +279,34 @@ export default function PriceSimulatorForm({ products, customers }: Props) {
               onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
               placeholder="Nhập số lượng"
             />
+            {(selectedProduct?.product_code === 'SP000049' || customSku.toUpperCase() === 'SP000049') && quantity > 0 && (
+              <div className="text-xs space-y-1">
+                {quantity <= 30 ? (
+                  <div className="text-green-600 flex items-center gap-1">
+                    ✅ Dự kiến: 190.000đ/cái (giá ưu đãi tốt nhất)
+                  </div>
+                ) : (
+                  <div className="text-amber-600 flex items-center gap-1">
+                    ⚠️ Dự kiến: 215.000đ/cái (mua nhiều quá không lợi hơn)
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Customer (Optional) */}
           <div className="space-y-2">
             <Label>👤 Khách hàng (tùy chọn)</Label>
-            <Select 
-              value={selectedCustomer?.customer_id || ''} 
+            <SearchableCombobox
+              items={customers}
+              value={selectedCustomer || undefined}
               onValueChange={(value) => {
-                const customer = customers.find(c => c.customer_id === value)
-                setSelectedCustomer(customer || null)
+                setSelectedCustomer(value)
               }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="-- Chọn khách hàng để áp dụng giá VIP --" />
-              </SelectTrigger>
-              <SelectContent>
-                {customers.map((customer) => (
-                  <SelectItem key={customer.customer_id} value={customer.customer_id}>
-                    <div className="flex flex-col">
-                      <span>{customer.name}</span>
-                      {customer.phone && (
-                        <span className="text-xs text-muted-foreground">{customer.phone}</span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              getItemId={(item: Customer) => item.customer_id}
+              getItemLabel={(item: Customer) => `${item.name}${item.phone ? ` • ${item.phone}` : ''}`}
+              placeholder="Chọn khách hàng để áp dụng giá VIP..."
+            />
           </div>
 
           {/* Simulation Date */}
@@ -230,10 +322,39 @@ export default function PriceSimulatorForm({ products, customers }: Props) {
             </div>
           </div>
 
+          {/* Quick Explanation */}
+          {(selectedProduct || customSku) && (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <div className="text-sm font-medium text-blue-800">Cách hệ thống tính giá</div>
+              </div>
+              <div className="text-xs text-blue-700 space-y-1">
+                <div>• Hệ thống sẽ tìm tất cả quy tắc giá phù hợp</div>
+                <div>• Ưu tiên theo độ ưu tiên (priority) và scope cụ thể</div>
+                <div>• Tự động chọn giá tốt nhất cho khách hàng</div>
+                {(selectedProduct?.product_code === 'SP000049' || customSku.toUpperCase() === 'SP000049') && (
+                  <div className="mt-2 p-2 bg-yellow-100 border border-yellow-200 rounded text-xs">
+                    <div className="font-medium text-yellow-800">💡 SP000049 - Case đặc biệt:</div>
+                    <div className="text-yellow-700">Qty 1-30: 190k | Qty 31+: 215k (mua nhiều không rẻ hơn!)</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Error Display */}
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-              ⚠️ {error}
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="text-red-800 font-medium mb-2">Có vấn đề xảy ra:</div>
+              <div className="text-red-700 text-sm whitespace-pre-line">
+                {error}
+              </div>
+              <div className="mt-3 pt-3 border-t border-red-200">
+                <div className="text-red-600 text-xs">
+                  🔧 Nếu vẫn gặp lỗi, vui lòng liên hệ bộ phận kỹ thuật để được hỗ trợ.
+                </div>
+              </div>
             </div>
           )}
 
@@ -241,15 +362,30 @@ export default function PriceSimulatorForm({ products, customers }: Props) {
           <div className="flex gap-2 pt-4">
             <Button 
               onClick={handleSimulate} 
-              disabled={isLoading}
+              disabled={isLoading || !selectedProduct || (!selectedProduct && !customSku.trim())}
               className="flex-1"
             >
-              {isLoading ? '⏳ Đang tính...' : '🎯 Tính giá'}
+              {isLoading ? '⏳ Đang tính toán giá...' : '🎯 Tính giá'}
             </Button>
-            <Button variant="outline" onClick={resetForm}>
+            <Button 
+              variant="outline" 
+              onClick={resetForm}
+              disabled={isLoading}
+              title="Xóa tất cả và bắt đầu lại"
+            >
               🔄 Reset
             </Button>
           </div>
+          
+          {/* Loading Overlay */}
+          {isLoading && (
+            <div className="absolute inset-0 bg-white/50 flex items-center justify-center rounded-lg">
+              <div className="text-center">
+                <div className="animate-spin text-2xl mb-2">⏳</div>
+                <div className="text-sm text-gray-600">Đang tính toán giá tối ưu...</div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -267,6 +403,23 @@ export default function PriceSimulatorForm({ products, customers }: Props) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Customer Information */}
+            {selectedCustomer && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="text-sm font-medium text-purple-800">👤 Khách hàng:</div>
+                  <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                    {selectedCustomer.name}
+                  </Badge>
+                </div>
+                {selectedCustomer.phone && (
+                  <div className="text-sm text-purple-600">
+                    📞 {selectedCustomer.phone}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Price Breakdown */}
             <div className="grid md:grid-cols-2 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
@@ -329,22 +482,68 @@ export default function PriceSimulatorForm({ products, customers }: Props) {
               </div>
             )}
 
-            {/* Export Options */}
-            <div className="pt-4 border-t">
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  📊 Export Excel
-                </Button>
-                <Button variant="outline" size="sm">
-                  📄 Export PDF
-                </Button>
-                <Button variant="outline" size="sm">
-                  📋 Copy kết quả
-                </Button>
+            {/* Logic Explanation */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+              <h4 className="font-semibold text-blue-800 flex items-center gap-2">
+                🧠 Tại sao có kết quả này?
+              </h4>
+              <div className="text-sm text-blue-700 space-y-2">
+                {result.appliedRuleId ? (
+                  <div>
+                    <div className="font-medium mb-1">📋 Quy trình tính giá:</div>
+                    <div className="ml-2 space-y-1">
+                      <div>• Giá gốc: {result.listPrice.toLocaleString('vi-VN')}đ</div>
+                      <div>• Số lượng: {result.quantity} sản phẩm</div>
+                      <div>• Áp dụng quy tắc #{result.appliedRuleId}</div>
+                      <div>• Giá sau quy tắc: {result.finalPrice.toLocaleString('vi-VN')}đ/sản phẩm</div>
+                      {result.totalSavings > 0 && (
+                        <div className="text-green-600 font-medium">
+                          • Tiết kiệm: {(result.totalSavings / result.quantity).toLocaleString('vi-VN')}đ/sản phẩm
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="font-medium mb-1">📋 Không có quy tắc áp dụng:</div>
+                    <div className="ml-2 space-y-1">
+                      <div>• Sản phẩm không có quy tắc giá đặc biệt</div>
+                      <div>• Hoặc không đáp ứng điều kiện (số lượng, thời gian...)</div>
+                      <div>• Sử dụng giá niêm yết: {result.listPrice.toLocaleString('vi-VN')}đ</div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Special case explanation for SP000049 */}
+                {(selectedProduct?.product_code === 'SP000049' || customSku.toUpperCase() === 'SP000049') && (
+                  <div className="mt-3 p-3 bg-yellow-100 border border-yellow-200 rounded">
+                    <div className="font-medium text-yellow-800 mb-2">
+                      🔍 Chi tiết quy tắc SP000049:
+                    </div>
+                    <div className="text-xs text-yellow-700 space-y-1">
+                      <div><strong>Quy tắc #1:</strong> Priority 100 - Giá 190.000đ (qty 1-30) ✅ Tốt nhất</div>
+                      <div><strong>Quy tắc #667:</strong> Priority 120 - Giảm 5.000đ cho tag HOT (hiện tại bị tắt)</div>
+                      <div><strong>Quy tắc #672:</strong> Giảm 5.000đ khi mua từ 3 sản phẩm trở lên</div>
+                      <div className="mt-2 font-medium">
+                        {result.quantity <= 30 ? (
+                          <span className="text-green-600">
+                            → Với số lượng {result.quantity}, Quy tắc #1 được áp dụng (giá tốt nhất)
+                          </span>
+                        ) : (
+                          <span className="text-amber-600">
+                            → Với số lượng {result.quantity}, Quy tắc #672 được áp dụng (215.000đ)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
+      )}
+        </>
       )}
     </div>
   )

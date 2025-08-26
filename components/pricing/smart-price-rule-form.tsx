@@ -64,7 +64,7 @@ export function SmartPriceRuleForm({
 
   useEffect(() => {
     if (mode === 'edit') setDirty(true)
-  }, [scope, actionType, actionValue, minQty, maxQty])
+  }, [mode, scope, actionType, actionValue, minQty, maxQty])  // Added mode to dependency array
 
   // Smart action type suggestions based on scope
   const suggestedActions = useMemo(() => {

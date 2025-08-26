@@ -126,7 +126,7 @@ const menuItems = [
       { title: "📖 Bảng giá", href: "/dashboard/pricing/books" },
       { title: "🏷️ Khuyến mãi", href: "/dashboard/pricing/promotions" },
       { title: "📊 Hợp đồng giá", href: "/dashboard/pricing/contracts" },
-      { title: "📈 Bậc số lượng", href: "/dashboard/pricing/tiers" }
+      { title: "📈 Bậc số lượng", href: "/dashboard/pricing/tiers/enhanced" }
     ]
   },
   {

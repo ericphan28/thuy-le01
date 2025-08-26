@@ -2,6 +2,7 @@
 // Nếu cần type Database có thể import, hiện chưa dùng trực tiếp.
 // import type { Database } from '@/lib/types'
 import { createClient } from '@/lib/supabase/server'
+import { volumeTiersService, type VolumeTierMatch } from '@/lib/services/volume-tiers-service'
 
 export type ActionType = 'net' | 'percent' | 'amount'
 export interface PriceRule {
@@ -31,6 +32,7 @@ export interface PricingResult {
   discountAmount: number
   discountPercent: number
   reason: string
+  volumeTierMatch?: VolumeTierMatch // Thông tin bậc số lượng nếu có
 }
 
 function withinDate(r: PriceRule, now: Date) {
@@ -128,7 +130,7 @@ export async function simulatePrice(opts: { price_book_id: number; sku: string; 
 
   // Tải sản phẩm & tất cả rule trong price book (có thể tối ưu filter sau)
   const [{ data: product }, { data: rulesData }] = await Promise.all([
-    supabase.from('products').select('product_code, sale_price, base_price, category_id').eq('product_code', sku).maybeSingle(),
+    supabase.from('products').select('product_id, product_code, product_name, sale_price, base_price, category_id').eq('product_code', sku).maybeSingle(),
     supabase.from('price_rules').select('rule_id, scope, sku_code, category_id, tag, action_type, action_value, min_qty, max_qty, priority, is_active, effective_from, effective_to').eq('price_book_id', price_book_id)
   ])
 
@@ -157,6 +159,10 @@ export async function simulatePrice(opts: { price_book_id: number; sku: string; 
     effective_to: r.effective_to,
   }))
 
+  console.log('🔍 Debug - All rules for price book:', mapped)
+  console.log('🔍 Debug - Product info:', product)
+  console.log('🔍 Debug - Search params:', { sku, qty, now })
+
   // Filter theo logic đơn giản tương tự computePrice nhưng thêm scope match
   const candidates = mapped.filter(r => {
     if (!r.is_active) return false
@@ -169,31 +175,77 @@ export async function simulatePrice(opts: { price_book_id: number; sku: string; 
       case 'category':
         return r.target === product.category_id
       case 'tag':
-        // Chưa có quan hệ tag -> bỏ qua (luôn false nếu rule tag có giá trị)
-        return true // hoặc false nếu muốn loại bỏ tag tạm thời
+        // FIXED: Disable tag rules temporarily until proper tag system is implemented
+        // This fixes the bug where Rule 667 (HOT tag) was incorrectly applied
+        return false // Disable all tag rules to fix SP000049 pricing bug
       case 'all':
       default:
         return true
     }
   })
 
-  if (!candidates.length || list_price == null) {
-    return {
-      list_price,
-      final_price: list_price,
-      applied_rule_id: null,
-      applied_reason: 'Không có quy tắc phù hợp',
+  // Tính giá từ price rules
+  let priceRuleResult = null
+  let basePrice = list_price || 0
+
+  if (candidates.length > 0) {
+    const ranked = rankRules(candidates)
+    const winner = ranked[0]
+    const rulePrice = applyRule(basePrice, winner)
+    
+    priceRuleResult = {
+      applied_rule_id: winner.id,
+      applied_reason: `${winner.action_type} (${winner.action_value}) priority ${winner.priority}`,
+      rule_price: rulePrice
+    }
+    
+    // Sử dụng giá từ rule làm base price cho volume tier
+    basePrice = rulePrice
+  }
+
+  // Kiểm tra volume tiers
+  let volumeTierMatch = null
+  if (product.product_id && product.category_id) {
+    try {
+      volumeTierMatch = await volumeTiersService.calculateVolumePrice(
+        product.product_id,
+        product.category_id,
+        qty,
+        basePrice,
+        now
+      )
+    } catch (error) {
+      console.warn('Volume tier calculation failed:', error)
     }
   }
 
-  const ranked = rankRules(candidates)
-  const winner = ranked[0]
-  const final_price = applyRule(list_price, winner)
+  // Quyết định giá cuối cùng
+  let final_price = basePrice
+  let applied_reason = priceRuleResult?.applied_reason || 'Giá niêm yết'
+
+  if (volumeTierMatch) {
+    final_price = volumeTierMatch.discounted_price
+    applied_reason = `Bậc số lượng: ${volumeTierMatch.tier.discount_percent ? 
+      `Giảm ${volumeTierMatch.tier.discount_percent}%` : 
+      `Giảm ${volumeTierMatch.tier.discount_amount?.toLocaleString('vi-VN')}₫`} khi mua từ ${volumeTierMatch.tier.min_qty} sản phẩm`
+    
+    if (priceRuleResult) {
+      applied_reason += ` (sau khi áp dụng ${priceRuleResult.applied_reason})`
+    }
+  }
+
+  console.log('🎯 Debug - Final calculation:', { 
+    list_price, 
+    rule_price: priceRuleResult?.rule_price,
+    volume_price: volumeTierMatch?.discounted_price,
+    final_price 
+  })
 
   return {
     list_price,
     final_price,
-    applied_rule_id: winner.id,
-    applied_reason: `${winner.action_type} (${winner.action_value}) priority ${winner.priority}`,
+    applied_rule_id: priceRuleResult?.applied_rule_id || null,
+    applied_reason,
+    volume_tier_match: volumeTierMatch
   }
 }

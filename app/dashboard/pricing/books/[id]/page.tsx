@@ -243,8 +243,14 @@ export default async function PriceBookDetailPage({ params, searchParams }: { pa
             </form>
           </div>
 
-          <div className="mb-3 text-xs text-muted-foreground">
-            Mẹo: Khi có nhiều quy tắc cùng áp dụng, quy tắc có Priority cao hơn sẽ được chọn. Dùng Priority để ưu đãi đè lên giá nền.
+          <div className="mb-3 text-xs text-muted-foreground bg-blue-50 border border-blue-200 rounded-md p-3">
+            <div className="font-medium text-blue-900 mb-2">💡 Quy tắc ưu tiên (Priority)</div>
+            <div className="space-y-1">
+              <div>• <strong>Priority cao hơn (số lớn)</strong> sẽ được áp dụng khi có nhiều quy tắc cùng áp dụng cho 1 sản phẩm</div>
+              <div>• <strong>Rule ID</strong> (ví dụ #1, #667) giúp bạn tham chiếu và debug khi cần</div>
+              <div>• <strong>Phạm vi</strong>: SKU cụ thể &gt; Ngành hàng &gt; Nhãn &gt; Tất cả sản phẩm</div>
+              <div className="text-blue-700">📋 <em>Ví dụ: SP000049 có Rule #1 (P100) và Rule #667 (P120) → Rule #667 thắng</em></div>
+            </div>
           </div>
 
           {rules && rules.length > 0 ? (
@@ -312,13 +318,16 @@ export default async function PriceBookDetailPage({ params, searchParams }: { pa
                         <td className="p-3 border-b align-top">{listPrice != null ? money(listPrice) : '-'}</td>
                         <td className="p-3 border-b align-top">
                           <div className="flex flex-col gap-1">
-                            <div>
-                              <Badge variant={r.action_type === 'net' ? 'secondary' : 'default'} className="mr-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={r.action_type === 'net' ? 'secondary' : 'default'}>
                                 {promo}
                               </Badge>
                               {r.priority != null ? (
                                 <Badge variant="outline" title="Priority: số lớn hơn sẽ thắng">P{r.priority}</Badge>
                               ) : null}
+                              <Badge variant="destructive" className="text-xs" title="ID quy tắc - dùng để tham chiếu">
+                                #{r.rule_id}
+                              </Badge>
                             </div>
                             {listPrice != null && applied != null && applied !== listPrice ? (
                               <div className="text-xs text-muted-foreground" title="Tính từ giá niêm yết và ưu đãi">

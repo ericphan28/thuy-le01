@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pricing Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .result { background: #f5f5f5; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        button { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #005a87; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Pricing Engine Test</h1>
+    <p>Expected: SP000049 should be 220,000₫ → 190,000₫ (with net rule)</p>
+    
+    <div>
+        <label>SKU: </label>
+        <input type="text" id="sku" value="SP000049" />
+        <br/>
+        <label>Quantity: </label>
+        <input type="number" id="qty" value="1" />
+        <br/>
+        <button onclick="testPricing()">Test Pricing</button>
+    </div>
+    
+    <div id="result" class="result" style="display: none;"></div>
+
+    <script>
+        async function testPricing() {
+            const sku = document.getElementById('sku').value;
+            const qty = parseInt(document.getElementById('qty').value);
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = 'Testing...';
+            
+            console.log('=== PRICING TEST START ===');
+            console.log('SKU:', sku);
+            console.log('Quantity:', qty);
+            
+            try {
+                const response = await fetch('/api/pricing/simulate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sku, qty })
+                });
+                
+                console.log('Response status:', response.status);
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <h3>✅ Success!</h3>
+                        <p><strong>Product:</strong> ${data.product?.name} (${data.product?.code})</p>
+                        <p><strong>List Price:</strong> ${data.listPrice?.toLocaleString()}₫</p>
+                        <p><strong>Final Price:</strong> ${data.finalPrice?.toLocaleString()}₫</p>
+                        <p><strong>Total Amount:</strong> ${data.totalAmount?.toLocaleString()}₫</p>
+                        <p><strong>Discount:</strong> ${data.discountPercent}% (${data.totalSavings?.toLocaleString()}₫)</p>
+                        <p><strong>Applied Rule:</strong> ${data.appliedRule?.id || 'None'} - ${data.message}</p>
+                        <hr/>
+                        <h4>Analysis:</h4>
+                        ${data.finalPrice === 190000 ? 
+                            '<p style="color: green;">✅ CORRECT: Price matches expected 190,000₫</p>' : 
+                            '<p style="color: red;">❌ ERROR: Expected 190,000₫ but got ' + data.finalPrice?.toLocaleString() + '₫</p>'
+                        }
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <h3>❌ Error</h3>
+                        <p>${data.error}</p>
+                        ${data.suggestion ? '<p><strong>Suggestion:</strong> ' + data.suggestion + '</p>' : ''}
+                    `;
+                }
+            } catch (error) {
+                console.error('Test failed:', error);
+                resultDiv.innerHTML = `
+                    <h3>❌ Network Error</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+            
+            console.log('=== PRICING TEST END ===');
+        }
+        
+        // Auto-run test when page loads
+        window.addEventListener('load', function() {
+            console.log('Page loaded, auto-running pricing test...');
+            setTimeout(testPricing, 1000); // Wait 1 second then auto-test
+        });
+    </script>
+</body>
+</html>
