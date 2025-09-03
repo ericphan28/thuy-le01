@@ -528,7 +528,7 @@ export default function POSPage() {
     if (cartPricingResults.size > 0) {
       updateCartWithEnhancedPricing()
     }
-  }, [cartPricingResults])
+  }, [cartPricingResults, updateCartWithEnhancedPricing])
 
   // Checkout process - Using Enhanced Pricing + Supabase Function
   const handleCheckout = async (paymentData: { 
