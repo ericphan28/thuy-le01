@@ -87,7 +87,7 @@ export default function POSPage() {
   }
 
   // Function to update cart with enhanced pricing results
-  const updateCartWithEnhancedPricing = () => {
+  const updateCartWithEnhancedPricing = useCallback(() => {
     if (cartPricingResults.size === 0) return
     
     setCart(currentCart => 
@@ -104,7 +104,7 @@ export default function POSPage() {
         return item
       })
     )
-  }
+  }, [cartPricingResults])
 
   // Fetch products với pagination, search và advanced filters
   const fetchProducts = useCallback(async () => {
