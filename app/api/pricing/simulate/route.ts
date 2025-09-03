@@ -1,22 +1,88 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { simulatePrice } from '@/lib/pricing/engine'
-import { createClient } from '@/lib/supabase/server'
+import { unifiedPricingService } from '@/lib/services/unified-pricing-service'
 
 export async function GET(request: Request) {
   const url = new URL(request.url)
   const price_book_id = Number(url.searchParams.get('price_book_id'))
   const sku = String(url.searchParams.get('sku') || '')
   const qty = Number(url.searchParams.get('qty') || 1)
+  const customer_id = url.searchParams.get('customer_id')
+  
   if (!price_book_id || !sku) {
     return NextResponse.json({ error: 'Missing price_book_id or sku' }, { status: 400 })
   }
-  const result = await simulatePrice({ price_book_id, sku, qty })
-  return NextResponse.json(result)
+  
+  try {
+    console.log('🔍 API Debug - Request params:', { sku, qty, price_book_id, customer_id })
+    
+    const result = await unifiedPricingService.calculatePrice(sku, qty, {
+      price_book_id,
+      customer_id: customer_id || undefined,
+      include_contract_pricing: true,
+      include_price_rules: true,
+      include_volume_tiers: true
+    })
+    
+    console.log('🎯 API Debug - Unified result:', result)
+    
+    // Convert to legacy format for compatibility
+    return NextResponse.json({
+      list_price: result.list_price,
+      final_price: result.final_price,
+      finalPrice: result.final_price, // Legacy compatibility
+      applied_rule_id: result.applied_rule?.id || null,
+      applied_reason: result.applied_rule?.reason || (result.pricing_source === 'contract' ? 'Contract pricing applied' : 'No rules applied'),
+      appliedRule: result.applied_rule ? {
+        id: result.applied_rule.id,
+        reason: result.applied_rule.reason,
+        discount_amount: result.applied_rule.discount_amount,
+        discount_percent: result.applied_rule.discount_percent
+      } : null,
+      volume_tier_match: result.volume_tier_match,
+      pricing_source: result.pricing_source,
+      contract_price: result.contract_price,
+      breakdown: result.breakdown
+    })
+  } catch (error) {
+    console.error('Unified pricing calculation error:', error)
+    
+    // Fallback to legacy engine if unified fails
+    try {
+      console.log('🔄 Falling back to legacy engine...')
+      const { simulatePrice } = await import('@/lib/pricing/engine')
+      const legacyResult = await simulatePrice({
+        price_book_id,
+        sku,
+        qty,
+        when: new Date()
+      })
+      
+      console.log('🎯 API Debug - Legacy result:', legacyResult)
+      
+      return NextResponse.json({
+        ...legacyResult,
+        finalPrice: legacyResult.final_price, // Legacy compatibility
+        pricing_source: 'fallback_legacy',
+        contract_price: null,
+        breakdown: {
+          original_price: legacyResult.list_price,
+          contract_discount: 0,
+          rule_discount: (legacyResult.list_price || 0) - (legacyResult.final_price || 0),
+          volume_discount: 0,
+          tax_amount: 0,
+          total_amount: legacyResult.final_price || 0
+        }
+      })
+    } catch (fallbackError) {
+      console.error('Fallback pricing also failed:', fallbackError)
+      return NextResponse.json({ error: 'Pricing calculation failed completely' }, { status: 500 })
+    }
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { sku, qty, when, customer_id } = await request.json()
+    const { sku, qty, when, customer_id, price_book_id } = await request.json()
     
     // Validate inputs
     if (!sku || !qty || qty <= 0) {
@@ -26,272 +92,90 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    console.log('🔍 POST API Debug - Request params:', { sku, qty, price_book_id, customer_id, when })
 
-    // Debug: Let's see what columns exist in price_books table
-    const { data: allPriceBooks, error: debugError } = await supabase
-      .from('price_books')
-      .select('*')
-      .limit(1)
+    const result = await unifiedPricingService.calculatePrice(sku, qty, {
+      price_book_id: price_book_id || 1, // Default to price book 1
+      customer_id: customer_id || undefined,
+      include_contract_pricing: true,
+      include_price_rules: true,
+      include_volume_tiers: true,
+      when: when ? new Date(when) : new Date()
+    })
     
-    if (debugError) {
-      console.error('Debug error:', debugError)
-    } else {
-      console.log('Debug - Sample price book:', allPriceBooks?.[0])
-    }
-
-    // Find any price book (active first, then any available)
-    let { data: defaultPriceBook } = await supabase
-      .from('price_books')
-      .select('price_book_id, name, is_active, channel')
-      .eq('is_active', true)
-      .limit(1)
-      .single()
-
-    // If no active price book, try to find any price book and activate it
-    if (!defaultPriceBook) {
-      console.log('No active price book found, looking for any available price book...')
-      
-      const { data: anyPriceBook } = await supabase
-        .from('price_books')
-        .select('price_book_id, name, is_active, channel')
-        .limit(1)
-        .single()
-      
-      if (anyPriceBook) {
-        console.log('Found inactive price book, activating it:', anyPriceBook)
-        
-        // Try to activate the found price book
-        const { data: activatedBook, error: updateError } = await supabase
-          .from('price_books')
-          .update({ is_active: true })
-          .eq('price_book_id', anyPriceBook.price_book_id)
-          .select('price_book_id, name, is_active, channel')
-          .single()
-        
-        if (activatedBook && !updateError) {
-          defaultPriceBook = activatedBook
-          console.log('Successfully activated price book:', activatedBook)
-        } else {
-          console.error('Failed to activate price book:', updateError)
-          // Use the inactive book anyway for simulation
-          defaultPriceBook = { ...anyPriceBook, is_active: true }
-        }
-      }
-    }
-
-    // Auto-create default price book if none exists
-    if (!defaultPriceBook) {
-      console.log('No price book found at all, creating default POS price book...')
-      
-      const { data: createdPriceBook, error: createError } = await supabase
-        .from('price_books')
-        .insert({
-          name: 'Bảng giá POS (Khôi phục)',
-          notes: 'Bảng giá được tạo lại tự động sau khi bảng giá gốc bị xóa',
-          is_active: true,
-          channel: 'POS',
-          effective_from: new Date().toISOString(),
-          created_at: new Date().toISOString()
-        })
-        .select('price_book_id, name, is_active, channel')
-        .single()
-
-      if (createError) {
-        console.error('Failed to create default price book:', createError)
-        
-        // Provide detailed error messages based on error type
-        if (createError.code === '23505') {
-          return NextResponse.json(
-            { 
-              error: 'Có xung đột khi tạo bảng giá mới.',
-              suggestion: 'Vui lòng refresh trang và thử lại. Có thể đã có người khác tạo bảng giá đồng thời.'
-            },
-            { status: 409 }
-          )
-        } else if (createError.code === '42501') {
-          return NextResponse.json(
-            { 
-              error: 'Không có quyền tạo bảng giá mới.',
-              suggestion: 'Vui lòng liên hệ quản trị viên để được cấp quyền hoặc yêu cầu tạo bảng giá thủ công.'
-            },
-            { status: 403 }
-          )
-        } else {
-          return NextResponse.json(
-            { 
-              error: 'Không thể tạo bảng giá khôi phục.',
-              suggestion: 'Hệ thống cần ít nhất một bảng giá để hoạt động. Vui lòng tạo bảng giá thủ công trong phần "Quản lý bảng giá" với channel "POS" và đặt trạng thái "Hoạt động".',
-              technicalDetails: `Database error: ${createError.message}`,
-              recoverySteps: [
-                '1. Vào Dashboard → Chính sách giá → Bảng giá',
-                '2. Nhấn "Tạo bảng giá mới"', 
-                '3. Đặt tên: "Bảng giá POS"',
-                '4. Chọn kênh: "POS"', 
-                '5. Đặt trạng thái: "Hoạt động"'
-              ]
-            },
-            { status: 500 }
-          )
-        }
-      }
-      
-      if (!createdPriceBook) {
-        return NextResponse.json(
-          { 
-            error: 'Không thể khôi phục bảng giá tự động.',
-            suggestion: 'Vui lòng tạo bảng giá thủ công. Hệ thống đã phát hiện bảng giá POS bị xóa và cần được khôi phục.',
-            recoverySteps: [
-              '1. Truy cập: Dashboard → Chính sách giá → Bảng giá',
-              '2. Tạo bảng giá mới với tên "Bảng giá POS"',
-              '3. Chọn kênh "POS" và trạng thái "Hoạt động"',
-              '4. Thêm các quy tắc giá cần thiết',
-              '5. Quay lại Price Simulator để sử dụng'
-            ]
-          },
-          { status: 500 }
-        )
-      }
-      
-      console.log('Successfully created recovery price book:', createdPriceBook)
-      defaultPriceBook = { ...createdPriceBook, is_active: true }
-      
-      // Optional: Send notification about recovery
-      console.warn('🚨 RECOVERY ACTION: Created new POS price book to replace deleted one')
-    }
-
-    // Final safety check
-    if (!defaultPriceBook) {
-      return NextResponse.json(
-        { 
-          error: 'Hệ thống không thể tìm thấy hoặc tạo bảng giá.',
-          suggestion: 'Vui lòng tạo bảng giá thủ công trong phần "Quản lý bảng giá" và đảm bảo nó ở trạng thái "Hoạt động".'
-        },
-        { status: 500 }
-      )
-    }
-
-    // Get product info with better error messages
-    const { data: product, error: productError } = await supabase
-      .from('products')
-      .select('product_code, product_name, sale_price, base_price, category_id')
-      .eq('product_code', sku.toUpperCase())
-      .single()
-
-    if (productError || !product) {
-      // Check if it's a "not found" vs other database error
-      if (productError?.code === 'PGRST116') {
-        return NextResponse.json(
-          { 
-            error: `Không tìm thấy sản phẩm "${sku}". Vui lòng kiểm tra lại mã SKU.`,
-            suggestion: 'Bạn có thể tìm kiếm sản phẩm trong danh sách hoặc liên hệ quản lý kho để biết mã SKU chính xác.'
-          },
-          { status: 404 }
-        )
-      } else {
-        return NextResponse.json(
-          { 
-            error: 'Có lỗi khi truy vấn thông tin sản phẩm. Vui lòng thử lại.',
-            details: productError?.message 
-          },
-          { status: 500 }
-        )
-      }
-    }
-
-    // Use existing simulatePrice function
-    const simulationDate = when ? new Date(when) : new Date()
-    const quantity = Math.max(1, parseInt(qty) || 1)
+    console.log('🎯 POST API Debug - Unified result:', result)
     
+    // Convert to legacy format for compatibility with existing POS
+    return NextResponse.json({
+      list_price: result.list_price,
+      final_price: result.final_price,
+      finalPrice: result.final_price, // Legacy compatibility
+      applied_rule_id: result.applied_rule?.id || null,
+      applied_reason: result.applied_rule?.reason || (result.pricing_source === 'contract' ? 'Contract pricing applied' : 'No rules applied'),
+      appliedRule: result.applied_rule ? {
+        id: result.applied_rule.id,
+        reason: result.applied_rule.reason,
+        discount_amount: result.applied_rule.discount_amount,
+        discount_percent: result.applied_rule.discount_percent
+      } : null,
+      volume_tier_match: result.volume_tier_match,
+      pricing_source: result.pricing_source,
+      contract_price: result.contract_price,
+      breakdown: result.breakdown,
+      
+      // Enhanced info
+      enhanced_pricing: {
+        contract_price: result.contract_price,
+        rule_price: result.rule_price,
+        volume_tier_price: result.volume_tier_price,
+        final_savings: result.final_savings,
+        final_savings_percent: result.final_savings_percent,
+        pricing_source: result.pricing_source
+      }
+    })
+  } catch (error) {
+    console.error('POST Unified pricing calculation error:', error)
+    
+    // Fallback to legacy engine if unified fails
     try {
-      const result = await simulatePrice({ 
-        price_book_id: defaultPriceBook.price_book_id, 
-        sku: sku.toUpperCase(), 
-        qty: quantity,
-        when: simulationDate
+      console.log('🔄 POST Falling back to legacy engine...')
+      const { simulatePrice } = await import('@/lib/pricing/engine')
+      const { sku, qty, price_book_id = 1, when } = await request.json()
+      
+      const legacyResult = await simulatePrice({
+        price_book_id,
+        sku,
+        qty,
+        when: when ? new Date(when) : new Date()
       })
-
-      // Transform result to match frontend expectations
-      const listPrice = result.list_price || product.sale_price || product.base_price || 0
-      const finalPrice = result.final_price || listPrice
       
-      // Handle case where no price is available
-      if (listPrice === 0) {
-        return NextResponse.json(
-          { 
-            error: `Sản phẩm "${product.product_name}" (${product.product_code}) chưa có giá niêm yết.`,
-            suggestion: 'Vui lòng liên hệ bộ phận kinh doanh để cập nhật giá cho sản phẩm này.'
-          },
-          { status: 400 }
-        )
-      }
+      console.log('🎯 POST API Debug - Legacy result:', legacyResult)
       
-      // Store customer info if provided  
-      let customerInfo = null
-      if (customer_id) {
-        const { data: customer } = await supabase
-          .from('customers')
-          .select('customer_name, customer_group, email, phone')
-          .eq('id', customer_id)
-          .single()
-        
-        if (customer) {
-          customerInfo = {
-            id: customer_id,
-            name: customer.customer_name,
-            group: customer.customer_group,
-            email: customer.email,
-            phone: customer.phone
-          }
+      return NextResponse.json({
+        ...legacyResult,
+        finalPrice: legacyResult.final_price, // Legacy compatibility
+        pricing_source: 'fallback_legacy',
+        contract_price: null,
+        breakdown: {
+          original_price: legacyResult.list_price,
+          contract_discount: 0,
+          rule_discount: (legacyResult.list_price || 0) - (legacyResult.final_price || 0),
+          volume_discount: 0,
+          tax_amount: 0,
+          total_amount: legacyResult.final_price || 0
+        },
+        enhanced_pricing: {
+          contract_price: null,
+          rule_price: legacyResult.final_price,
+          volume_tier_price: null,
+          final_savings: (legacyResult.list_price || 0) - (legacyResult.final_price || 0),
+          final_savings_percent: legacyResult.list_price > 0 ? ((legacyResult.list_price - legacyResult.final_price) / legacyResult.list_price) * 100 : 0,
+          pricing_source: 'fallback_legacy'
         }
-      }
-
-      const response = {
-        product: {
-          code: product.product_code,
-          name: product.product_name
-        },
-        priceBook: {
-          id: defaultPriceBook.price_book_id,
-          name: defaultPriceBook.name,
-          channel: defaultPriceBook.channel,
-          status: defaultPriceBook.is_active ? 'Hoạt động' : 'Khả dụng',
-          isRecovered: defaultPriceBook.name.includes('Khôi phục')
-        },
-        customer: customerInfo,
-        listPrice,
-        finalPrice,
-        quantity,
-        totalAmount: finalPrice * quantity,
-        totalSavings: (listPrice - finalPrice) * quantity,
-        discountPercent: listPrice > 0 ? Math.round(((listPrice - finalPrice) / listPrice) * 100) : 0,
-        appliedRule: result.applied_rule_id ? {
-          id: result.applied_rule_id,
-          reason: result.applied_reason || `Quy tắc #${result.applied_rule_id}`
-        } : null,
-        simulationDate: simulationDate.toISOString(),
-        message: result.applied_rule_id 
-          ? `✅ Áp dụng thành công quy tắc giá #${result.applied_rule_id}` 
-          : '💡 Sử dụng giá niêm yết (không có quy tắc giá phù hợp)'
-      }
-
-      return NextResponse.json(response)
-    } catch (simulationError: any) {
-      console.error('Simulation engine error:', simulationError)
-      return NextResponse.json(
-        { 
-          error: 'Có lỗi trong quá trình tính toán giá. Vui lòng thử lại.',
-          suggestion: 'Nếu lỗi vẫn tiếp tục, vui lòng liên hệ bộ phận kỹ thuật.'
-        },
-        { status: 500 }
-      )
+      })
+    } catch (fallbackError) {
+      console.error('POST Fallback pricing also failed:', fallbackError)
+      return NextResponse.json({ error: 'Pricing calculation failed completely' }, { status: 500 })
     }
-
-  } catch (error: any) {
-    console.error('Price simulation error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Có lỗi xảy ra khi tính toán giá' },
-      { status: 500 }
-    )
   }
 }

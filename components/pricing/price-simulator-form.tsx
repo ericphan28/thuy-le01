@@ -63,14 +63,14 @@ export default function PriceSimulatorForm({}: Props) {
             .from('products')
             .select('product_code, product_name, sale_price, category_id')
             .eq('is_active', true)
-            .order('product_name')
-            .limit(100),
+            .order('product_code') // Order by code for easier searching
+            .limit(1000), // Increase limit to get more products
           supabase
             .from('customers')
             .select('customer_id, customer_name, phone')
             .eq('is_active', true)
             .order('customer_name')
-            .limit(50)
+            .limit(100) // Tăng limit cho customers
         ])
 
         if (productsRes.data) {
@@ -82,6 +82,19 @@ export default function PriceSimulatorForm({}: Props) {
             category_id: p.category_id
           }))
           setProducts(mappedProducts)
+          
+          // Debug logging
+          console.log(`📦 Loaded ${mappedProducts.length} products`)
+          
+          // Check if SP000385 exists
+          const sp385 = mappedProducts.find(p => p.product_code === 'SP000385')
+          if (sp385) {
+            console.log('✅ SP000385 found:', sp385)
+          } else {
+            console.log('❌ SP000385 not found in loaded products')
+            // Show first few products for debugging
+            console.log('🔍 First 5 products:', mappedProducts.slice(0, 5).map(p => p.product_code))
+          }
         }
 
         if (customersRes.data) {
@@ -109,10 +122,21 @@ export default function PriceSimulatorForm({}: Props) {
 
   // Filter products based on search
   const [productSearch, setProductSearch] = useState('')
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-    p.product_code.toLowerCase().includes(productSearch.toLowerCase())
-  )
+  const filteredProducts = products.filter(p => {
+    const searchTerm = productSearch.toLowerCase().trim()
+    const productCode = p.product_code.toLowerCase()
+    const productName = p.name.toLowerCase()
+    
+    // If search term starts with 'sp', prioritize product code matching
+    if (searchTerm.startsWith('sp')) {
+      return productCode.includes(searchTerm)
+    }
+    
+    // Otherwise search in both name and code
+    return productName.includes(searchTerm) || productCode.includes(searchTerm)
+  })
+
+  console.log(`Searching for: "${productSearch}", Found ${filteredProducts.length} products`)
 
   const handleSimulate = async () => {
     if (!selectedProduct && !customSku) {
@@ -185,13 +209,13 @@ export default function PriceSimulatorForm({}: Props) {
 
       // Format kết quả từ API response
       const formattedResult: SimulationResult = {
-        listPrice: apiResult.listPrice || 0,
-        finalPrice: apiResult.finalPrice || 0,
-        totalSavings: apiResult.totalSavings || 0,
-        appliedRuleId: apiResult.appliedRule?.id || null,
-        appliedReason: apiResult.appliedRule?.reason || 'Không có quy tắc được áp dụng',
-        quantity: apiResult.quantity || quantity,
-        totalAmount: apiResult.totalAmount || 0
+        listPrice: apiResult.list_price || 0,
+        finalPrice: apiResult.final_price || 0,
+        totalSavings: apiResult.final_savings || ((apiResult.list_price || 0) - (apiResult.final_price || 0)),
+        appliedRuleId: apiResult.applied_rule_id || null,
+        appliedReason: apiResult.applied_reason || 'Không có quy tắc được áp dụng',
+        quantity: quantity,
+        totalAmount: (apiResult.final_price || 0) * quantity
       }
 
       setResult(formattedResult)
@@ -256,17 +280,24 @@ export default function PriceSimulatorForm({}: Props) {
               placeholder="Tìm kiếm và chọn sản phẩm..."
             />
             
-            <div className="text-sm text-muted-foreground">
-              Hoặc nhập mã SKU trực tiếp:
+            <div className="text-center my-2 text-sm text-muted-foreground">
+              --- HOẶC ---
             </div>
-            <Input
-              placeholder="Nhập mã SKU (ví dụ: SP000001)"
-              value={customSku}
-              onChange={(e) => {
-                setCustomSku(e.target.value.toUpperCase())
-                setSelectedProduct(null)
-              }}
-            />
+            
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+              <div className="text-sm font-medium text-yellow-800 mb-2">
+                💡 Nhập mã SKU trực tiếp (nếu không tìm thấy trong danh sách)
+              </div>
+              <Input
+                placeholder="Nhập mã SKU (ví dụ: SP000385)"
+                value={customSku}
+                onChange={(e) => {
+                  setCustomSku(e.target.value.toUpperCase())
+                  setSelectedProduct(null)
+                }}
+                className="font-mono"
+              />
+            </div>
           </div>
 
           {/* Quantity */}

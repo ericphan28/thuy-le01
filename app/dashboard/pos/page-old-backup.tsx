@@ -19,7 +19,7 @@ import { CustomerSelector } from '@/components/pos/customer-selector-ultra'
 import { CartSummaryOptimized } from '@/components/pos/cart-summary-optimized'
 import { CheckoutPanelOptimized } from '@/components/pos/checkout-panel-optimized'
 import { EnhancedCartSummary } from '@/components/pos/enhanced-cart-summary'
-import { EnhancedPricingService, type EnhancedProduct, type EnhancedPricingResult } from '@/lib/services/enhanced-pricing-service-v3'
+import { useEnhancedPricing as useAdvancedPricing } from '@/hooks/use-enhanced-pricing'
 import type { Product, Customer, CartItem } from '@/lib/types/pos'
 
 const ITEMS_PER_PAGE = 20
@@ -56,11 +56,6 @@ export default function POSPage() {
     lowStock: false
   })
   const [showOnlyInStock, setShowOnlyInStock] = useState(true) // Mặc định chỉ hiển thị sản phẩm còn hàng
-  
-  // Enhanced Pricing state
-  const [enhancedPricingService] = useState(() => new EnhancedPricingService())
-  const [cartPricingResults, setCartPricingResults] = useState<Map<number, EnhancedPricingResult>>(new Map())
-  const [pricingLoading, setPricingLoading] = useState(false)
   
   // Optimistic stock management
   const [optimisticStockUpdates, setOptimisticStockUpdates] = useState<Record<number, number>>({})
@@ -375,113 +370,24 @@ export default function POSPage() {
   const tax = afterDiscount * (vatRate / 100) // VAT based on selected rate
   const total = afterDiscount + tax
 
-  // Convert cart to enhanced products for pricing
-  const convertCartToEnhancedProducts = useCallback(() => {
-    return cart.map(item => ({
-      product_id: item.product.product_id,
-      product_code: item.product.product_code || '',
-      product_name: item.product.product_name,
-      sale_price: item.product.sale_price,
-      base_price: item.product.sale_price, // Use sale_price as base_price fallback
-      current_stock: item.product.current_stock,
-      category_id: item.product.category_id || 0
-    } as EnhancedProduct))
-  }, [cart])
-
-  // Enhanced pricing calculation
-  const calculateEnhancedPricing = useCallback(async () => {
-    if (cart.length === 0) {
-      setCartPricingResults(new Map())
-      return
-    }
-
-    setPricingLoading(true)
-    try {
-      const enhancedProducts = convertCartToEnhancedProducts()
-      const newPricingResults = new Map<number, EnhancedPricingResult>()
-
-      // Calculate pricing for each cart item
-      for (const cartItem of cart) {
-        const enhancedProduct = enhancedProducts.find(p => p.product_id === cartItem.product.product_id)
-        if (enhancedProduct) {
-          const result = await enhancedPricingService.calculateProductPrice(
-            enhancedProduct,
-            cartItem.quantity,
-            {
-              include_volume_tiers: true,
-              include_price_rules: true,
-              tax_rate: vatRate,
-              customer_id: selectedCustomer?.customer_id?.toString()
-            }
-          )
-          newPricingResults.set(cartItem.product.product_id, result)
-        }
-      }
-
-      setCartPricingResults(newPricingResults)
-    } catch (error) {
-      console.error('Enhanced pricing calculation error:', error)
-    } finally {
-      setPricingLoading(false)
-    }
-  }, [cart, enhancedPricingService, convertCartToEnhancedProducts, vatRate, selectedCustomer])
-
-  // Calculate totals with enhanced pricing
-  const calculateTotals = useCallback(() => {
-    let enhancedSubtotal = 0
-    let enhancedSavings = 0
-    
-    cart.forEach(item => {
-      const pricingResult = cartPricingResults.get(item.product.product_id)
-      if (pricingResult && useEnhancedPricing) {
-        enhancedSubtotal += pricingResult.final_price * item.quantity
-        enhancedSavings += pricingResult.final_savings * item.quantity
-      } else {
-        enhancedSubtotal += item.line_total
-      }
-    })
-
-    // Traditional discount calculation if not using enhanced pricing
-    const traditionalDiscountAmount = !useEnhancedPricing 
-      ? (discountType === 'percentage' ? (enhancedSubtotal * discountValue) / 100 : Math.min(discountValue, enhancedSubtotal))
-      : 0
-
-    const finalSubtotalAfterDiscount = enhancedSubtotal - traditionalDiscountAmount
-    const enhancedTax = finalSubtotalAfterDiscount * (vatRate / 100)
-    const finalTotal = finalSubtotalAfterDiscount + enhancedTax
-
-    return {
-      subtotal: enhancedSubtotal,
-      discountAmount: useEnhancedPricing ? enhancedSavings : traditionalDiscountAmount,
-      tax: enhancedTax,
-      total: finalTotal,
-      savings: enhancedSavings
-    }
-  }, [cart, cartPricingResults, useEnhancedPricing, discountType, discountValue, vatRate])
-
-  // Get calculated values
-  const {
-    subtotal: finalSubtotal,
-    discountAmount: finalDiscountAmount,
-    tax: enhancedTax,
-    total: finalTotal,
-    savings: totalSavings
-  } = calculateTotals()
-
-  // Create raw cart items for components that need it
+  // Convert cart to raw items for enhanced pricing
   const rawCartItems = cart.map(item => ({
     product: item.product,
     quantity: item.quantity
   }))
 
-  // Update enhanced pricing when cart changes
-  useEffect(() => {
-    if (useEnhancedPricing) {
-      calculateEnhancedPricing()
+  // Enhanced pricing hook
+  const advancedPricing = useAdvancedPricing(
+    rawCartItems,
+    selectedCustomer,
+    {
+      vatRate,
+      enableVolumeDiscounts: true,
+      enableRealTimeValidation: true
     }
-  }, [calculateEnhancedPricing, useEnhancedPricing])
+  )
 
-  // Checkout process - Using Enhanced Pricing + Supabase Function
+  // Checkout process - Using Supabase Function
   const handleCheckout = async (paymentData: { 
     method: 'cash' | 'card' | 'transfer'
     paymentType: 'full' | 'partial' | 'debt'
@@ -497,17 +403,11 @@ export default function POSPage() {
       }).format(price)
     }
 
-    console.log('🚀 === ENHANCED CHECKOUT PROCESS STARTED ===')
+    console.log('🚀 === CHECKOUT PROCESS STARTED (USING FUNCTION) ===')
     console.log('📋 Cart Items:', cart)
     console.log('👤 Selected Customer:', selectedCustomer)
     console.log('💰 Payment Data:', paymentData)
-    console.log('📊 Enhanced Pricing Results:', Object.fromEntries(cartPricingResults))
-    console.log('📊 Pricing Summary:', {
-      useEnhancedPricing,
-      totalSavings,
-      pricingLoading
-    })
-    console.log('📊 Traditional Calculation:', {
+    console.log('📊 Calculation Details:', {
       subtotal,
       vatRate,
       discountType,
@@ -516,56 +416,41 @@ export default function POSPage() {
       tax,
       total
     })
-    console.log('💡 Final Values Used:', {
-      finalSubtotal,
-      finalDiscountAmount,
-      finalTotal,
-      enhancedTax
-    })
 
     try {
       setCheckoutLoading(true)
       
-      // Prepare cart items for function - Use Enhanced Pricing Results
-      const cartItems = cart.map(item => {
-        const pricingResult = cartPricingResults.get(item.product.product_id)
-        const finalPrice = pricingResult?.final_price || item.unit_price
-        
-        console.log(`📊 Item ${item.product.product_code}: Original ${item.unit_price} → Enhanced ${finalPrice}`)
-        
-        return {
-          product_id: item.product.product_id,
-          quantity: item.quantity,
-          unit_price: finalPrice // Use enhanced pricing result
-        }
-      })
+      // Prepare cart items for function
+      const cartItems = cart.map(item => ({
+        product_id: item.product.product_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price
+      }))
       
       console.log('📦 Cart Items for Function:', cartItems)
       
-      // Calculate payment amounts based on enhanced pricing
+      // Calculate payment amounts based on type
       let paidAmount = 0
       let debtAmount = 0
       
       switch (paymentData.paymentType) {
         case 'full':
-          paidAmount = finalTotal
+          paidAmount = total
           debtAmount = 0
           break
         case 'partial':
           paidAmount = paymentData.partialAmount || 0
-          debtAmount = finalTotal - paidAmount
+          debtAmount = total - paidAmount
           break
         case 'debt':
           paidAmount = 0
-          debtAmount = finalTotal
+          debtAmount = total
           break
       }
       
-      console.log('💰 Enhanced Payment Calculation:', {
+      console.log('💰 Payment Calculation:', {
         paymentType: paymentData.paymentType,
-        enhancedTotal: finalTotal,
-        traditionalTotal: total,
-        savings: finalTotal - total,
+        total,
         paidAmount,
         debtAmount
       })
@@ -633,7 +518,7 @@ export default function POSPage() {
       
       // Success! Process the result
       const invoiceCode = functionResult.invoice_code
-      const totalAmount = functionResult.totals?.total_amount || finalTotal
+      const totalAmount = functionResult.totals?.total_amount || total
       const changeAmount = functionResult.totals?.change_amount || 0
       
       console.log('✅ Invoice Created Successfully by Function!')
@@ -656,7 +541,7 @@ export default function POSPage() {
           successMessage += ` Đã thanh toán: ${formatPrice(paidAmount)}, ghi nợ: ${formatPrice(debtAmount)}`
           break
         case 'debt':
-          successMessage += ` Toàn bộ ${formatPrice(finalTotal)} đã được ghi vào công nợ`
+          successMessage += ` Toàn bộ ${formatPrice(total)} đã được ghi vào công nợ`
           break
       }
       
@@ -672,7 +557,6 @@ export default function POSPage() {
       // Reset form
       console.log('🧹 Resetting Form State...')
       setCart([])
-      setCartPricingResults(new Map()) // Clear enhanced pricing results
       setSelectedCustomer(null)
       setCustomerSearch('')
       setShowCheckout(false)
@@ -881,11 +765,11 @@ export default function POSPage() {
                                 <span>•</span>
                                 <span>
                                   Sau GD: <span className={`font-medium ${(selectedCustomer.current_debt || 0) + total > (selectedCustomer.debt_limit || 0) ? 'text-red-600' : 'text-green-600'}`}>
-                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format((selectedCustomer.current_debt || 0) + finalTotal)}
+                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format((selectedCustomer.current_debt || 0) + total)}
                                   </span>
                                 </span>
                               </div>
-                              {selectedCustomer.debt_limit && (selectedCustomer.current_debt || 0) + finalTotal > selectedCustomer.debt_limit && (
+                              {selectedCustomer.debt_limit && (selectedCustomer.current_debt || 0) + total > selectedCustomer.debt_limit && (
                                 <div className="text-[10px] text-red-600 dark:text-red-400 mt-1">
                                   ⚠️ Vượt hạn mức: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedCustomer.debt_limit)}
                                 </div>
@@ -908,7 +792,7 @@ export default function POSPage() {
                             {new Intl.NumberFormat('vi-VN', {
                               style: 'currency',
                               currency: 'VND'
-                            }).format(finalTotal)}
+                            }).format(total)}
                           </div>
                           <div className="flex gap-2 mt-1">
                             <Button
@@ -988,9 +872,9 @@ export default function POSPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">Enhanced Pricing</span>
-                      {useEnhancedPricing && totalSavings > 0 && (
+                      {advancedPricing.hasPricingAdvantages && (
                         <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
-                          Tiết kiệm {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalSavings)}
+                          Tiết kiệm {advancedPricing.formatPrice(advancedPricing.pricingSummary.totalSavings)}
                         </Badge>
                       )}
                     </div>
@@ -1003,7 +887,7 @@ export default function POSPage() {
                       {useEnhancedPricing ? 'Chế độ cơ bản' : 'Chế độ nâng cao'}
                     </Button>
                   </div>
-                  {useEnhancedPricing && pricingLoading && (
+                  {useEnhancedPricing && advancedPricing.isCalculating && (
                     <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
                       <div className="w-2 h-2 bg-brand rounded-full animate-pulse"></div>
                       Đang tính toán giá...
@@ -1015,36 +899,29 @@ export default function POSPage() {
               {showCheckout && selectedCustomer ? (
                 <CheckoutPanelOptimized
                   customer={selectedCustomer}
-                  total={finalTotal}
+                  total={useEnhancedPricing ? (advancedPricing.pricingSummary.finalTotal || total) : total}
                   onCheckout={handleCheckout}
                   onCancel={() => setShowCheckout(false)}
                   loading={checkoutLoading}
                 />
               ) : useEnhancedPricing ? (
-                <CartSummaryOptimized
-                  cart={cart}
-                  subtotal={finalSubtotal}
-                  discountAmount={finalDiscountAmount}
-                  tax={enhancedTax}
-                  total={finalTotal}
+                <EnhancedCartSummary
+                  rawCartItems={rawCartItems}
+                  selectedCustomer={selectedCustomer}
                   vatRate={vatRate}
-                  discountType={discountType}
-                  discountValue={discountValue}
                   onUpdateQuantity={updateQuantity}
                   onRemoveItem={removeFromCart}
                   onVatChange={setVatRate}
-                  onDiscountTypeChange={setDiscountType}
-                  onDiscountValueChange={setDiscountValue}
                   onCheckout={() => setShowCheckout(true)}
                   disabled={!selectedCustomer || cart.length === 0}
                 />
               ) : (
                 <CartSummaryOptimized
                   cart={cart}
-                  subtotal={finalSubtotal}
-                  discountAmount={finalDiscountAmount}
-                  tax={enhancedTax}
-                  total={finalTotal}
+                  subtotal={subtotal}
+                  discountAmount={discountAmount}
+                  tax={tax}
+                  total={total}
                   vatRate={vatRate}
                   discountType={discountType}
                   discountValue={discountValue}
@@ -1056,7 +933,7 @@ export default function POSPage() {
                   onCheckout={() => setShowCheckout(true)}
                   disabled={!selectedCustomer || cart.length === 0}
                 />
-              )} 
+              )}
             </div>
           </div>
         </div>
@@ -1093,7 +970,7 @@ export default function POSPage() {
                 {selectedCustomer ? (
                   <CheckoutPanelOptimized
                     customer={selectedCustomer}
-                    total={finalTotal}
+                    total={total}
                     onCheckout={handleCheckout}
                     onCancel={() => setShowCheckout(false)}
                     loading={checkoutLoading}
@@ -1111,10 +988,10 @@ export default function POSPage() {
                     <div className="flex-1">
                       <CartSummaryOptimized
                         cart={cart}
-                        subtotal={finalSubtotal}
-                        discountAmount={finalDiscountAmount}
-                        tax={enhancedTax}
-                        total={finalTotal}
+                        subtotal={subtotal}
+                        discountAmount={discountAmount}
+                        tax={tax}
+                        total={total}
                         vatRate={vatRate}
                         discountType={discountType}
                         discountValue={discountValue}

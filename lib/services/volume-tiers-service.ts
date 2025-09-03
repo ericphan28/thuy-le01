@@ -236,8 +236,58 @@ export class VolumeTiersService {
   }
 
   /**
-   * Tính toán ví dụ cho hiển thị
+   * Tìm bậc số lượng tốt nhất cho sản phẩm
    */
+  async findBestMatch(
+    product_id: number, 
+    category_id: number | null, 
+    quantity: number
+  ): Promise<VolumeTierMatch | null> {
+    try {
+      const tiers = await this.findMatchingTiers(product_id, category_id || 0, quantity)
+      
+      if (!tiers.length) {
+        return null
+      }
+
+      // Get the best tier (first one since they're ordered by min_qty desc)
+      const bestTier = tiers[0]
+      
+      // Get product price for calculation
+      const { data: productData } = await this.supabase
+        .from('products')
+        .select('sale_price')
+        .eq('product_id', product_id)
+        .single()
+
+      if (!productData) {
+        return null
+      }
+
+      const originalPrice = productData.sale_price
+      let discountedPrice = originalPrice
+
+      if (bestTier.discount_percent) {
+        discountedPrice = originalPrice * (1 - bestTier.discount_percent / 100)
+      } else if (bestTier.discount_amount) {
+        discountedPrice = Math.max(0, originalPrice - bestTier.discount_amount)
+      }
+
+      const savings = originalPrice - discountedPrice
+      const savingsPercent = originalPrice > 0 ? (savings / originalPrice) * 100 : 0
+
+      return {
+        tier: bestTier,
+        original_price: originalPrice,
+        discounted_price: discountedPrice,
+        savings,
+        savings_percent: savingsPercent
+      }
+    } catch (error) {
+      console.error('Error finding best match:', error)
+      return null
+    }
+  }
   calculateExamples(tier: VolumeTier, base_price: number = 10000): Array<{
     quantity: number
     original_total: number

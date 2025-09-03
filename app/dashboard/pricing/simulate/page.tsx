@@ -2,15 +2,19 @@ import { createClient } from '@/lib/supabase/server'
 
 export default async function PricingSimulatePage() {
   const supabase = await createClient()
-  const [{ data: books }, { data: prods }] = await Promise.all([
+  const [{ data: books }, { data: prods }, { data: customers }] = await Promise.all([
     supabase.from('price_books').select('price_book_id, name').order('created_at', { ascending: false }),
-    supabase.from('products').select('product_code, product_name').order('product_name').limit(1000)
+    supabase.from('products').select('product_code, product_name').order('product_name').limit(1000),
+    supabase.from('customers').select('customer_id, customer_name, customer_code').order('customer_name').limit(500)
   ])
 
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-xl font-semibold">Mô phỏng giá</h1>
-      <form className="grid grid-cols-3 gap-3 max-w-3xl" action="/api/pricing/simulate" method="get">
+      <h1 className="text-xl font-semibold">Mô phỏng giá (Unified Pricing Engine)</h1>
+      <div className="text-sm text-muted-foreground mb-4">
+        🚀 Sử dụng Unified Pricing Service - tích hợp contract pricing, price rules và volume tiers
+      </div>
+      <form className="grid grid-cols-4 gap-3 max-w-5xl" action="/api/pricing/simulate" method="get">
         <label className="flex flex-col gap-1">
           <HeaderWithHelp label="Bảng giá" help="Chọn bảng giá để tính" />
           <select name="price_book_id" className="border rounded px-2 py-1">
@@ -27,11 +31,22 @@ export default async function PricingSimulatePage() {
           <HeaderWithHelp label="Số lượng" help="Số lượng để tính bậc số lượng nếu có" />
           <input name="qty" type="number" min={1} defaultValue={1} className="border rounded px-2 py-1" />
         </label>
-        <div className="col-span-3">
-          <button className="px-3 py-1.5 bg-primary text-primary-foreground rounded" type="submit">Tính thử</button>
+        <label className="flex flex-col gap-1">
+          <HeaderWithHelp label="Khách hàng" help="Chọn khách hàng để kiểm tra contract pricing (tùy chọn)" />
+          <select name="customer_id" className="border rounded px-2 py-1">
+            <option value="">-- Không chọn --</option>
+            {(customers || []).map(c => <option key={c.customer_id} value={c.customer_id}>{c.customer_code} | {c.customer_name}</option>)}
+          </select>
+        </label>
+        <div className="col-span-4">
+          <button className="px-3 py-1.5 bg-primary text-primary-foreground rounded" type="submit">Tính thử (Unified Engine)</button>
         </div>
       </form>
-      <div className="text-sm text-muted-foreground">Gợi ý: Dùng trang này để kiểm tra nhanh trước khi chạy khuyến mãi lớn.</div>
+      <div className="text-sm text-muted-foreground">
+        <strong>Gợi ý:</strong> Dùng trang này để kiểm tra nhanh trước khi chạy khuyến mãi lớn.
+        <br />
+        <strong>Mới:</strong> Có thể chọn khách hàng để test contract pricing (ví dụ: A HOÀNG HIẾU VỊT có contract SP000049 = 185k)
+      </div>
     </div>
   )
 }
