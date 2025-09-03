@@ -86,11 +86,32 @@ export default function POSPage() {
     setOptimisticStockUpdates({})
   }
 
+  // Function to update cart with enhanced pricing results
+  const updateCartWithEnhancedPricing = () => {
+    if (cartPricingResults.size === 0) return
+    
+    setCart(currentCart => 
+      currentCart.map(item => {
+        const pricingResult = cartPricingResults.get(item.product.product_id)
+        if (pricingResult && pricingResult.final_price !== item.unit_price) {
+          // Update với enhanced pricing
+          return {
+            ...item,
+            unit_price: pricingResult.final_price,
+            line_total: item.quantity * pricingResult.final_price
+          }
+        }
+        return item
+      })
+    )
+  }
+
   // Fetch products với pagination, search và advanced filters
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true)
       
+      // Optimized query for POS - reduced fields and better indexing
       let query = supabase
         .from('products')
         .select(`
@@ -101,21 +122,17 @@ export default function POSPage() {
           current_stock,
           requires_prescription,
           is_medicine,
-          category_id,
-          product_categories!fk_products_category_id (
-            category_id,
-            category_name
-          )
+          category_id
         `)
         .eq('is_active', true)
         .eq('allow_sale', true)
 
-      // Stock filter - điều chỉnh theo toggle
+      // Stock filter - điều chỉnh theo toggle với tối ưu index
       if (showOnlyInStock) {
-        query = query.gt('current_stock', 0) // Chỉ hiển thị sản phẩm còn hàng
+        query = query.gt('current_stock', 0) // Sử dụng idx_products_stock_check
       }
 
-      // Search functionality - improved to search multiple fields
+      // Search functionality - tối ưu cho composite index
       if (searchTerm) {
         query = query.or(`product_name.ilike.%${searchTerm}%,product_code.ilike.%${searchTerm}%`)
       }
@@ -136,12 +153,12 @@ export default function POSPage() {
         query = query.lt('current_stock', 10) // Consider low stock < 10
       }
 
-      // Sorting
+      // Sorting - sử dụng index tối ưu
       const sortField = sortBy === 'name' ? 'product_name' : 
                        sortBy === 'price' ? 'sale_price' : 'current_stock'
       query = query.order(sortField, { ascending: sortOrder === 'asc' })
 
-      // Count total for pagination with same filters
+      // Count total for pagination - tối ưu với same filters
       let countQuery = supabase
         .from('products')
         .select('product_id', { count: 'exact', head: true })
@@ -185,18 +202,17 @@ export default function POSPage() {
 
       if (error) throw error
       
-      // Transform data để đảm bảo product_categories là single object (consistency với Products page)
-      const transformedData = data?.map(product => ({
-        ...product,
-        product_categories: Array.isArray(product.product_categories) 
-          ? product.product_categories[0] || null
-          : product.product_categories
-      })) || []
-      
-      setProducts(transformedData)
-    } catch (error) {
-      console.error('Error fetching products:', error)
-      toast.error('Lỗi khi tải danh sách sản phẩm')
+      // No need to transform data anymore since we're not fetching product_categories
+      setProducts(data || [])
+    } catch (error: any) {
+      console.error('Error fetching products:', {
+        error,
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code
+      })
+      toast.error(`Lỗi khi tải danh sách sản phẩm: ${error?.message || 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
@@ -213,8 +229,12 @@ export default function POSPage() {
 
       if (error) throw error
       setCategories(data || [])
-    } catch (error) {
-      console.error('Error fetching categories:', error)
+    } catch (error: any) {
+      console.error('Error fetching categories:', {
+        error,
+        message: error?.message,
+        details: error?.details
+      })
     }
   }, [supabase])
 
@@ -301,13 +321,35 @@ export default function POSPage() {
     }
     
     if (existingItem) {
-      updateQuantity(product.product_id, existingItem.quantity + 1)
+      // Update existing item với enhanced pricing nếu có
+      const pricingResult = cartPricingResults.get(product.product_id)
+      const finalPrice = pricingResult?.final_price || product.sale_price
+      
+      // Update both quantity and pricing
+      const newQuantity = existingItem.quantity + 1
+      setCart(cart.map(item =>
+        item.product.product_id === product.product_id
+          ? {
+              ...item,
+              quantity: newQuantity,
+              unit_price: finalPrice, // Update with enhanced pricing
+              line_total: newQuantity * finalPrice
+            }
+          : item
+      ))
+      
+      // Optimistic update: decrease stock by 1
+      updateOptimisticStock(product.product_id, -1)
     } else {
+      // Get enhanced pricing result for this product
+      const pricingResult = cartPricingResults.get(product.product_id)
+      const finalPrice = pricingResult?.final_price || product.sale_price
+      
       const newItem: CartItem = {
         product,
         quantity: 1,
-        unit_price: product.sale_price,
-        line_total: product.sale_price
+        unit_price: finalPrice, // Use enhanced pricing instead of sale_price
+        line_total: finalPrice
       }
       setCart([...cart, newItem])
       
@@ -357,7 +399,7 @@ export default function POSPage() {
         ? {
             ...item,
             quantity: newQuantity,
-            line_total: newQuantity * item.unit_price
+            line_total: newQuantity * item.unit_price // Keep using the enhanced unit_price already set
           }
         : item
     ))
@@ -480,6 +522,13 @@ export default function POSPage() {
       calculateEnhancedPricing()
     }
   }, [calculateEnhancedPricing, useEnhancedPricing])
+
+  // Auto-update cart pricing when enhanced pricing results change
+  useEffect(() => {
+    if (cartPricingResults.size > 0) {
+      updateCartWithEnhancedPricing()
+    }
+  }, [cartPricingResults])
 
   // Checkout process - Using Enhanced Pricing + Supabase Function
   const handleCheckout = async (paymentData: { 

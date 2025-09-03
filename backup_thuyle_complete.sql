@@ -3582,9 +3582,9 @@ COPY public.branches (branch_id, branch_code, branch_name, address, phone, is_ac
 --
 
 COPY public.contract_prices (contract_id, customer_id, product_id, net_price, effective_from, effective_to, is_active, notes, created_at) FROM stdin;
-1	1065	1755	190000.00	\N	\N	t	áp dụng liền cho đến khi có hợp đồng mới	2025-08-22 02:48:44.675915
 2	1065	2101	120000.00	\N	\N	t	\N	2025-08-22 02:49:11.911514
 3	1065	1974	86000.00	2025-08-22 00:00:00	2025-10-22 00:00:00	t	test	2025-08-22 05:53:54.836269
+1	1065	1755	185000.00	\N	\N	t	áp dụng liền cho đến khi có hợp đồng mới	2025-08-22 02:48:44.675915
 \.
 
 
@@ -3605,9 +3605,7 @@ COPY public.customer_types (type_id, type_code, type_name, description, is_activ
 
 COPY public.customers (customer_id, customer_code, customer_name, customer_type_id, branch_created_id, phone, email, address, company_name, tax_code, id_number, gender, debt_limit, current_debt, total_revenue, total_profit, purchase_count, last_purchase_date, status, notes, created_by, is_active, created_at, updated_at) FROM stdin;
 836	KH000418	ANH KHÁNH - TAM HOÀNG - SOKLU 2	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	10490000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-23 04:12:38.577	2025-07-29 06:48:10.46569
-837	KH000417	EM HẢI - TÂN PHÚ	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	5392000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-22 08:51:47.45	2025-07-29 06:48:10.46569
 838	KH000416	ANH LÂM - TRẠI 5	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	3860000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-22 01:57:51.242	2025-07-29 06:48:10.46569
-839	KH000415	CHÚ PHƯỚC VỊNH - NINH PHÁT	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	2800000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-21 08:33:50.583	2025-07-29 06:48:10.46569
 840	KH000414	ANH TÂM (CÔNG) LÔ MỚI	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	8360000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-18 07:50:36.279	2025-07-29 06:48:10.46569
 841	KH000413	ANH VƯƠNG NHẤT - TÍN NGHĨA	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	7340000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-18 00:03:30.92	2025-07-29 06:48:10.46569
 842	KH000412	ANH THẾ - VÕ DÕNG	1	1	382021323	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	2520000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-17 03:37:13.802	2025-07-29 06:48:10.46569
@@ -3653,9 +3651,11 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 884	KH000368	CÔ LUÂN - BÀU HÀM	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	800000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-10 08:20:30.85	2025-07-29 06:48:10.591439
 875	KH000377	NHUNG VIETVET	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	102664000.00	198096.77	1	2025-08-05 08:15:45.23856	1	\N	Ngọc Bích	t	2025-06-18 03:48:41.41	2025-08-05 08:15:45.23856
 831	KH000423	ANH HẢI (TUẤN)	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	391200.00	120000.00	0.00	0	2025-08-06 12:45:58.938618	1	\N	Ngọc Bích	t	2025-07-26 03:31:11.68	2025-07-29 06:48:10.46569
-835	KH000419	CHỊ TRINH - VĨNH AN	1	1	0888 445 792	\N	\N	\N	\N	\N	Nữ	50000000.00	66000000.00	8270000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-24 03:06:17.607	2025-08-06 00:22:22.592333
 873	KH000379	THÚ Y KHANH THUỶ - VĨNH CỬU	1	1	907656669	\N	\N	\N	\N	\N	Nam	50000000.00	950000.00	3822648.00	593096.77	1	2025-08-06 09:39:19.718783	1	\N	Ngọc Bích	t	2025-06-18 09:19:52.027	2025-08-15 08:07:00.450693
 834	KH000420	CHỊ LIỄU - LONG THÀNH	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	1050000.00	10760000.00	0.00	0	2025-08-15 08:11:51.434329	1	\N	Ngọc Bích	t	2025-07-25 09:38:10.697	2025-07-29 06:48:10.46569
+835	KH000419	CHỊ TRINH - VĨNH AN	1	1	0888 445 792	\N	\N	\N	\N	\N	Nữ	50000000.00	60000000.00	8270000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-07-24 03:06:17.607	2025-08-24 12:27:42.557076
+839	KH000415	CHÚ PHƯỚC VỊNH - NINH PHÁT	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	27500.00	2800000.00	0.00	0	2025-09-03 05:10:37.025034	1	\N	Ngọc Bích	t	2025-07-21 08:33:50.583	2025-07-29 06:48:10.46569
+837	KH000417	EM HẢI - TÂN PHÚ	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	47500.00	5392000.00	0.00	0	2025-09-03 06:07:03.497387	1	\N	Ngọc Bích	t	2025-07-22 08:51:47.45	2025-07-29 06:48:10.46569
 885	KH000367	ANH THỨC - TAM HOÀNG	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	46205000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-07 07:45:06.42	2025-07-29 06:48:10.591439
 886	KH000366	CHỊ QUY - BÌNH DƯƠNG - LÔ MỚI	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	77740000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-07 04:34:44.966	2025-07-29 06:48:10.591439
 887	KH000365	ANH HUY - GÀ - ĐỨC HUY	1	1	0972 612 063	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	18480000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-06-05 03:43:35.857	2025-07-29 06:48:10.591439
@@ -3852,7 +3852,6 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 1062	KH000180	CHỊ HƯƠNG-THÀNH AN	1	1	093 8916598	\N	\N	\N	\N	\N	\N	50000000.00	0.00	91360000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-10 11:38:52.337	2025-07-29 06:48:11.089188
 1063	KH000179	A LẮM-NOVA	1	1	097 8713827	\N	\N	\N	\N	\N	\N	50000000.00	0.00	0.00	0.00	0	\N	1	Cu Quyền có tiền sơn mai gửi 20 triệu	Thu Y Thuy Trang	t	2024-12-10 11:38:52.333	2025-07-29 06:48:11.089188
 1064	KH000178	TUẤN KĨ THUẬT - ANT	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	0.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-10 11:38:52.333	2025-07-29 06:48:11.089188
-1065	KH000177	A HOÀNG HIẾU VỊT	1	1	086 2125212	\N	\N	\N	\N	\N	\N	50000000.00	0.00	0.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-10 11:38:52.333	2025-07-29 06:48:11.089188
 1066	KH000176	ANH LONG- BƯU ĐIỆN	1	1	091 7412252	\N	\N	\N	\N	\N	\N	50000000.00	0.00	75965000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-10 11:38:52.33	2025-07-29 06:48:11.089188
 1067	KH000175	ANH PHONG - SUNJIN	1	1	070 4460680	\N	\N	\N	\N	\N	\N	50000000.00	0.00	0.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-10 11:38:52.33	2025-07-29 06:48:11.089188
 1068	KH000174	ANH COI CARGILL	1	1	\N	\N	\N	\N	\N	\N	\N	50000000.00	0.00	0.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-10 11:38:52.33	2025-07-29 06:48:11.089188
@@ -3869,6 +3868,7 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 1180	KH0000052	ANH HÙNG - BỘ - TAM HOÀNG	1	1	0382 483 443	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	46786000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.963	2025-07-29 06:48:11.558485
 1181	KH0000051	ANH KHÁNH - TAM HOÀNG - SOKLU	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	149300000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.963	2025-07-29 06:48:11.558485
 1182	KH0000050	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	68330000.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-09 07:13:49.963	2025-07-29 06:48:11.558485
+1065	KH000177	A HOÀNG HIẾU VỊT	1	1	086 2125212	\N	\N	\N	\N	\N	\N	50000000.00	135000.00	0.00	0.00	0	2025-09-03 06:19:33.52699	1	\N	Thu Y Thuy Trang	t	2024-12-10 11:38:52.333	2025-07-29 06:48:11.089188
 1093	KH000148	ANH SANG - SUỐI CÁT	1	1	096 5088906	\N	\N	\N	\N	\N	\N	50000000.00	0.00	0.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-10 11:38:52.303	2025-07-29 06:48:11.269044
 1094	KH000147	CHÚ TÀI - LONG KHÁNH	1	1	091 4703793	\N	\N	\N	\N	\N	\N	50000000.00	0.00	0.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-10 11:38:52.303	2025-07-29 06:48:11.269044
 1095	KH000146	ANH DŨNG - CÂY XĂNG THANH SƠN	1	1	097 4372815	\N	\N	\N	\N	\N	\N	50000000.00	0.00	0.00	0.00	0	\N	1	\N	Thu Y Thuy Trang	t	2024-12-10 11:38:52.3	2025-07-29 06:48:11.269044
@@ -4035,6 +4035,10 @@ COPY public.debt_transactions (transaction_id, customer_id, transaction_type, am
 23	833	debt_increase	300000.00	10857500.00	11157500.00	\N	vay them tien	\N	debt_page_user	2025-08-16 05:37:53.558222
 24	833	debt_payment	-4000000.00	11157500.00	7157500.00	cash	tran tien mat	\N	debt_page_user	2025-08-16 05:38:54.49221
 25	937	debt_increase	4520000.00	720000.00	5240000.00	cash	Ghi nợ từ hóa đơn INV2508180014 (partial)	771	POS System	2025-08-18 16:01:41.222297
+26	835	debt_payment	-6000000.00	66000000.00	60000000.00	cash	gí nợ trên Vĩnh Cửu	\N	debt_page_user	2025-08-24 12:27:42.557076
+27	839	debt_increase	27500.00	0.00	27500.00	cash	Ghi nợ từ hóa đơn INV2509030015 (partial)	773	POS System	2025-09-03 05:10:37.025034
+28	837	debt_increase	47500.00	0.00	47500.00	cash	Ghi nợ từ hóa đơn INV2509030016 (debt)	774	POS System	2025-09-03 06:07:03.497387
+29	1065	debt_increase	135000.00	0.00	135000.00	cash	Ghi nợ từ hóa đơn INV2509030017 (partial)	775	POS System	2025-09-03 06:19:33.52699
 \.
 
 
@@ -5836,6 +5840,9 @@ COPY public.invoice_details (detail_id, invoice_id, product_id, invoice_code, pr
 2892	771	1755	INV2508180014	SP000049	#AGR POX (1000DS)	KH000314	ANH TUẤN - VỊT - TÍN NGHĨA	1	\N	\N	\N	2025-08-18 16:01:41.222297	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	2420000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	11.00	220000.00	0.00	0.00	220000.00	2420000.00	0.00	0.00	2025-08-18 16:01:41.222297	937
 2893	771	1630	INV2508180014	SP000178	#CÚM AVAC RE5 (250ml)	KH000314	ANH TUẤN - VỊT - TÍN NGHĨA	1	\N	\N	\N	2025-08-18 16:01:41.222297	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	200000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	200000.00	0.00	0.00	200000.00	200000.00	0.00	0.00	2025-08-18 16:01:41.222297	937
 2894	771	1955	INV2508180014	SP000565	#CÚM H5 + H9 (250ml)	KH000314	ANH TUẤN - VỊT - TÍN NGHĨA	1	\N	\N	\N	2025-08-18 16:01:41.222297	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	200000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	200000.00	0.00	0.00	200000.00	200000.00	0.00	0.00	2025-08-18 16:01:41.222297	937
+2895	773	1430	INV2509030015	SP000385	KIM 12x15 (Vỉ)	KH000415	CHÚ PHƯỚC VỊNH - NINH PHÁT	1	\N	\N	\N	2025-09-03 05:10:37.025034	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	50000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	5.00	10000.00	0.00	0.00	10000.00	50000.00	0.00	0.00	2025-09-03 05:10:37.025034	839
+2896	774	1430	INV2509030016	SP000385	KIM 12x15 (Vỉ)	KH000417	EM HẢI - TÂN PHÚ	1	\N	\N	\N	2025-09-03 06:07:03.497387	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	47500.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	5.00	9500.00	0.00	0.00	9500.00	47500.00	0.00	0.00	2025-09-03 06:07:03.497387	837
+2897	775	1755	INV2509030017	SP000049	#AGR POX (1000DS)	KH000177	A HOÀNG HIẾU VỊT	1	\N	\N	\N	2025-09-03 06:19:33.52699	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	185000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	185000.00	0.00	0.00	185000.00	185000.00	0.00	0.00	2025-09-03 06:19:33.52699	1065
 2812	738	\N	HD004605.01	SP000616{DEL}	CEVAMUNE (VIÊN)	KH000385	QUYỀN - TAM HOÀNG LÔ MỚI	1	\N	\N	\N	1970-01-01 00:00:45.839	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	80000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00		\N				1.00	80000.00	0.00	0.00	80000.00	80000.00	0.00	0.00	2025-07-30 01:20:39.244021	868
 1419	5	1584	HD005350	SP000224	#TG TẢ + CÚM (500ml)	KH000182	CÔ TUYẾT THU - PHÚ CƯỜNG 11K	1	\N	\N	\N	1970-01-01 00:00:45.866	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	13000000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00		\N				10.00	1300000.00	0.00	0.00	1300000.00	13000000.00	0.00	0.00	2025-07-30 01:20:32.586738	1115
 1420	6	1673	HD005349	SP000134	VAC PAC PLUS (5g)	KH000184	ĐINH QUỐC TUẤN	1	\N	\N	\N	1970-01-01 00:00:45.866	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	60000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00		\N				2.00	30000.00	0.00	0.00	30000.00	60000.00	0.00	0.00	2025-07-30 01:20:32.586738	1060
@@ -6589,6 +6596,7 @@ COPY public.invoices (invoice_id, invoice_code, invoice_date, return_code, custo
 764	INV2508110011	2025-08-11 11:21:02.467332	\N	833	Thắng bida (test)	1	820000.00	120000.00	Thanh toán partial: 120000 VND, Ghi nợ: 700000 VND, Phương thức: cash	partial	2025-08-11 11:21:02.467332	2025-08-11 11:21:02.467332	percentage	0.00	0.00	0.00
 767	PAY1755245220	2025-08-15 08:07:00.450693	\N	873	THÚ Y KHANH THUỶ - VĨNH CỬU	1	2000000.00	2000000.00	Thu tiền nợ - Text thử	debt_payment	2025-08-15 08:07:00.450693	2025-08-15 08:07:00.450693	percentage	0.00	0.00	0.00
 770	PAY1755322734	2025-08-16 05:38:54.49221	\N	833	Thắng bida (test)	1	4000000.00	4000000.00	Thu tiền nợ - tran tien mat	debt_payment	2025-08-16 05:38:54.49221	2025-08-16 05:38:54.49221	percentage	0.00	0.00	0.00
+773	INV2509030015	2025-09-03 05:10:37.025034	\N	839	CHÚ PHƯỚC VỊNH - NINH PHÁT	1	50000.00	20000.00	Thanh toán partial: 20000 VND, Ghi nợ: 27500 VND, Phương thức: cash	partial	2025-09-03 05:10:37.025034	2025-09-03 05:10:37.025034	percentage	0.00	0.00	0.00
 282	HD005066	2025-07-18 09:56:36.503	\N	1203	CHỊ LOAN ( ĐỊNH)	1	5800000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00
 357	HD004989	2025-07-15 11:54:47.662	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	5280000.00	0.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00
 381	HD004966.01	2025-07-14 16:25:29.287	\N	1048	ANH TRIỆU - GIA KIỆM	1	200000.00	0.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00
@@ -6608,6 +6616,7 @@ COPY public.invoices (invoice_id, invoice_code, invoice_date, return_code, custo
 765	PAY1754911338	2025-08-11 11:22:17.770479	\N	833	Thắng bida (test)	1	5000000.00	5000000.00	Thu tiền nợ - Gì nợ	debt_payment	2025-08-11 11:22:17.770479	2025-08-11 11:22:17.770479	percentage	0.00	0.00	0.00
 768	INV2508150012	2025-08-15 08:11:51.434329	\N	834	CHỊ LIỄU - LONG THÀNH	1	1050000.00	0.00	Thanh toán debt: 0 VND, Ghi nợ: 1050000 VND, Phương thức: cash	partial	2025-08-15 08:11:51.434329	2025-08-15 08:11:51.434329	percentage	0.00	0.00	0.00
 771	INV2508180014	2025-08-18 16:01:41.222297	\N	937	ANH TUẤN - VỊT - TÍN NGHĨA	1	5520000.00	1000000.00	Thanh toán partial: 1000000 VND, Ghi nợ: 4520000 VND, Phương thức: cash	partial	2025-08-18 16:01:41.222297	2025-08-18 16:01:41.222297	amount	500000.00	0.00	0.00
+774	INV2509030016	2025-09-03 06:07:03.497387	\N	837	EM HẢI - TÂN PHÚ	1	47500.00	0.00	Thanh toán debt: 0 VND, Ghi nợ: 47500 VND, Phương thức: cash	partial	2025-09-03 06:07:03.497387	2025-09-03 06:07:03.497387	percentage	0.00	0.00	0.00
 310	HD005038	2025-07-17 11:07:21.637	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	700000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00
 319	HD005029	2025-07-17 08:01:31.273	\N	843	CHÚ MẪN - CÚT - VÕ DÕNG	1	650000.00	650000.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00
 394	HD004952	2025-07-14 08:15:38.13	\N	1215	ANH TÂM ( ANH CÔNG)	1	2150000.00	0.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00
@@ -6622,6 +6631,8 @@ COPY public.invoices (invoice_id, invoice_code, invoice_date, return_code, custo
 763	INV2508100010	2025-08-10 02:08:19.340138	\N	937	ANH TUẤN - VỊT - TÍN NGHĨA	1	1220000.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 720000 VND, Phương thức: card	partial	2025-08-10 02:08:19.340138	2025-08-10 02:08:19.340138	percentage	0.00	0.00	0.00
 766	PAY1755245144	2025-08-15 08:05:43.962274	\N	833	Thắng bida (test)	1	10000000.00	10000000.00	Thu tiền nợ - Thanh toán công nợ	debt_payment	2025-08-15 08:05:43.962274	2025-08-15 08:05:43.962274	percentage	0.00	0.00	0.00
 769	INV2508160013	2025-08-16 05:34:15.268621	\N	833	Thắng bida (test)	1	1995000.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 1495000 VND, Phương thức: cash	partial	2025-08-16 05:34:15.268621	2025-08-16 05:34:15.268621	amount	50000.00	5.00	95000.00
+772	PAY1756038463	2025-08-24 12:27:42.557076	\N	835	CHỊ TRINH - VĨNH AN	1	6000000.00	6000000.00	Thu tiền nợ - gí nợ trên Vĩnh Cửu	debt_payment	2025-08-24 12:27:42.557076	2025-08-24 12:27:42.557076	percentage	0.00	0.00	0.00
+775	INV2509030017	2025-09-03 06:19:33.52699	\N	1065	A HOÀNG HIẾU VỊT	1	185000.00	50000.00	Thanh toán partial: 50000 VND, Ghi nợ: 135000 VND, Phương thức: cash	partial	2025-09-03 06:19:33.52699	2025-09-03 06:19:33.52699	percentage	0.00	0.00	0.00
 \.
 
 
@@ -6767,7 +6778,6 @@ COPY public.price_rules (rule_id, price_book_id, scope, sku_code, category_id, t
 63	1	sku	SP000277	\N	\N	net	110000.00	\N	\N	100	\N	\N	t	Auto-generated from products.sale_price	2025-08-21 04:17:49.474177
 64	1	sku	SP000276	\N	\N	net	80000.00	\N	\N	100	\N	\N	t	Auto-generated from products.sale_price	2025-08-21 04:17:49.474177
 65	1	sku	SP000275	\N	\N	net	40000.00	\N	\N	100	\N	\N	t	Auto-generated from products.sale_price	2025-08-21 04:17:49.474177
-3	1	sku	SP000385	\N	\N	net	9500.00	5.00	\N	100	2025-08-22 20:30:00	2025-08-28 20:30:00	t	sửa bởi Thắng bida	2025-08-21 04:17:49.474177
 4	1	sku	SP000384	\N	\N	net	10000.00	0.00	13.00	100	\N	\N	t	Auto-generated from products.sale_price	2025-08-21 04:17:49.474177
 6	1	sku	SP000382	\N	\N	net	50000.00	0.00	0.00	100	\N	\N	f	Auto-generated from products.sale_price	2025-08-21 04:17:49.474177
 7	1	sku	SP000381	\N	\N	net	50000.00	0.00	0.00	100	\N	\N	t	Auto-generated from products.sale_price	2025-08-21 04:17:49.474177
@@ -7385,6 +7395,7 @@ COPY public.price_rules (rule_id, price_book_id, scope, sku_code, category_id, t
 674	1	sku	SP000403	\N	\N	percent	4.00	3.00	13.00	100	2025-08-24 03:19:00	2025-08-26 03:19:00	t	kiểm thử quy tắc số 7	2025-08-22 23:15:27.503859
 1	1	sku	SP000049	\N	\N	net	190000.00	1.00	30.00	100	\N	\N	t	Updated to support qty=1 - Fixed pricing rule for SP000049	2025-08-21 04:17:49.474177
 651	1	sku	SP000049	\N	\N	net	220000.00	\N	\N	100	\N	\N	f	Disabled - Duplicates rule 1 functionality after rule 1 was updated	2025-08-21 04:17:49.474177
+3	1	sku	SP000385	\N	\N	net	9500.00	5.00	1000.00	100	2025-08-22 06:30:00	2025-09-28 06:30:00	t	sửa bởi Thắng bida	2025-08-21 04:17:49.474177
 \.
 
 
@@ -7450,7 +7461,6 @@ COPY public.product_units (product_unit_id, product_id, unit_id, conversion_rate
 COPY public.products (product_id, product_code, product_name, category_id, base_unit_id, barcode, product_type, brand, origin, description, image_url, image_urls, base_price, cost_price, sale_price, current_stock, reserved_stock, available_stock, min_stock, max_stock, is_medicine, requires_prescription, storage_condition, expiry_tracking, allow_sale, track_serial, conversion_rate, unit_attributes, related_product_codes, is_active, created_at, updated_at) FROM stdin;
 1428	SP000387	KIM 18G (Vỉ)	26	6	\N	Hàng hóa	\N	\N	\N	\N	\N	10000.00	6000.00	10000.00	1.00	0.00	1.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:49.127	2025-08-19 06:18:11.631
 1429	SP000386	KIM 7x13 (Vỉ)	26	6	\N	Hàng hóa	\N	\N	\N	\N	\N	10000.00	6000.00	10000.00	72.00	0.00	72.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:49.127	2025-08-19 06:18:11.929
-1430	SP000385	KIM 12x15 (Vỉ)	26	6	\N	Hàng hóa	\N	\N	\N	\N	\N	10000.00	6000.00	10000.00	5.00	0.00	5.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:49.127	2025-08-19 06:18:12.219
 1431	SP000384	KIM 12x13 (Vỉ)	26	6	\N	Hàng hóa	\N	\N	\N	\N	\N	10000.00	6000.00	10000.00	23.00	0.00	23.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:50.371	2025-08-19 06:18:12.517
 1432	SP000383	KIM 9x13 (Vỉ)	26	6	\N	Hàng hóa	\N	\N	\N	\N	\N	10000.00	6000.00	10000.00	16.00	0.00	16.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:50.372	2025-08-19 06:18:12.823
 1433	SP000382	BÓNG ÚM INTERHEAT (250w)	26	6	\N	Hàng hóa	\N	\N	\N	\N	\N	50000.00	30000.00	50000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:50.372	2025-08-19 06:18:13.12
@@ -7496,6 +7506,7 @@ COPY public.products (product_id, product_code, product_name, category_id, base_
 1475	SP000339	VV DOXI TAV 50 (1Kg)	30	6	\N	Hàng hóa	\N	\N	\N	\N	\N	1700000.00	1500000.00	1700000.00	2.00	0.00	2.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:50.813	2025-08-19 06:18:25.795
 1476	SP000338	VV SULTRIM 50 TAV (1Kg)	30	6	\N	Hàng hóa	\N	\N	\N	\N	\N	1400000.00	980000.00	1400000.00	13.00	0.00	13.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:50.813	2025-08-19 06:18:26.085
 1477	SP000337	VV BENGLUXIDE (1Lit)	33	6	\N	Hàng hóa	\N	\N	\N	\N	\N	120000.00	85000.00	120000.00	37.00	0.00	37.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:50.813	2025-08-19 06:18:26.426
+1430	SP000385	KIM 12x15 (Vỉ)	26	6	\N	Hàng hóa	\N	\N	\N	\N	\N	10000.00	6000.00	10000.00	495.00	0.00	5.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:49.127	2025-09-03 04:01:19.2511
 1479	SP000335	VV APRAMYCIN 50 (1Kg)	30	6	\N	Hàng hóa	\N	\N	\N	\N	\N	1300000.00	1100000.00	1300000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:50.813	2025-08-19 06:18:27.127
 1480	SP000334	VV ERYTHOMYCIN 50% (1Kg)	30	6	\N	Hàng hóa	\N	\N	\N	\N	\N	1200000.00	1000000.00	1200000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:50.813	2025-08-19 06:18:27.469
 1501	SP000313	VV ENROCIN 500 WSP (100g)	30	6	\N	Hàng hóa	\N	\N	\N	\N	\N	100000.00	70000.00	100000.00	0.00	0.00	0.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:51.121	2025-08-19 06:18:34.196
@@ -8121,7 +8132,7 @@ COPY public.products (product_id, product_code, product_name, category_id, base_
 1628	SP000180	#ECOLI,BẠI HUYẾT RINGPU (250ml)	28	6	\N	Hàng hóa	\N	\N	\N	\N	\N	250000.00	175000.00	250000.00	84.00	0.00	79.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.373	2025-08-19 06:19:17.136
 1631	SP000177	#RỤT MỎ RINGPU (250ml)	34	6	\N	Hàng hóa	\N	\N	\N	\N	\N	180000.00	108905.67	180000.00	172.00	0.00	173.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.474	2025-08-19 06:19:18.103
 1737	SP000067	AGR AVITOXIN (1lit)	27	6	\N	Hàng hóa	\N	\N	\N	\N	\N	450000.00	295123.75	450000.00	1.00	0.00	2.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.539	2025-08-19 06:19:50.918
-1755	SP000049	#AGR POX (1000DS)	28	6	\N	Hàng hóa	\N	\N	\N	\N	\N	220000.00	162000.00	220000.00	5055.00	0.00	66.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.78	2025-08-19 06:19:56.424
+1755	SP000049	#AGR POX (1000DS)	28	6	\N	Hàng hóa	\N	\N	\N	\N	\N	220000.00	162000.00	220000.00	5054.00	0.00	66.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.78	2025-08-19 06:19:56.424
 1787	SP000738	AN-DINE ( lít)	33	1	\N	Hàng hóa	\N	\N	\N	\N	\N	180000.00	135000.00	180000.00	-1.00	0.00	-1.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:18.851	2025-08-19 06:16:29.138
 1789	SP000736	MARTYLAN (MARPHAVET)	31	1	\N	Hàng hóa	\N	\N	\N	\N	\N	150000.00	100000.00	150000.00	0.00	0.00	0.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:19.287	2025-08-19 06:16:29.752
 1818	SP000706	LUBE GEL	26	1	\N	Hàng hóa	\N	\N	\N	\N	\N	40000.00	20000.00	40000.00	0.00	0.00	0.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:23.889	2025-08-19 06:16:38.559
@@ -8409,6 +8420,7 @@ COPY public.stock_movements (movement_id, product_id, movement_type, quantity, o
 33	1628	OUT	3.00	87.00	84.00	45000.00	\N	RETURN_GOODS	\N	RET-2025-0001	Trả hàng cho NCC: WRONG_ITEM	Từ phiếu nhập PO-2025-0002	1	system	2025-08-17 21:00:49.798769	t	\N	161	\N	\N
 34	1955	OUT	12.00	152.00	140.00	965000.00	\N	RETURN_GOODS	\N	RET-2025-0001	Trả hàng cho NCC: WRONG_ITEM	Từ phiếu nhập PO-2025-0002	1	system	2025-08-17 21:00:49.798769	t	\N	161	\N	\N
 35	1641	OUT	5.00	19.00	14.00	25000.00	\N	RETURN_GOODS	\N	RET-2025-0001	Trả hàng cho NCC: WRONG_ITEM	Từ phiếu nhập PO-2025-0002	1	system	2025-08-17 21:00:49.798769	t	\N	161	\N	\N
+36	1430	IN	500.00	5.00	505.00	6000.00	3000000.00	MANUAL	\N	\N	Điều chỉnh khác	thêm để test	1	User	2025-09-03 04:01:19.2511	t	\N	\N	\N	\N
 \.
 
 
@@ -8556,6 +8568,8 @@ COPY public.units (unit_id, unit_code, unit_name, unit_symbol, is_base_unit, con
 --
 
 COPY public.volume_tiers (tier_id, scope, product_id, category_id, min_qty, discount_percent, discount_amount, effective_from, effective_to, is_active, notes, created_at) FROM stdin;
+1	sku	1433	\N	10.00	3.000	\N	2025-08-26 00:00:00	2025-09-06 00:00:00	t	khuyen mai si	2025-08-26 02:59:57.078773
+2	sku	1443	\N	14.00	4.000	\N	2025-08-26 00:00:00	2025-09-06 00:00:00	t	\N	2025-08-26 11:17:47.665262
 \.
 
 
@@ -8598,7 +8612,7 @@ SELECT pg_catalog.setval('public.customers_customer_id_seq', 1231, true);
 -- Name: debt_transactions_transaction_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.debt_transactions_transaction_id_seq', 25, true);
+SELECT pg_catalog.setval('public.debt_transactions_transaction_id_seq', 29, true);
 
 
 --
@@ -8619,21 +8633,21 @@ SELECT pg_catalog.setval('public.inbound_order_code_seq', 2, true);
 -- Name: invoice_code_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.invoice_code_seq', 14, true);
+SELECT pg_catalog.setval('public.invoice_code_seq', 17, true);
 
 
 --
 -- Name: invoice_details_detail_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.invoice_details_detail_id_seq', 2894, true);
+SELECT pg_catalog.setval('public.invoice_details_detail_id_seq', 2897, true);
 
 
 --
 -- Name: invoices_invoice_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.invoices_invoice_id_seq', 771, true);
+SELECT pg_catalog.setval('public.invoices_invoice_id_seq', 775, true);
 
 
 --
@@ -8724,7 +8738,7 @@ SELECT pg_catalog.setval('public.settings_change_log_log_id_seq', 179, true);
 -- Name: stock_movements_movement_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.stock_movements_movement_id_seq', 35, true);
+SELECT pg_catalog.setval('public.stock_movements_movement_id_seq', 36, true);
 
 
 --
@@ -8752,7 +8766,7 @@ SELECT pg_catalog.setval('public.units_unit_id_seq', 40, true);
 -- Name: volume_tiers_tier_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.volume_tiers_tier_id_seq', 1, false);
+SELECT pg_catalog.setval('public.volume_tiers_tier_id_seq', 2, true);
 
 
 --

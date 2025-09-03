@@ -6,11 +6,9 @@ export interface Product {
   product_name: string
   sale_price: number
   current_stock: number
-  category_id: number
-  product_categories?: {
-    category_id: number
-    category_name: string
-  } | null
+  category_id: number | null
+  requires_prescription?: boolean
+  is_medicine?: boolean
 }
 
 export interface Customer {

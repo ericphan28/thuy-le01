@@ -78,7 +78,11 @@ export default async function InvoicePrintStandalone({ params, searchParams }: {
   const grandTotal = preTaxTotal + vatAmount
   const customerPaid = Number(header.customer_paid || 0)
   const remaining = grandTotal - customerPaid
-  const totalDebtAfter = (customer?.current_debt || 0) + (remaining > 0 ? remaining : 0)
+  
+  // Tổng công nợ = nợ hiện tại + nợ mới (nếu có)
+  // Chỉ cộng remaining nếu > 0 (khách trả thiếu)
+  // Không trừ nếu khách trả thừa (overpaid) vì đây chỉ là 1 hóa đơn
+  const totalDebtAfter = (customer?.current_debt || 0) + Math.max(0, remaining)
 
   const fmt = (n: number) => formatPrice(Number(n || 0))
   const fmtDate = (s?: string | null) => (s ? formatDate(s as any) : '')
@@ -187,9 +191,9 @@ export default async function InvoicePrintStandalone({ params, searchParams }: {
             <span>Còn lại:</span><strong>{fmt(remaining)}</strong>
           </div>
         )}
-        {customer && remaining > 0 && (
+        {customer && (
           <div className="a4-summary-row" style={{ display: 'flex', justifyContent: 'space-between', color: '#b91c1c', padding: compact ? '2px 0' : '4px 0' }}>
-            <span>Tổng công nợ:</span><strong>{fmt(totalDebtAfter)}</strong>
+            <span>Tổng công nợ:</span><strong>{fmt(customer.current_debt || 0)}</strong>
           </div>
         )}
       </div>

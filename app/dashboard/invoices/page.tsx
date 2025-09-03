@@ -19,6 +19,7 @@ import {
   Eye
 } from 'lucide-react'
 import { Printer, FileDown } from 'lucide-react'
+import TestCanvasPDF from '@/components/invoice/test-canvas-pdf'
 
 // Invoice interface matching database schema
 interface VeterinaryInvoice {
@@ -407,6 +408,9 @@ export default function InvoicesPage() {
                     </Button>
                   </a>
                   */}
+                  
+                  {/* Test Canvas PDF với Tổng công nợ */}
+                  <TestCanvasPDF invoiceId={invoice.invoice_id} />
                 </div>
               </div>
 

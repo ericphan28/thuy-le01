@@ -516,9 +516,15 @@ export function generateVietnameseInvoiceHTML(invoiceData: InvoiceFullData): str
                     <span class="total-value">${formatPrice(grandTotal)}</span>
                 </div>
                 ${remainingAmount > 0 ? `
-                <div class="total-row" style="background: #fef3c7; color: #92400e; margin: 8px -20px -20px -20px; padding: 12px 20px;">
+                <div class="total-row" style="background: #fef3c7; color: #92400e; margin: 8px -20px 0 -20px; padding: 12px 20px;">
                     <span class="total-label">Còn nợ:</span>
                     <span class="total-value">${formatPrice(remainingAmount)}</span>
+                </div>
+                ` : ''}
+                ${customer ? `
+                <div class="total-row" style="background: #fee2e2; color: #dc2626; margin: 8px -20px -20px -20px; padding: 12px 20px;">
+                    <span class="total-label">Tổng công nợ:</span>
+                    <span class="total-value">${formatPrice(customer.current_debt || 0)}</span>
                 </div>
                 ` : ''}
             </div>

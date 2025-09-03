@@ -246,6 +246,13 @@ export async function GET(
                     <span style="font-weight: bold; font-size: 16px;">${formatPrice(remainingAmount)}</span>
                   </div>
                 ` : ''}
+                
+                ${customerData ? `
+                  <div style="display: flex; justify-content: space-between; align-items: center; color: #dc2626; border-top: 1px solid #e5e7eb; margin-top: 8px; padding-top: 8px;">
+                    <span style="font-weight: bold;">Tổng công nợ:</span>
+                    <span style="font-weight: bold; font-size: 16px;">${formatPrice(customerData.current_debt || 0)}</span>
+                  </div>
+                ` : ''}
               </div>
             </div>
           </div>

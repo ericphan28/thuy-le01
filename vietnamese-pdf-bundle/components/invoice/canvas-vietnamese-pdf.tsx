@@ -232,6 +232,20 @@ function generateVietnameseHTMLForCanvas(invoiceData: InvoiceFullData): string {
           <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">CÒN LẠI</div>
           <div style="font-size: 13px; font-weight: 600; color: ${remainingAmount > 0 ? '#dc2626' : '#059669'};">${formatPrice(remainingAmount)}</div>
         </div>
+        
+        ${customer ? `
+        <!-- Total Debt -->
+        <div style="
+          border: 1px solid #f87171;
+          border-radius: 6px;
+          padding: 12px;
+          background: #fef2f2;
+          text-align: center;
+        ">
+          <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">TỔNG CÔNG NỢ</div>
+          <div style="font-size: 13px; font-weight: 600; color: #dc2626;">${formatPrice(customer.current_debt || 0)}</div>
+        </div>
+        ` : ''}
       </div>
 
       <!-- FOOTER - COMPACT -->
