@@ -94,7 +94,7 @@ export default function TestPOSPage() {
         hint: error?.hint,
         code: error?.code
       })
-      toast.error(`Error: ${error?.message || 'Unknown error'}`)
+  toast.error(`Lỗi: ${error?.message || 'Lỗi không xác định'}`)
     } finally {
       setLoading(false)
     }

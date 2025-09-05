@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     console.error('API Error:', error)
     return NextResponse.json({ 
       error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
+  details: error instanceof Error ? error.message : 'Lỗi không xác định'
     }, { status: 500 })
   }
 }
@@ -149,7 +149,7 @@ async function createDemoData() {
     return NextResponse.json({
       success: false,
       error: 'Failed to create demo data',
-      details: error instanceof Error ? error.message : 'Unknown error'
+  details: error instanceof Error ? error.message : 'Lỗi không xác định'
     }, { status: 500 })
   }
 }
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
     console.error('POST API Error:', error)
     return NextResponse.json({ 
       error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
+  details: error instanceof Error ? error.message : 'Lỗi không xác định'
     }, { status: 500 })
   }
 }

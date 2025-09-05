@@ -31,3 +31,31 @@ export interface PaymentData {
   method: 'cash' | 'card' | 'transfer'
   receivedAmount?: number
 }
+
+// POS Mode types
+export type POSMode = 'normal' | 'temp_order'
+
+// Temp order specific data
+export interface TempOrderData {
+  expected_delivery_date: string
+  notes?: string
+}
+
+// Enhanced payment data for checkout
+export interface CheckoutPaymentData {
+  method: 'cash' | 'card' | 'transfer'
+  paymentType: 'full' | 'partial' | 'debt'
+  receivedAmount?: number
+  partialAmount?: number
+  // Temp order data (when POS mode is temp_order)
+  tempOrderData?: TempOrderData
+}
+
+// POS Settings/State
+export interface POSSettings {
+  mode: POSMode
+  vatRate: number
+  discountType: 'percentage' | 'amount'
+  discountValue: number
+  useEnhancedPricing: boolean
+}

@@ -41,6 +41,7 @@ const menuItems = [
     children: [
       { title: "🛒 Point of Sale", href: "/dashboard/pos" },
       { title: "📋 Danh Sách Hóa Đơn", href: "/dashboard/invoices" },
+      { title: "⏰ Phiếu Tạm", href: "/dashboard/invoices/temp" },
       { title: "🔄 Trả Hàng", href: "/dashboard/returns" },
       { title: "📊 Báo Cáo Bán Hàng", href: "/dashboard/sales/reports" }
     ]

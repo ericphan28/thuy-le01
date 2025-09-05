@@ -478,3 +478,27 @@
     border: 1px solid #f1f5f9;
   }
 }
+
+/* Custom styles for date input Vietnamese formatting */
+input[type="date"] {
+  position: relative;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+
+/* Custom tooltip styling for date input */
+input[type="date"][title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  background: #1f2937;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  top: -30px;
+  left: 0;
+}

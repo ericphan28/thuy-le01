@@ -20,6 +20,8 @@
 </p>
 <br/>
 
+> AI onboarding (Copilot): Read `AI_CONTEXT.md` first for business rules, POS pricing, localization, and build notes. Treat it as the single source of truth for new chat sessions.
+
 ## 📋 Tổng quan Project {#overview}
 
 ### 🏢 **Thông tin Doanh nghiệp**

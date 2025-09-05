@@ -1,5 +1,7 @@
 # 📊 Xuân Thùy Veterinary Management System - PROJECT STATUS
 
+> For Copilot (Sep 5, 2025): Build passes. POS uses Enhanced Pricing V3 and Vietnamese localization. Read `AI_CONTEXT.md` first on new sessions.
+
 ## 🏢 Thông tin Doanh nghiệp
 
 **Tên doanh nghiệp:** Xuân Thùy Veterinary Pharmacy  

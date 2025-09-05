@@ -124,7 +124,7 @@ class StockMovementService {
       return { success: true, movement_id: data };
     } catch (error: any) {
       console.error('Service error:', error);
-      return { success: false, error: `Service error: ${error?.message || 'Unknown error'}` };
+      return { success: false, error: `Lỗi dịch vụ: ${error?.message || 'Lỗi không xác định'}` };
     }
   }
 

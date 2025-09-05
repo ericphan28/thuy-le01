@@ -20,9 +20,20 @@ import { CartSummaryOptimized } from '@/components/pos/cart-summary-optimized'
 import { CheckoutPanelOptimized } from '@/components/pos/checkout-panel-optimized'
 import { EnhancedCartSummary } from '@/components/pos/enhanced-cart-summary'
 import { EnhancedPricingService, type EnhancedProduct, type EnhancedPricingResult } from '@/lib/services/enhanced-pricing-service-v3'
-import type { Product, Customer, CartItem } from '@/lib/types/pos'
+import type { Product, Customer, CartItem, POSMode, TempOrderData } from '@/lib/types/pos'
 
 const ITEMS_PER_PAGE = 20
+
+// Helper function để format ngày theo định dạng Việt Nam dd/MM/yyyy
+const formatDateVN = (dateString: string) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit', 
+    year: 'numeric'
+  })
+}
 
 export default function POSPage() {
   // State management
@@ -38,7 +49,14 @@ export default function POSPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [showCheckout, setShowCheckout] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
-  const [useEnhancedPricing, setUseEnhancedPricing] = useState(true)
+  const [useEnhancedPricing, setUseEnhancedPricing] = useState(true) // BẬT LẠI
+  
+  // POS Mode state (NEW)
+  const [posMode, setPosMode] = useState<POSMode>('normal')
+  const [tempOrderData, setTempOrderData] = useState<TempOrderData>({
+    expected_delivery_date: '',
+    notes: ''
+  })
   
   // VAT and Discount management
   const [vatRate, setVatRate] = useState(0) // Default 0%
@@ -90,10 +108,12 @@ export default function POSPage() {
   const updateCartWithEnhancedPricing = useCallback(() => {
     if (cartPricingResults.size === 0) return
     
-    setCart(currentCart => 
-      currentCart.map(item => {
+    setCart(currentCart => {
+      let hasChanges = false
+      const updatedCart = currentCart.map(item => {
         const pricingResult = cartPricingResults.get(item.product.product_id)
         if (pricingResult && pricingResult.final_price !== item.unit_price) {
+          hasChanges = true
           // Update với enhanced pricing
           return {
             ...item,
@@ -103,7 +123,10 @@ export default function POSPage() {
         }
         return item
       })
-    )
+      
+      // Chỉ cập nhật nếu thực sự có thay đổi
+      return hasChanges ? updatedCart : currentCart
+    })
   }, [cartPricingResults])
 
   // Fetch products với pagination, search và advanced filters
@@ -212,7 +235,7 @@ export default function POSPage() {
         hint: error?.hint,
         code: error?.code
       })
-      toast.error(`Lỗi khi tải danh sách sản phẩm: ${error?.message || 'Unknown error'}`)
+  toast.error(`Không tải được danh sách sản phẩm: ${error?.message || 'lỗi không xác định'}`)
     } finally {
       setLoading(false)
     }
@@ -302,11 +325,11 @@ export default function POSPage() {
   }
 
   // Cart functions
-  const addToCart = (product: Product) => {
+  const addToCart = async (product: Product) => {
     // Kiểm tra nếu sản phẩm hết hàng
     const currentStock = getCurrentStock(product)
     if (currentStock <= 0) {
-      toast.error('Sản phẩm này đã hết hàng!')
+  toast.error('Sản phẩm đã hết hàng')
       return
     }
 
@@ -316,23 +339,68 @@ export default function POSPage() {
     
     // Check if we can add one more item
     if (currentCartQuantity >= currentStock) {
-      toast.error(`Không đủ hàng trong kho. Còn lại: ${currentStock}`)
+  toast.error(`Không đủ tồn kho. Còn lại: ${currentStock}`)
       return
     }
     
+    // Tính enhanced pricing cho sản phẩm này NGAY LẬP TỨC
+    let finalPrice = product.sale_price
+    console.log('🔍 Enhanced pricing check:', {
+      useEnhancedPricing,
+      hasSelectedCustomer: !!selectedCustomer,
+      customerId: selectedCustomer?.customer_id,
+      productName: product.product_name,
+      salePrice: product.sale_price
+    })
+    
+    if (useEnhancedPricing && selectedCustomer) {
+      try {
+        const enhancedProduct = {
+          product_id: product.product_id,
+          product_code: product.product_code,
+          product_name: product.product_name,
+          sale_price: product.sale_price,
+          current_stock: product.current_stock,
+          category_id: product.category_id || 0
+        }
+        
+        const pricingResult = await enhancedPricingService.calculateProductPrice(
+          enhancedProduct,
+          existingItem ? existingItem.quantity + 1 : 1,
+          {
+            include_volume_tiers: true,
+            include_price_rules: true,
+            tax_rate: vatRate,
+            customer_id: selectedCustomer.customer_id?.toString()
+          }
+        )
+        
+        finalPrice = pricingResult.final_price
+        
+        // Cập nhật pricing results
+        setCartPricingResults(prev => new Map(prev.set(product.product_id, pricingResult)))
+        
+        console.log('🎯 Enhanced pricing applied:', {
+          product: product.product_name,
+          originalPrice: product.sale_price,
+          finalPrice: pricingResult.final_price,
+          savings: pricingResult.final_savings,
+          source: pricingResult.pricing_source
+        })
+      } catch (error) {
+        console.error('Failed to calculate enhanced pricing:', error)
+      }
+    }
+    
     if (existingItem) {
-      // Update existing item với enhanced pricing nếu có
-      const pricingResult = cartPricingResults.get(product.product_id)
-      const finalPrice = pricingResult?.final_price || product.sale_price
-      
-      // Update both quantity and pricing
+      // Update existing item với enhanced pricing
       const newQuantity = existingItem.quantity + 1
       setCart(cart.map(item =>
         item.product.product_id === product.product_id
           ? {
               ...item,
               quantity: newQuantity,
-              unit_price: finalPrice, // Update with enhanced pricing
+              unit_price: finalPrice,
               line_total: newQuantity * finalPrice
             }
           : item
@@ -341,14 +409,10 @@ export default function POSPage() {
       // Optimistic update: decrease stock by 1
       updateOptimisticStock(product.product_id, -1)
     } else {
-      // Get enhanced pricing result for this product
-      const pricingResult = cartPricingResults.get(product.product_id)
-      const finalPrice = pricingResult?.final_price || product.sale_price
-      
       const newItem: CartItem = {
         product,
         quantity: 1,
-        unit_price: finalPrice, // Use enhanced pricing instead of sale_price
+        unit_price: finalPrice,
         line_total: finalPrice
       }
       setCart([...cart, newItem])
@@ -357,7 +421,7 @@ export default function POSPage() {
       updateOptimisticStock(product.product_id, -1)
     }
 
-    toast.success(`Đã thêm ${product.product_name} vào giỏ hàng`)
+  toast.success(`Đã thêm ${product.product_name} (${finalPrice.toLocaleString('vi-VN')}đ) vào giỏ`)
   }
 
   const removeFromCart = (productId: number) => {
@@ -368,10 +432,62 @@ export default function POSPage() {
     }
     
     setCart(cart.filter(item => item.product.product_id !== productId))
-    toast.success('Đã xóa sản phẩm khỏi giỏ hàng')
+  toast.success('Đã xóa khỏi giỏ')
   }
 
-  const updateQuantity = (productId: number, newQuantity: number) => {
+  // Recalculate enhanced pricing for entire cart
+  const recalculateCartPricing = async () => {
+    if (!useEnhancedPricing || !selectedCustomer || cart.length === 0) return
+
+    console.log('🔄 Recalculating entire cart pricing...')
+    
+    const updatedCart = await Promise.all(
+      cart.map(async (item) => {
+        try {
+          const enhancedProduct = {
+            product_id: item.product.product_id,
+            product_code: item.product.product_code,
+            product_name: item.product.product_name,
+            sale_price: item.product.sale_price,
+            current_stock: item.product.current_stock,
+            category_id: item.product.category_id || 0
+          }
+          
+          const pricingResult = await enhancedPricingService.calculateProductPrice(
+            enhancedProduct,
+            item.quantity,
+            {
+              include_volume_tiers: true,
+              include_price_rules: true,
+              tax_rate: vatRate,
+              customer_id: selectedCustomer.customer_id?.toString()
+            }
+          )
+          
+          // Update pricing results
+          setCartPricingResults(prev => new Map(prev.set(item.product.product_id, pricingResult)))
+          
+          return {
+            ...item,
+            unit_price: pricingResult.final_price,
+            line_total: item.quantity * pricingResult.final_price
+          }
+        } catch (error) {
+          console.error('Failed to recalculate pricing for product:', item.product.product_name, error)
+          return item // Keep original if failed
+        }
+      })
+    )
+
+    setCart(updatedCart)
+  }
+
+  // Effect to recalculate pricing when customer changes
+  useEffect(() => {
+    recalculateCartPricing()
+  }, [selectedCustomer?.customer_id, useEnhancedPricing])
+
+  const updateQuantity = async (productId: number, newQuantity: number) => {
     if (newQuantity <= 0) {
       removeFromCart(productId)
       return
@@ -387,19 +503,61 @@ export default function POSPage() {
 
     // Check if we have enough stock for the new quantity
     if (newQuantity > currentStock + oldQuantity) {
-      toast.error(`Không đủ hàng trong kho. Còn lại: ${currentStock + oldQuantity}`)
+  toast.error(`Không đủ tồn kho. Còn lại: ${currentStock + oldQuantity}`)
       return
     }
 
     // Optimistic update: adjust stock based on quantity change
     updateOptimisticStock(productId, -quantityDiff)
 
+    // Recalculate enhanced pricing with new quantity
+    let finalPrice = product.sale_price
+    if (useEnhancedPricing && selectedCustomer) {
+      try {
+        const enhancedProduct = {
+          product_id: product.product_id,
+          product_code: product.product_code,
+          product_name: product.product_name,
+          sale_price: product.sale_price,
+          current_stock: product.current_stock,
+          category_id: product.category_id || 0
+        }
+        
+        const pricingResult = await enhancedPricingService.calculateProductPrice(
+          enhancedProduct,
+          newQuantity,
+          {
+            include_volume_tiers: true,
+            include_price_rules: true,
+            tax_rate: vatRate,
+            customer_id: selectedCustomer.customer_id?.toString()
+          }
+        )
+        
+        finalPrice = pricingResult.final_price
+        
+        // Update pricing results
+        setCartPricingResults(prev => new Map(prev.set(productId, pricingResult)))
+        
+        console.log('🔄 Enhanced pricing recalculated on quantity change:', {
+          product: product.product_name,
+          oldQuantity,
+          newQuantity,
+          finalPrice,
+          savings: pricingResult.final_savings
+        })
+      } catch (error) {
+        console.error('Failed to recalculate enhanced pricing:', error)
+      }
+    }
+
     setCart(cart.map(item =>
       item.product.product_id === productId
         ? {
             ...item,
             quantity: newQuantity,
-            line_total: newQuantity * item.unit_price // Keep using the enhanced unit_price already set
+            unit_price: finalPrice, // Use recalculated price
+            line_total: newQuantity * finalPrice
           }
         : item
     ))
@@ -430,14 +588,35 @@ export default function POSPage() {
     } as EnhancedProduct))
   }, [cart])
 
-  // Enhanced pricing calculation
+  // Enhanced pricing calculation với request tracking
+  const [lastPricingCacheKey, setLastPricingCacheKey] = useState<string>('')
+  
   const calculateEnhancedPricing = useCallback(async () => {
     if (cart.length === 0) {
       setCartPricingResults(new Map())
       return
     }
 
+    // Ngăn multiple calls đồng thời
+    if (pricingLoading) return
+
+    // Tạo cache key để tránh tính toán lại không cần thiết
+    const cacheKey = JSON.stringify({
+      cart: cart.map(item => ({ id: item.product.product_id, qty: item.quantity })),
+      customer: selectedCustomer?.customer_id,
+      vat: vatRate
+    })
+    
+    // Nếu cache key giống lần trước, không tính lại
+    if (lastPricingCacheKey === cacheKey) {
+      return
+    }
+    
+    setLastPricingCacheKey(cacheKey)
+
     setPricingLoading(true)
+    console.log('🚀 Starting enhanced pricing calculation for', cart.length, 'items')
+    
     try {
       const enhancedProducts = convertCartToEnhancedProducts()
       const newPricingResults = new Map<number, EnhancedPricingResult>()
@@ -466,7 +645,7 @@ export default function POSPage() {
     } finally {
       setPricingLoading(false)
     }
-  }, [cart, enhancedPricingService, convertCartToEnhancedProducts, vatRate, selectedCustomer])
+  }, [enhancedPricingService, convertCartToEnhancedProducts, vatRate, selectedCustomer])
 
   // Calculate totals with enhanced pricing
   const calculateTotals = useCallback(() => {
@@ -516,19 +695,25 @@ export default function POSPage() {
     quantity: item.quantity
   }))
 
-  // Update enhanced pricing when cart changes
+  // Update enhanced pricing when cart changes với debounce - CHỈ TÍNH KHI THÊM/XÓA SẢN PHẨM
   useEffect(() => {
-    if (useEnhancedPricing) {
-      calculateEnhancedPricing()
+    if (useEnhancedPricing && cart.length > 0) {
+      const debounceTimer = setTimeout(() => {
+        calculateEnhancedPricing()
+      }, 500) // Tăng debounce lên 500ms
+      
+      return () => clearTimeout(debounceTimer)
+    } else if (cart.length === 0) {
+      setCartPricingResults(new Map())
     }
-  }, [calculateEnhancedPricing, useEnhancedPricing])
+  }, [cart.length, selectedCustomer?.customer_id, vatRate]) // BỎ useEnhancedPricing khỏi deps
 
-  // Auto-update cart pricing when enhanced pricing results change
-  useEffect(() => {
-    if (cartPricingResults.size > 0) {
-      updateCartWithEnhancedPricing()
-    }
-  }, [cartPricingResults, updateCartWithEnhancedPricing])
+  // TẮT auto-update cart pricing - CHỈ CẬP NHẬT KHI NGƯỜI DÙNG THAY ĐỔI
+  // useEffect(() => {
+  //   if (cartPricingResults.size > 0 && useEnhancedPricing) {
+  //     updateCartWithEnhancedPricing()
+  //   }
+  // }, [cartPricingResults, useEnhancedPricing])
 
   // Checkout process - Using Enhanced Pricing + Supabase Function
   const handleCheckout = async (paymentData: { 
@@ -538,6 +723,32 @@ export default function POSPage() {
     partialAmount?: number
   }) => {
     if (cart.length === 0 || !selectedCustomer) return
+
+    // Validate temp order requirements
+    if (posMode === 'temp_order') {
+      console.log('🔍 Validating temp order:', {
+        expectedDeliveryDate: tempOrderData.expected_delivery_date,
+        notes: tempOrderData.notes,
+        posMode,
+        cart: cart.length
+      })
+      
+      if (!tempOrderData.expected_delivery_date) {
+  toast.error('Chọn ngày xuất dự kiến cho phiếu tạm')
+        return
+      }
+      
+      const deliveryDate = new Date(tempOrderData.expected_delivery_date)
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      
+      if (deliveryDate <= new Date()) {
+  toast.error('Ngày xuất phải sau hôm nay')
+        return
+      }
+      
+      console.log('✅ Temp order validation passed')
+    }
 
     const formatPrice = (price: number) => {
       return new Intl.NumberFormat('vi-VN', {
@@ -619,7 +830,7 @@ export default function POSPage() {
         debtAmount
       })
       
-      // Call Supabase function
+      // Call Supabase function with temp invoice support
       const { data: functionResult, error: functionError } = await supabase
         .rpc('create_pos_invoice', {
           p_customer_id: selectedCustomer.customer_id,
@@ -629,16 +840,26 @@ export default function POSPage() {
           p_discount_value: discountValue,
           p_payment_method: paymentData.method,
           p_received_amount: paymentData.receivedAmount || null,
-          p_paid_amount: paidAmount,
-          p_debt_amount: debtAmount,
-          p_payment_type: paymentData.paymentType,
+          p_paid_amount: posMode === 'temp_order' ? 0 : paidAmount, // No payment for temp orders
+          p_debt_amount: posMode === 'temp_order' ? 0 : debtAmount, // No debt for temp orders
+          p_payment_type: posMode === 'temp_order' ? 'temp_order' : paymentData.paymentType,
           p_branch_id: 1,
-          p_created_by: 'POS System'
+          p_created_by: 'POS System',
+          // NEW PARAMETERS
+          p_invoice_type: posMode,
+          p_expected_delivery_date: posMode === 'temp_order' ? tempOrderData.expected_delivery_date : null,
+          p_notes: posMode === 'temp_order' ? tempOrderData.notes || null : null
         })
 
       if (functionError) {
-        console.error('❌ Function Call Error:', functionError)
-        throw functionError
+        console.error('❌ Function Call Error Details:', {
+          message: functionError.message,
+          details: functionError.details,
+          hint: functionError.hint,
+          code: functionError.code,
+          fullError: functionError
+        })
+        throw new Error(`Database function error: ${functionError.message || JSON.stringify(functionError)}`)
       }
       
       console.log('📊 Function Result:', functionResult)
@@ -648,7 +869,7 @@ export default function POSPage() {
       
       // Check if function was successful
       if (!functionResult || !functionResult.success) {
-        const errorMessage = functionResult?.error || 'Unknown error occurred'
+  const errorMessage = functionResult?.error || 'Lỗi không xác định'
         const errorCode = functionResult?.error_code || 'UNKNOWN_ERROR'
         
         console.error('❌ Function Returned Error:', {
@@ -662,16 +883,16 @@ export default function POSPage() {
         // Show specific error messages to user
         switch (errorCode) {
           case 'CUSTOMER_NOT_FOUND':
-            toast.error('Khách hàng không tồn tại hoặc không hoạt động')
+            toast.error('Khách hàng không tồn tại hoặc ngưng hoạt động')
             break
           case 'INSUFFICIENT_STOCK':
-            toast.error('Không đủ hàng trong kho')
+            toast.error('Không đủ tồn kho')
             break
           case 'INSUFFICIENT_PAYMENT':
-            toast.error('Số tiền thanh toán không đủ')
+            toast.error('Số tiền thanh toán chưa đủ')
             break
           case 'INVALID_VAT_RATE':
-            toast.error('Tỷ lệ VAT không hợp lệ')
+            toast.error('Thuế VAT không hợp lệ')
             break
           default:
             toast.error(errorMessage)
@@ -692,21 +913,28 @@ export default function POSPage() {
         console.log('� Change Amount:', formatPrice(changeAmount))
       }
       
-      // Show detailed success message based on payment type
-      let successMessage = `Hóa đơn ${invoiceCode} đã được tạo thành công!`
+      // Show detailed success message based on invoice type and payment
+      let successMessage = ''
       
-      switch (paymentData.paymentType) {
-        case 'full':
-          if (changeAmount > 0) {
-            successMessage += ` Tiền thừa: ${formatPrice(changeAmount)}`
-          }
-          break
-        case 'partial':
-          successMessage += ` Đã thanh toán: ${formatPrice(paidAmount)}, ghi nợ: ${formatPrice(debtAmount)}`
-          break
-        case 'debt':
-          successMessage += ` Toàn bộ ${formatPrice(finalTotal)} đã được ghi vào công nợ`
-          break
+      if (posMode === 'temp_order') {
+        const deliveryDate = formatDateVN(tempOrderData.expected_delivery_date)
+        successMessage = `Phiếu tạm ${invoiceCode} đã được tạo thành công! Ngày xuất dự kiến: ${deliveryDate}`
+      } else {
+        successMessage = `Hóa đơn ${invoiceCode} đã được tạo thành công!`
+        
+        switch (paymentData.paymentType) {
+          case 'full':
+            if (changeAmount > 0) {
+              successMessage += ` Tiền thừa: ${formatPrice(changeAmount)}`
+            }
+            break
+          case 'partial':
+            successMessage += ` Đã thanh toán: ${formatPrice(paidAmount)}, ghi nợ: ${formatPrice(debtAmount)}`
+            break
+          case 'debt':
+            successMessage += ` Toàn bộ ${formatPrice(finalTotal)} đã được ghi vào công nợ`
+            break
+        }
       }
       
       // Show warnings if any
@@ -716,7 +944,7 @@ export default function POSPage() {
         })
       }
       
-      toast.success(successMessage)
+  toast.success(successMessage)
       
       // Reset form
       console.log('🧹 Resetting Form State...')
@@ -728,6 +956,12 @@ export default function POSPage() {
       setVatRate(0) // Reset VAT to 0%
       setDiscountValue(0) // Reset discount
       setDiscountType('percentage')
+      
+      // Reset temp order data
+      setTempOrderData({
+        expected_delivery_date: '',
+        notes: ''
+      })
       
       // Clear optimistic updates and refresh products
       clearOptimisticUpdates()
@@ -759,7 +993,7 @@ export default function POSPage() {
         tax,
         total
       })
-      toast.error('Lỗi khi tạo hóa đơn. Vui lòng thử lại.')
+  toast.error('Tạo hóa đơn thất bại, thử lại sau')
       
       // Don't clear optimistic updates on error - let user retry
       // The optimistic updates will be cleared on successful checkout or page refresh
@@ -772,6 +1006,80 @@ export default function POSPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="supabase-container">
+        {/* POS Mode Toggle - Show on all screens */}
+        <div className="pt-3 pb-1">
+          <Card className="supabase-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-semibold text-foreground">Chế độ POS</h2>
+                  <div className="flex rounded-lg border border-border p-1 bg-muted/30">
+                    <Button
+                      variant={posMode === 'normal' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setPosMode('normal')}
+                      className={`h-8 px-3 ${posMode === 'normal' ? 'bg-brand text-brand-foreground shadow-sm' : 'hover:bg-muted'}`}
+                    >
+                      🛒 Bán Hàng Thường
+                    </Button>
+                    <Button
+                      variant={posMode === 'temp_order' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setPosMode('temp_order')}
+                      className={`h-8 px-3 ${posMode === 'temp_order' ? 'bg-amber-500 text-white shadow-sm' : 'hover:bg-muted'}`}
+                    >
+                      📝 Tạo Phiếu Tạm
+                    </Button>
+                  </div>
+                </div>
+                
+                {posMode === 'temp_order' && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                      📝 Phiếu tạm
+                      {tempOrderData.expected_delivery_date && 
+                        ` • ${formatDateVN(tempOrderData.expected_delivery_date)}`
+                      }
+                    </Badge>
+                  </div>
+                )}
+              </div>
+              
+              {/* Temp Order Settings - Desktop */}
+              {posMode === 'temp_order' && (
+                <div className="mt-4 p-3 rounded-lg border border-amber-200 bg-amber-50/50 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium text-amber-800 whitespace-nowrap">
+                      Ngày xuất dự kiến:
+                    </label>
+                    <input
+                      type="date"
+                      value={tempOrderData.expected_delivery_date}
+                      onChange={(e) => setTempOrderData(prev => ({ ...prev, expected_delivery_date: e.target.value }))}
+                      min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                      className="flex-1 px-3 py-1.5 text-sm border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <label className="text-sm font-medium text-amber-800 whitespace-nowrap mt-1">
+                      Ghi chú:
+                    </label>
+                    <textarea
+                      value={tempOrderData.notes}
+                      onChange={(e) => setTempOrderData(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="Ghi chú cho phiếu tạm (tùy chọn)..."
+                      className="flex-1 px-3 py-1.5 text-sm border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white resize-none"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Mobile: Stack vertically, Desktop: Side by side */}
         <div className="flex flex-col xl:grid xl:grid-cols-4 gap-3 pt-3">
           {/* Products Section - Left Side */}
@@ -785,6 +1093,59 @@ export default function POSPage() {
               onSelectCustomer={setSelectedCustomer}
               onClearCustomer={() => setSelectedCustomer(null)}
             />
+
+            {/* Customer Info Card - Show important details */}
+            {selectedCustomer && (
+              <Card className="supabase-card border-blue-200 bg-blue-50/30">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-blue-900">{selectedCustomer.customer_name}</h4>
+                      <p className="text-sm text-blue-700">
+                        📞 {selectedCustomer.phone || 'Chưa có SĐT'} • 
+                        🆔 {selectedCustomer.customer_code || 'N/A'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-blue-900">
+                        💰 Công nợ hiện tại
+                      </div>
+                      <div className={`text-lg font-bold ${
+                        selectedCustomer.current_debt > 0 ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                        {new Intl.NumberFormat('vi-VN', {
+                          style: 'currency',
+                          currency: 'VND'
+                        }).format(selectedCustomer.current_debt)}
+                      </div>
+                      {selectedCustomer.debt_limit > 0 && (
+                        <div className="text-xs text-blue-600">
+                          Hạn mức: {new Intl.NumberFormat('vi-VN', {
+                            style: 'currency',
+                            currency: 'VND'
+                          }).format(selectedCustomer.debt_limit)}
+                        </div>
+                      )}
+                      
+                      {/* Debt Warning */}
+                      {selectedCustomer.current_debt > selectedCustomer.debt_limit * 0.8 && selectedCustomer.debt_limit > 0 && (
+                        <div className="text-xs text-orange-600 font-medium mt-1">
+                          ⚠️ Gần đạt hạn mức
+                        </div>
+                      )}
+                      
+                      {selectedCustomer.current_debt >= selectedCustomer.debt_limit && selectedCustomer.debt_limit > 0 && (
+                        <div className="text-xs text-red-600 font-bold mt-1">
+                          🚫 Vượt hạn mức
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* (Đã gỡ hiển thị Enhanced Pricing theo yêu cầu) */}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Product Search and Grid */}
             <Card className="supabase-card">
@@ -929,7 +1290,7 @@ export default function POSPage() {
                                 </span>
                                 <span>•</span>
                                 <span>
-                                  Sau GD: <span className={`font-medium ${(selectedCustomer.current_debt || 0) + total > (selectedCustomer.debt_limit || 0) ? 'text-red-600' : 'text-green-600'}`}>
+                                  Sau giao dịch: <span className={`font-medium ${(selectedCustomer.current_debt || 0) + total > (selectedCustomer.debt_limit || 0) ? 'text-red-600' : 'text-green-600'}`}>
                                     {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format((selectedCustomer.current_debt || 0) + finalTotal)}
                                   </span>
                                 </span>
@@ -1031,40 +1392,14 @@ export default function POSPage() {
 
             {/* Desktop: Full cart display - Sticky positioning with header offset */}
             <div className="hidden xl:block sticky top-20 self-start">
-              {/* Enhanced Pricing Toggle */}
-              <Card className="supabase-card mb-3">
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Enhanced Pricing</span>
-                      {useEnhancedPricing && totalSavings > 0 && (
-                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
-                          Tiết kiệm {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalSavings)}
-                        </Badge>
-                      )}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setUseEnhancedPricing(!useEnhancedPricing)}
-                      className="text-xs"
-                    >
-                      {useEnhancedPricing ? 'Chế độ cơ bản' : 'Chế độ nâng cao'}
-                    </Button>
-                  </div>
-                  {useEnhancedPricing && pricingLoading && (
-                    <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
-                      <div className="w-2 h-2 bg-brand rounded-full animate-pulse"></div>
-                      Đang tính toán giá...
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              {/* (Đã gỡ toggle Enhanced Pricing theo yêu cầu) */}
 
               {showCheckout && selectedCustomer ? (
                 <CheckoutPanelOptimized
                   customer={selectedCustomer}
                   total={finalTotal}
+                  posMode={posMode}
+                  tempOrderData={tempOrderData}
                   onCheckout={handleCheckout}
                   onCancel={() => setShowCheckout(false)}
                   loading={checkoutLoading}
@@ -1143,6 +1478,8 @@ export default function POSPage() {
                   <CheckoutPanelOptimized
                     customer={selectedCustomer}
                     total={finalTotal}
+                    posMode={posMode}
+                    tempOrderData={tempOrderData}
                     onCheckout={handleCheckout}
                     onCancel={() => setShowCheckout(false)}
                     loading={checkoutLoading}

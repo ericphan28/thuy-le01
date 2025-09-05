@@ -3,6 +3,8 @@
 
 ---
 
+> Copilot quick note (Sep 5, 2025): Use `AI_CONTEXT.md` as the entry point for business rules (VN localization, POS pricing priorities, temp orders). All user-facing errors should default to “Lỗi không xác định”.
+
 ## ✅ **TÓM TẮT TÌNH HÌNH HIỆN TẠI**
 
 ### **🎉 ĐÃ HOÀN THÀNH 100%:**

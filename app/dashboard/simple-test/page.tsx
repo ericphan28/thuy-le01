@@ -35,7 +35,7 @@ export default function SimpleProductTest() {
 
       } catch (err) {
         console.error('Catch error:', err)
-        setError(err instanceof Error ? err.message : 'Unknown error')
+        setError(err instanceof Error ? err.message : 'Lỗi không xác định')
         setStatus('❌ Query failed with exception')
       }
     }
@@ -103,7 +103,7 @@ export default function SimpleProductTest() {
                   setStatus(`✅ Join query successful, ${data?.length} products with categories`)
                 }
               } catch (err) {
-                setError(err instanceof Error ? err.message : 'Unknown join error')
+                setError(err instanceof Error ? err.message : 'Lỗi không xác định')
                 setStatus('❌ Join query exception')
               }
             }}

@@ -484,7 +484,7 @@ export default function POSPage() {
       
       // Check if function was successful
       if (!functionResult || !functionResult.success) {
-        const errorMessage = functionResult?.error || 'Unknown error occurred'
+  const errorMessage = functionResult?.error || 'Lỗi không xác định'
         const errorCode = functionResult?.error_code || 'UNKNOWN_ERROR'
         
         console.error('❌ Function Returned Error:', {

@@ -116,6 +116,11 @@ export function CartSummaryOptimized({
                       </Button>
                       <span className="text-[10px] text-muted-foreground ml-1">
                         × {formatPrice(item.unit_price)}
+                        {item.unit_price !== item.product.sale_price && (
+                          <span className="ml-1 line-through text-red-500">
+                            (gốc: {formatPrice(item.product.sale_price)})
+                          </span>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -126,6 +131,11 @@ export function CartSummaryOptimized({
                       <div className="text-xs font-semibold text-brand">
                         {formatPrice(item.line_total)}
                       </div>
+                      {item.unit_price !== item.product.sale_price && (
+                        <div className="text-[10px] text-green-600">
+                          Tiết kiệm: {formatPrice((item.product.sale_price - item.unit_price) * item.quantity)}
+                        </div>
+                      )}
                     </div>
                     <Button
                       size="sm"

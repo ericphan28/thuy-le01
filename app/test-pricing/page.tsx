@@ -33,7 +33,7 @@ export default function TestPricingPage() {
       console.log('=========================');
     } catch (error) {
       console.error('Pricing test error:', error);
-      setResult({ error: error instanceof Error ? error.message : 'Unknown error occurred' });
+      setResult({ error: error instanceof Error ? error.message : 'Lỗi không xác định' });
     } finally {
       setLoading(false);
     }

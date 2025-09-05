@@ -334,7 +334,7 @@ async function main() {
       created_at: new Date().toISOString(),
     }))
   const { error: insErr } = await supabase.from('price_import_unmatched').insert(rows)
-  if (insErr) console.warn('Insert unmatched error:', insErr.message || 'unknown error', '-> ensure table exists and grants/RLS allow inserts')
+  if (insErr) console.warn('Insert unmatched error:', insErr.message || 'lỗi không xác định', '-> ensure table exists and grants/RLS allow inserts')
   }
 
   // Always export unmatched to local JSON for review

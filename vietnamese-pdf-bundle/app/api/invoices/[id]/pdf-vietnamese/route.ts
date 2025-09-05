@@ -86,7 +86,7 @@ export async function GET(
     return NextResponse.json(
       { 
         error: 'Lỗi tạo PDF tiếng Việt',
-        details: error instanceof Error ? error.message : 'Unknown error'
+  details: error instanceof Error ? error.message : 'Lỗi không xác định'
       },
       { status: 500 }
     )

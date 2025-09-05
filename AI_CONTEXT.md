@@ -1,8 +1,35 @@
 # 🐾 Xuân Thùy Veterinary Pharmacy - AI Assistant Context Document
 
-> Rapid context for new Copilot sessions – Updated: August 19, 2025
+> Rapid context for new Copilot sessions – Updated: September 5, 2025
 
-## 🚀 Recent Updates (Aug 19, 2025)
+## 🔰 READ THIS FIRST — Onboard Copilot for Every New Chat
+
+- Project type: Next.js 15 (App Router) + TypeScript + Supabase (PostgreSQL)
+- Canonical state source: This file. Treat this as the single source of truth for business flows and project status.
+- Language and UX: Vietnamese-first UI. User-facing errors and toasts must be concise Vietnamese (fallback: “Lỗi không xác định”).
+- Dates: Use native input type="date" in ISO (yyyy-mm-dd). Display to users in Vietnamese format (dd/MM/yyyy) in badges/toasts.
+- POS pricing: Use Enhanced Pricing V3 (priority = Contract > Rules > Tiers > List). Cart must show policy price and savings, and recalc on quantity/customer change.
+- Temp orders (Phiếu tạm): Supported end-to-end. DB function `create_pos_invoice` accepts `invoice_type='temp_order'`, `expected_delivery_date`, and `notes`. For temp orders: insert header + details; skip stock and payment updates; no inventory changes.
+- Localization: POS and system messages standardized to Vietnamese; removed English clutter. Replace any “Unknown error” with “Lỗi không xác định”.
+- Build: `npm run build` passes. Some ESLint exhaustive-deps warnings exist in POS and invoice temp pages; intentional for now.
+- Debug API routes: Minimal handlers exist in `app/api/debug/*/route.ts` to satisfy Next.js module requirements.
+
+What to do at session start:
+1) Read this section, then check PROJECT_STATUS.md for latest phase notes; 2) Use README.md for quick links; 3) If touching POS, conform to Enhanced Pricing and localization rules above.
+
+## 🚀 Recent Updates (Sep 5, 2025)
+
+- POS
+   - “Phiếu tạm” preserved and visible; ISO date input confirmed; VN display for messages/badges
+   - Cart shows policy prices (not retail); recalculates on quantity and customer changes
+   - Vietnamese localization across POS (labels, toasts); removed “Pre-order”, “Sau GD” → “Phiếu tạm”, “Sau giao dịch”
+- Error cleanup
+   - Repo-wide removal of “Unknown error” strings outside POS; standardized fallback: “Lỗi không xác định”
+- Build stability
+   - Fixed Next.js build by adding minimal handlers to empty debug routes under `app/api/debug/*`
+   - Build succeeds; ESLint warnings remain for exhaustive-deps (documented, currently accepted)
+
+Use this as the canonical delta since Aug 19 notes below.
 
 - Customers page
    - Accurate order counts via secondary query to `invoices` by visible `customer_id`s

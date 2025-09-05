@@ -151,6 +151,265 @@ COMMENT ON FUNCTION public.adjust_customer_debt(p_customer_id integer, p_adjustm
 
 
 --
+-- Name: convert_temp_to_invoice(integer, date, jsonb, character varying, character varying, numeric, numeric, numeric, character varying); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.convert_temp_to_invoice(p_temp_invoice_id integer, p_actual_delivery_date date DEFAULT CURRENT_DATE, p_price_adjustments jsonb DEFAULT NULL::jsonb, p_payment_method character varying DEFAULT 'cash'::character varying, p_payment_type character varying DEFAULT 'full'::character varying, p_received_amount numeric DEFAULT NULL::numeric, p_paid_amount numeric DEFAULT NULL::numeric, p_debt_amount numeric DEFAULT 0, p_converted_by character varying DEFAULT 'POS'::character varying) RETURNS jsonb
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_temp_invoice invoices%ROWTYPE;
+    v_customer customers%ROWTYPE;
+    v_detail invoice_details%ROWTYPE;
+    v_product products%ROWTYPE;
+    v_new_total numeric := 0;
+    v_old_total numeric := 0;
+    v_price_changes jsonb := '[]'::jsonb;
+    v_price_adjustment jsonb;
+    v_new_price numeric;
+    v_stock_issues text[] := '{}';
+    v_warnings text[] := '{}';
+    v_new_debt numeric;
+    v_change_amount numeric := 0;
+    v_conversion_notes text;
+BEGIN
+    -- Get temp invoice
+    SELECT * INTO v_temp_invoice 
+    FROM invoices 
+    WHERE invoice_id = p_temp_invoice_id 
+    AND invoice_type = 'temp_order'
+    AND status IN ('temp_pending', 'temp_confirmed', 'temp_ready');
+    
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Phiếu tạm không tồn tại hoặc không thể chuyển đổi',
+            'error_code', 'TEMP_INVOICE_NOT_FOUND'
+        );
+    END IF;
+
+    -- Get customer
+    SELECT * INTO v_customer 
+    FROM customers 
+    WHERE customer_id = v_temp_invoice.customer_id;
+
+    -- Check stock and calculate price changes for each item
+    FOR v_detail IN 
+        SELECT * FROM invoice_details 
+        WHERE invoice_id = p_temp_invoice_id
+    LOOP
+        SELECT * INTO v_product 
+        FROM products 
+        WHERE product_id = v_detail.product_id;
+        
+        -- Check if we have enough stock
+        IF v_product.current_stock < v_detail.quantity THEN
+            v_stock_issues := array_append(v_stock_issues,
+                format('Sản phẩm %s: Tồn kho (%s) < Yêu cầu (%s)',
+                       v_product.product_name, v_product.current_stock, v_detail.quantity));
+        END IF;
+
+        -- Calculate price (check for manual adjustment first, then current price)
+        v_new_price := v_detail.unit_price; -- Default to original price
+        
+        -- Check if there's a manual price adjustment for this product
+        IF p_price_adjustments IS NOT NULL THEN
+            FOR v_price_adjustment IN 
+                SELECT * FROM jsonb_array_elements(p_price_adjustments)
+            LOOP
+                IF (v_price_adjustment->>'product_id')::integer = v_detail.product_id THEN
+                    v_new_price := (v_price_adjustment->>'new_price')::numeric;
+                    EXIT;
+                END IF;
+            END LOOP;
+        ELSE
+            -- Use current sale price from products table
+            v_new_price := v_product.sale_price;
+        END IF;
+
+        -- Track price changes
+        IF v_new_price != v_detail.unit_price THEN
+            v_price_changes := v_price_changes || jsonb_build_object(
+                'product_id', v_detail.product_id,
+                'product_code', v_detail.product_code,
+                'product_name', v_detail.product_name,
+                'old_price', v_detail.unit_price,
+                'new_price', v_new_price,
+                'price_change', v_new_price - v_detail.unit_price,
+                'quantity', v_detail.quantity,
+                'line_old_total', v_detail.line_total,
+                'line_new_total', v_detail.quantity * v_new_price
+            );
+        END IF;
+
+        v_old_total := v_old_total + v_detail.line_total;
+        v_new_total := v_new_total + (v_detail.quantity * v_new_price);
+    END LOOP;
+
+    -- Return error if stock issues
+    IF array_length(v_stock_issues, 1) > 0 THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Không đủ hàng trong kho',
+            'error_code', 'INSUFFICIENT_STOCK',
+            'stock_issues', v_stock_issues
+        );
+    END IF;
+
+    -- Validate payment for cash transactions
+    IF p_payment_method = 'cash' AND p_payment_type = 'full' THEN
+        IF COALESCE(p_received_amount, 0) < v_new_total THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error', 'Số tiền thanh toán không đủ',
+                'error_code', 'INSUFFICIENT_PAYMENT'
+            );
+        END IF;
+        v_change_amount := COALESCE(p_received_amount, 0) - v_new_total;
+    END IF;
+
+    -- Create conversion notes
+    v_conversion_notes := format(
+        'Chuyển đổi từ phiếu tạm %s. Giá gốc: %s, Giá mới: %s. Chênh lệch: %s (%s%%)',
+        v_temp_invoice.invoice_code,
+        to_char(v_old_total, 'FM999,999,999,999'),
+        to_char(v_new_total, 'FM999,999,999,999'),
+        to_char(v_new_total - v_old_total, 'FM999,999,999,999'),
+        CASE WHEN v_old_total > 0 THEN 
+            round(((v_new_total - v_old_total) / v_old_total * 100)::numeric, 2)
+        ELSE 0 END
+    );
+
+    -- Calculate debt
+    v_new_debt := v_customer.current_debt + COALESCE(p_debt_amount, 0);
+
+    -- Add debt warning if needed
+    IF v_new_debt > v_customer.debt_limit THEN
+        v_warnings := array_append(v_warnings,
+            format('Cảnh báo: Công nợ sau giao dịch (%s) vượt hạn mức (%s)',
+                   to_char(v_new_debt, 'FM999,999,999,999'),
+                   to_char(v_customer.debt_limit, 'FM999,999,999,999')));
+    END IF;
+
+    -- Update the temp invoice to become a normal invoice
+    UPDATE invoices SET
+        invoice_type = 'normal',
+        total_amount = v_new_total,
+        customer_paid = COALESCE(p_paid_amount, CASE WHEN p_payment_type = 'full' THEN v_new_total ELSE 0 END),
+        status = CASE WHEN p_debt_amount > 0 THEN 'partial' ELSE 'completed' END,
+        actual_delivery_date = p_actual_delivery_date,
+        notes = COALESCE(notes, '') || E'\n' || v_conversion_notes,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE invoice_id = p_temp_invoice_id;
+
+    -- Update invoice details with new prices
+    FOR v_detail IN 
+        SELECT * FROM invoice_details 
+        WHERE invoice_id = p_temp_invoice_id
+    LOOP
+        -- Get new price
+        v_new_price := v_detail.unit_price; -- Default
+        
+        IF p_price_adjustments IS NOT NULL THEN
+            FOR v_price_adjustment IN 
+                SELECT * FROM jsonb_array_elements(p_price_adjustments)
+            LOOP
+                IF (v_price_adjustment->>'product_id')::integer = v_detail.product_id THEN
+                    v_new_price := (v_price_adjustment->>'new_price')::numeric;
+                    EXIT;
+                END IF;
+            END LOOP;
+        ELSE
+            SELECT sale_price INTO v_new_price 
+            FROM products 
+            WHERE product_id = v_detail.product_id;
+        END IF;
+
+        -- Update invoice detail
+        UPDATE invoice_details SET
+            unit_price = v_new_price,
+            sale_price = v_new_price,
+            line_total = quantity * v_new_price,
+            subtotal = quantity * v_new_price
+        WHERE detail_id = v_detail.detail_id;
+
+        -- Deduct stock
+        UPDATE products 
+        SET current_stock = current_stock - v_detail.quantity
+        WHERE product_id = v_detail.product_id;
+    END LOOP;
+
+    -- Update customer debt if applicable
+    IF p_debt_amount > 0 THEN
+        UPDATE customers 
+        SET current_debt = current_debt + p_debt_amount,
+            last_purchase_date = CURRENT_TIMESTAMP
+        WHERE customer_id = v_temp_invoice.customer_id;
+
+        -- Create debt transaction record
+        INSERT INTO debt_transactions (
+            customer_id, invoice_id, transaction_type, amount,
+            old_debt, new_debt, payment_method, notes, created_by
+        ) VALUES (
+            v_temp_invoice.customer_id, p_temp_invoice_id, 'debt_increase', p_debt_amount,
+            v_customer.current_debt, v_new_debt, p_payment_method,
+            format('Ghi nợ từ chuyển đổi phiếu tạm %s', v_temp_invoice.invoice_code),
+            p_converted_by
+        );
+    END IF;
+
+    -- Return success
+    RETURN jsonb_build_object(
+        'success', true,
+        'invoice_id', p_temp_invoice_id,
+        'invoice_code', v_temp_invoice.invoice_code,
+        'conversion_summary', jsonb_build_object(
+            'old_total', v_old_total,
+            'new_total', v_new_total,
+            'price_change', v_new_total - v_old_total,
+            'price_changes', v_price_changes,
+            'actual_delivery_date', p_actual_delivery_date
+        ),
+        'payment_info', jsonb_build_object(
+            'method', p_payment_method,
+            'type', p_payment_type,
+            'received_amount', p_received_amount,
+            'change_amount', v_change_amount
+        ),
+        'customer_info', jsonb_build_object(
+            'customer_id', v_customer.customer_id,
+            'customer_name', v_customer.customer_name,
+            'previous_debt', v_customer.current_debt,
+            'new_debt', v_new_debt
+        ),
+        'warnings', v_warnings,
+        'message', format(
+            'Đã chuyển đổi phiếu tạm %s thành hóa đơn chính thức. Tổng tiền: %s',
+            v_temp_invoice.invoice_code,
+            to_char(v_new_total, 'FM999,999,999,999')
+        )
+    );
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Lỗi hệ thống: ' || SQLERRM,
+            'error_code', 'SYSTEM_ERROR'
+        );
+END;
+$$;
+
+
+--
+-- Name: FUNCTION convert_temp_to_invoice(p_temp_invoice_id integer, p_actual_delivery_date date, p_price_adjustments jsonb, p_payment_method character varying, p_payment_type character varying, p_received_amount numeric, p_paid_amount numeric, p_debt_amount numeric, p_converted_by character varying); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.convert_temp_to_invoice(p_temp_invoice_id integer, p_actual_delivery_date date, p_price_adjustments jsonb, p_payment_method character varying, p_payment_type character varying, p_received_amount numeric, p_paid_amount numeric, p_debt_amount numeric, p_converted_by character varying) IS 'Convert temp invoice to normal invoice with price comparison and stock deduction.
+Supports price adjustments and validates stock availability before conversion.';
+
+
+--
 -- Name: create_inbound_order(integer, date, text, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -418,6 +677,307 @@ $$;
 
 COMMENT ON FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric, p_discount_type character varying, p_discount_value numeric, p_payment_method character varying, p_received_amount numeric, p_paid_amount numeric, p_debt_amount numeric, p_payment_type character varying, p_branch_id integer, p_created_by character varying) IS 'Enhanced POS Checkout Function with debt management integration. 
 Supports full, partial, and debt payment types with warning system for debt limit exceeding.';
+
+
+--
+-- Name: create_pos_invoice(integer, jsonb, numeric, character varying, numeric, character varying, numeric, numeric, numeric, character varying, integer, character varying, character varying, date); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric DEFAULT 0, p_discount_type character varying DEFAULT 'percentage'::character varying, p_discount_value numeric DEFAULT 0, p_payment_method character varying DEFAULT 'cash'::character varying, p_received_amount numeric DEFAULT NULL::numeric, p_paid_amount numeric DEFAULT NULL::numeric, p_debt_amount numeric DEFAULT 0, p_payment_type character varying DEFAULT 'full'::character varying, p_branch_id integer DEFAULT 1, p_created_by character varying DEFAULT 'POS'::character varying, p_invoice_type character varying DEFAULT 'normal'::character varying, p_expected_delivery_date date DEFAULT NULL::date) RETURNS jsonb
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_invoice_id integer;
+    v_invoice_code varchar(20);
+    v_customer customers%ROWTYPE;
+    v_product products%ROWTYPE;
+    v_subtotal numeric := 0;
+    v_discount_amount numeric := 0;
+    v_vat_amount numeric := 0;
+    v_total_amount numeric := 0;
+    v_change_amount numeric := 0;
+    v_cart_item jsonb;
+    v_line_total numeric;
+    v_warnings text[] := '{}';
+    v_new_debt numeric;
+    v_debt_warning text;
+    v_final_status varchar(50);
+    v_temp_code_prefix varchar(10);
+BEGIN
+    -- Validate invoice type
+    IF p_invoice_type NOT IN ('normal', 'temp_order') THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Loại hóa đơn không hợp lệ',
+            'error_code', 'INVALID_INVOICE_TYPE'
+        );
+    END IF;
+
+    -- Validate temp order requirements
+    IF p_invoice_type = 'temp_order' THEN
+        IF p_expected_delivery_date IS NULL THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error', 'Ngày dự kiến xuất hàng là bắt buộc cho phiếu tạm',
+                'error_code', 'MISSING_DELIVERY_DATE'
+            );
+        END IF;
+        
+        IF p_expected_delivery_date <= CURRENT_DATE THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error', 'Ngày dự kiến xuất hàng phải sau hôm nay',
+                'error_code', 'INVALID_DELIVERY_DATE'
+            );
+        END IF;
+    END IF;
+
+    -- Validate customer
+    SELECT * INTO v_customer FROM customers WHERE customer_id = p_customer_id AND is_active = true;
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Khách hàng không tồn tại hoặc không hoạt động',
+            'error_code', 'CUSTOMER_NOT_FOUND'
+        );
+    END IF;
+
+    -- Calculate subtotal and validate stock (but don't deduct for temp orders)
+    FOR v_cart_item IN SELECT * FROM jsonb_array_elements(p_cart_items)
+    LOOP
+        SELECT * INTO v_product FROM products 
+        WHERE product_id = (v_cart_item->>'product_id')::integer;
+        
+        IF NOT FOUND THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error', 'Sản phẩm không tồn tại: ' || (v_cart_item->>'product_id'),
+                'error_code', 'PRODUCT_NOT_FOUND'
+            );
+        END IF;
+
+        -- Check stock (warning for temp orders, blocking for normal orders)
+        IF v_product.current_stock < (v_cart_item->>'quantity')::numeric THEN
+            IF p_invoice_type = 'normal' THEN
+                RETURN jsonb_build_object(
+                    'success', false,
+                    'error', 'Không đủ hàng: ' || v_product.product_name,
+                    'error_code', 'INSUFFICIENT_STOCK'
+                );
+            ELSE
+                -- For temp orders, add warning but continue
+                v_warnings := array_append(v_warnings, 
+                    format('Cảnh báo: Tồn kho hiện tại (%s) không đủ cho sản phẩm %s (đặt: %s)',
+                           v_product.current_stock, v_product.product_name, (v_cart_item->>'quantity')::numeric));
+            END IF;
+        END IF;
+
+        v_line_total := (v_cart_item->>'quantity')::numeric * (v_cart_item->>'unit_price')::numeric;
+        v_subtotal := v_subtotal + v_line_total;
+    END LOOP;
+
+    -- Calculate discount
+    IF p_discount_type = 'percentage' THEN
+        v_discount_amount := v_subtotal * (p_discount_value / 100);
+    ELSE
+        v_discount_amount := LEAST(p_discount_value, v_subtotal);
+    END IF;
+
+    -- Calculate VAT and total
+    v_vat_amount := (v_subtotal - v_discount_amount) * (p_vat_rate / 100);
+    v_total_amount := v_subtotal - v_discount_amount + v_vat_amount;
+
+    -- Calculate debt after transaction
+    v_new_debt := v_customer.current_debt + COALESCE(p_debt_amount, 0);
+    
+    -- Generate debt warning if exceeds limit (warning only, not blocking)
+    IF v_new_debt > v_customer.debt_limit THEN
+        v_debt_warning := format(
+            'Cảnh báo: Công nợ sau giao dịch (%s) vượt hạn mức (%s) là %s',
+            to_char(v_new_debt, 'FM999,999,999,999'),
+            to_char(v_customer.debt_limit, 'FM999,999,999,999'),
+            to_char(v_new_debt - v_customer.debt_limit, 'FM999,999,999,999')
+        );
+        v_warnings := array_append(v_warnings, v_debt_warning);
+    END IF;
+
+    -- Validate payment for cash transactions (only for normal invoices)
+    IF p_invoice_type = 'normal' AND p_payment_method = 'cash' AND p_payment_type = 'full' THEN
+        IF COALESCE(p_received_amount, 0) < v_total_amount THEN
+            RETURN jsonb_build_object(
+                'success', false,
+                'error', 'Số tiền thanh toán không đủ',
+                'error_code', 'INSUFFICIENT_PAYMENT'
+            );
+        END IF;
+        v_change_amount := COALESCE(p_received_amount, 0) - v_total_amount;
+    END IF;
+
+    -- Determine invoice code prefix and status based on type
+    IF p_invoice_type = 'temp_order' THEN
+        v_temp_code_prefix := 'TMP';
+        v_final_status := 'temp_pending';
+    ELSE
+        v_temp_code_prefix := 'INV';
+        v_final_status := CASE WHEN p_debt_amount > 0 THEN 'partial' ELSE 'completed' END;
+    END IF;
+
+    -- Generate invoice code
+    v_invoice_code := v_temp_code_prefix || to_char(CURRENT_DATE, 'YYMMDD') || 
+                      LPAD(nextval('invoice_code_seq')::text, 4, '0');
+
+    -- Create invoice
+    INSERT INTO invoices (
+        invoice_code, customer_id, customer_name, total_amount, 
+        customer_paid, invoice_date, branch_id, notes,
+        vat_rate, vat_amount, discount_type, discount_value,
+        status, created_at,
+        -- NEW FIELDS
+        invoice_type, expected_delivery_date
+    ) VALUES (
+        v_invoice_code, p_customer_id, v_customer.customer_name, v_total_amount,
+        -- For temp orders, customer_paid is always 0 initially
+        CASE WHEN p_invoice_type = 'temp_order' THEN 0 
+             ELSE COALESCE(p_paid_amount, CASE WHEN p_payment_type = 'full' THEN v_total_amount ELSE 0 END) END,
+        CURRENT_TIMESTAMP, p_branch_id,
+        CASE 
+            WHEN p_invoice_type = 'temp_order' THEN 
+                format('PHIẾU TẠM - Ngày xuất dự kiến: %s. %s', 
+                       to_char(p_expected_delivery_date, 'DD/MM/YYYY'),
+                       COALESCE(p_created_by || ' notes', ''))
+            WHEN p_payment_type != 'full' THEN 
+                format('Thanh toán %s: %s VND, Ghi nợ: %s VND, Phương thức: %s', 
+                       p_payment_type,
+                       COALESCE(p_paid_amount, 0), 
+                       COALESCE(p_debt_amount, 0),
+                       p_payment_method)
+            ELSE format('Thanh toán đầy đủ - Phương thức: %s', p_payment_method) 
+        END,
+        p_vat_rate, v_vat_amount, p_discount_type, p_discount_value,
+        v_final_status,
+        CURRENT_TIMESTAMP,
+        -- NEW VALUES
+        p_invoice_type, p_expected_delivery_date
+    ) RETURNING invoice_id INTO v_invoice_id;
+
+    -- Create invoice details
+    FOR v_cart_item IN SELECT * FROM jsonb_array_elements(p_cart_items)
+    LOOP
+        SELECT * INTO v_product FROM products 
+        WHERE product_id = (v_cart_item->>'product_id')::integer;
+        
+        INSERT INTO invoice_details (
+            invoice_id, product_id, invoice_code, product_code, product_name,
+            customer_code, customer_name, branch_id, invoice_date,
+            quantity, unit_price, sale_price, line_total, subtotal,
+            customer_id, created_at
+        ) VALUES (
+            v_invoice_id,
+            (v_cart_item->>'product_id')::integer,
+            v_invoice_code,
+            v_product.product_code,
+            v_product.product_name,
+            v_customer.customer_code,
+            v_customer.customer_name,
+            p_branch_id,
+            CURRENT_TIMESTAMP,
+            (v_cart_item->>'quantity')::numeric,
+            (v_cart_item->>'unit_price')::numeric,
+            (v_cart_item->>'unit_price')::numeric,
+            (v_cart_item->>'quantity')::numeric * (v_cart_item->>'unit_price')::numeric,
+            (v_cart_item->>'quantity')::numeric * (v_cart_item->>'unit_price')::numeric,
+            p_customer_id,
+            CURRENT_TIMESTAMP
+        );
+
+        -- Update product stock ONLY for normal invoices, not for temp orders
+        IF p_invoice_type = 'normal' THEN
+            UPDATE products 
+            SET current_stock = current_stock - (v_cart_item->>'quantity')::numeric
+            WHERE product_id = (v_cart_item->>'product_id')::integer;
+        END IF;
+    END LOOP;
+
+    -- Update customer debt ONLY for normal invoices with debt
+    IF p_invoice_type = 'normal' AND p_debt_amount > 0 THEN
+        UPDATE customers 
+        SET current_debt = current_debt + p_debt_amount,
+            last_purchase_date = CURRENT_TIMESTAMP
+        WHERE customer_id = p_customer_id;
+
+        -- Create debt transaction record
+        INSERT INTO debt_transactions (
+            customer_id, invoice_id, transaction_type, amount,
+            old_debt, new_debt, payment_method, notes, created_by
+        ) VALUES (
+            p_customer_id, v_invoice_id, 'debt_increase', p_debt_amount,
+            v_customer.current_debt, v_new_debt, p_payment_method,
+            format('Ghi nợ từ hóa đơn %s (%s)', v_invoice_code, p_payment_type),
+            p_created_by
+        );
+    END IF;
+
+    -- Return success with comprehensive information
+    RETURN jsonb_build_object(
+        'success', true,
+        'invoice_id', v_invoice_id,
+        'invoice_code', v_invoice_code,
+        'invoice_type', p_invoice_type,
+        'customer_name', v_customer.customer_name,
+        'expected_delivery_date', p_expected_delivery_date,
+        'totals', jsonb_build_object(
+            'subtotal_amount', v_subtotal,
+            'discount_amount', v_discount_amount,
+            'vat_amount', v_vat_amount,
+            'total_amount', v_total_amount,
+            'paid_amount', CASE WHEN p_invoice_type = 'temp_order' THEN 0 
+                               ELSE COALESCE(p_paid_amount, CASE WHEN p_payment_type = 'full' THEN v_total_amount ELSE 0 END) END,
+            'debt_amount', CASE WHEN p_invoice_type = 'temp_order' THEN 0 ELSE COALESCE(p_debt_amount, 0) END,
+            'change_amount', v_change_amount
+        ),
+        'payment_info', jsonb_build_object(
+            'method', p_payment_method,
+            'type', CASE WHEN p_invoice_type = 'temp_order' THEN 'temp_order' ELSE p_payment_type END,
+            'received_amount', p_received_amount
+        ),
+        'customer_info', jsonb_build_object(
+            'customer_id', v_customer.customer_id,
+            'customer_name', v_customer.customer_name,
+            'previous_debt', v_customer.current_debt,
+            'new_debt', CASE WHEN p_invoice_type = 'temp_order' THEN v_customer.current_debt ELSE v_new_debt END,
+            'debt_limit', v_customer.debt_limit
+        ),
+        'warnings', v_warnings,
+        'summary', format(
+            '%s %s - Khách hàng: %s - Tổng: %s%s',
+            CASE WHEN p_invoice_type = 'temp_order' THEN 'Phiếu tạm' ELSE 'Hóa đơn' END,
+            v_invoice_code,
+            v_customer.customer_name,
+            to_char(v_total_amount, 'FM999,999,999,999'),
+            CASE WHEN p_invoice_type = 'temp_order' THEN 
+                format(' - Xuất: %s', to_char(p_expected_delivery_date, 'DD/MM/YYYY'))
+            ELSE format(' - Thanh toán: %s', p_payment_type) END
+        )
+    );
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Lỗi hệ thống: ' || SQLERRM,
+            'error_code', 'SYSTEM_ERROR'
+        );
+END;
+$$;
+
+
+--
+-- Name: FUNCTION create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric, p_discount_type character varying, p_discount_value numeric, p_payment_method character varying, p_received_amount numeric, p_paid_amount numeric, p_debt_amount numeric, p_payment_type character varying, p_branch_id integer, p_created_by character varying, p_invoice_type character varying, p_expected_delivery_date date); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.create_pos_invoice(p_customer_id integer, p_cart_items jsonb, p_vat_rate numeric, p_discount_type character varying, p_discount_value numeric, p_payment_method character varying, p_received_amount numeric, p_paid_amount numeric, p_debt_amount numeric, p_payment_type character varying, p_branch_id integer, p_created_by character varying, p_invoice_type character varying, p_expected_delivery_date date) IS 'Enhanced POS Checkout Function with temp invoice support. 
+Supports normal invoices (immediate) and temp_order (pre-order) with expected delivery dates.
+For temp orders: no stock deduction, no payment required, customer_paid = 0.';
 
 
 --
@@ -2096,6 +2656,10 @@ CREATE TABLE public.invoices (
     discount_value numeric(10,2) DEFAULT 0,
     vat_rate numeric(5,2) DEFAULT 0,
     vat_amount numeric(15,2) DEFAULT 0,
+    invoice_type character varying(20) DEFAULT 'normal'::character varying,
+    expected_delivery_date date,
+    actual_delivery_date date,
+    CONSTRAINT chk_invoice_type_valid CHECK (((invoice_type)::text = ANY ((ARRAY['normal'::character varying, 'temp_order'::character varying])::text[]))),
     CONSTRAINT chk_invoices_discount_type_valid CHECK (((discount_type)::text = ANY ((ARRAY['percentage'::character varying, 'amount'::character varying])::text[]))),
     CONSTRAINT chk_invoices_discount_value_positive CHECK ((discount_value >= (0)::numeric)),
     CONSTRAINT chk_invoices_invoice_code_not_empty CHECK ((length(TRIM(BOTH FROM invoice_code)) > 0)),
@@ -2131,6 +2695,27 @@ COMMENT ON COLUMN public.invoices.vat_rate IS 'Tỷ lệ VAT (%) - 0, 5, 8, 10';
 --
 
 COMMENT ON COLUMN public.invoices.vat_amount IS 'Số tiền VAT tính được';
+
+
+--
+-- Name: COLUMN invoices.invoice_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.invoices.invoice_type IS 'Loại hóa đơn: normal (thường) hoặc temp_order (phiếu tạm)';
+
+
+--
+-- Name: COLUMN invoices.expected_delivery_date; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.invoices.expected_delivery_date IS 'Ngày dự kiến xuất hàng (cho phiếu tạm)';
+
+
+--
+-- Name: COLUMN invoices.actual_delivery_date; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.invoices.actual_delivery_date IS 'Ngày xuất hàng thực tế';
 
 
 --
@@ -2659,6 +3244,30 @@ CREATE VIEW public.low_stock_products AS
             WHEN (p.current_stock = (0)::numeric) THEN (0)::numeric
             ELSE p.current_stock
         END, p.is_medicine DESC;
+
+
+--
+-- Name: normal_invoices; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.normal_invoices AS
+ SELECT invoice_id,
+    invoice_code,
+    invoice_date,
+    customer_id,
+    customer_name,
+    total_amount,
+    customer_paid,
+    status,
+    notes,
+    created_at,
+    updated_at,
+    vat_rate,
+    vat_amount,
+    discount_type,
+    discount_value
+   FROM public.invoices
+  WHERE ((invoice_type)::text = 'normal'::text);
 
 
 --
@@ -3306,6 +3915,32 @@ ALTER SEQUENCE public.system_settings_setting_id_seq OWNED BY public.system_sett
 
 
 --
+-- Name: temp_invoices; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.temp_invoices AS
+ SELECT invoice_id,
+    invoice_code,
+    invoice_date,
+    customer_id,
+    customer_name,
+    total_amount,
+    customer_paid,
+    status,
+    expected_delivery_date,
+    actual_delivery_date,
+    notes,
+    created_at,
+    updated_at,
+    vat_rate,
+    vat_amount,
+    discount_type,
+    discount_value
+   FROM public.invoices
+  WHERE ((invoice_type)::text = 'temp_order'::text);
+
+
+--
 -- Name: units; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3708,7 +4343,7 @@ COPY public.customers (customer_id, customer_code, customer_name, customer_type_
 935	KH000316	ANH HẠNH - VÔ NHIỄM	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	1680000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-04-02 02:48:37.187	2025-07-29 06:48:10.77834
 936	KH000315	ANH VŨ - GÀ ĐẺ	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	11480000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-04-01 00:08:28.887	2025-07-29 06:48:10.77834
 938	KH000313	ANH NAM NOVA	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	0.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-03-27 07:46:12.087	2025-07-29 06:48:10.77834
-937	KH000314	ANH TUẤN - VỊT - TÍN NGHĨA	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	5240000.00	1800000.00	0.00	0	2025-08-18 16:01:41.222297	1	\N	Ngọc Bích	t	2025-03-29 02:00:34.567	2025-07-29 06:48:10.77834
+937	KH000314	ANH TUẤN - VỊT - TÍN NGHĨA	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	5330000.00	1800000.00	0.00	0	2025-09-03 11:31:16.284355	1	\N	Ngọc Bích	t	2025-03-29 02:00:34.567	2025-07-29 06:48:10.77834
 939	KH000312	ANH THÁI - VỊT - LÔ 2	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	37760000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-03-27 00:13:58.703	2025-07-29 06:48:10.77834
 940	KH000310	ĐÔNG CHÍCH	1	1	\N	\N	\N	\N	\N	\N	Nam	50000000.00	0.00	570000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-03-26 09:33:55.289	2025-07-29 06:48:10.77834
 941	KH000309	CÔ THẾ MARTINO	1	1	\N	\N	\N	\N	\N	\N	Nữ	50000000.00	0.00	12630000.00	0.00	0	\N	1	\N	Ngọc Bích	t	2025-03-25 00:14:26.463	2025-07-29 06:48:10.77834
@@ -4039,6 +4674,7 @@ COPY public.debt_transactions (transaction_id, customer_id, transaction_type, am
 27	839	debt_increase	27500.00	0.00	27500.00	cash	Ghi nợ từ hóa đơn INV2509030015 (partial)	773	POS System	2025-09-03 05:10:37.025034
 28	837	debt_increase	47500.00	0.00	47500.00	cash	Ghi nợ từ hóa đơn INV2509030016 (debt)	774	POS System	2025-09-03 06:07:03.497387
 29	1065	debt_increase	135000.00	0.00	135000.00	cash	Ghi nợ từ hóa đơn INV2509030017 (partial)	775	POS System	2025-09-03 06:19:33.52699
+30	937	debt_increase	90000.00	5240000.00	5330000.00	cash	Ghi nợ từ hóa đơn INV2509030018 (partial)	776	POS System	2025-09-03 11:31:16.284355
 \.
 
 
@@ -5843,6 +6479,7 @@ COPY public.invoice_details (detail_id, invoice_id, product_id, invoice_code, pr
 2895	773	1430	INV2509030015	SP000385	KIM 12x15 (Vỉ)	KH000415	CHÚ PHƯỚC VỊNH - NINH PHÁT	1	\N	\N	\N	2025-09-03 05:10:37.025034	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	50000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	5.00	10000.00	0.00	0.00	10000.00	50000.00	0.00	0.00	2025-09-03 05:10:37.025034	839
 2896	774	1430	INV2509030016	SP000385	KIM 12x15 (Vỉ)	KH000417	EM HẢI - TÂN PHÚ	1	\N	\N	\N	2025-09-03 06:07:03.497387	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	47500.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	5.00	9500.00	0.00	0.00	9500.00	47500.00	0.00	0.00	2025-09-03 06:07:03.497387	837
 2897	775	1755	INV2509030017	SP000049	#AGR POX (1000DS)	KH000177	A HOÀNG HIẾU VỊT	1	\N	\N	\N	2025-09-03 06:19:33.52699	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	185000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	185000.00	0.00	0.00	185000.00	185000.00	0.00	0.00	2025-09-03 06:19:33.52699	1065
+2898	776	1755	INV2509030018	SP000049	#AGR POX (1000DS)	KH000314	ANH TUẤN - VỊT - TÍN NGHĨA	1	\N	\N	\N	2025-09-03 11:31:16.284355	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	190000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00	\N	\N	\N	\N	\N	1.00	190000.00	0.00	0.00	190000.00	190000.00	0.00	0.00	2025-09-03 11:31:16.284355	937
 2812	738	\N	HD004605.01	SP000616{DEL}	CEVAMUNE (VIÊN)	KH000385	QUYỀN - TAM HOÀNG LÔ MỚI	1	\N	\N	\N	1970-01-01 00:00:45.839	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	80000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00		\N				1.00	80000.00	0.00	0.00	80000.00	80000.00	0.00	0.00	2025-07-30 01:20:39.244021	868
 1419	5	1584	HD005350	SP000224	#TG TẢ + CÚM (500ml)	KH000182	CÔ TUYẾT THU - PHÚ CƯỜNG 11K	1	\N	\N	\N	1970-01-01 00:00:45.866	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	13000000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00		\N				10.00	1300000.00	0.00	0.00	1300000.00	13000000.00	0.00	0.00	2025-07-30 01:20:32.586738	1115
 1420	6	1673	HD005349	SP000134	VAC PAC PLUS (5g)	KH000184	ĐINH QUỐC TUẤN	1	\N	\N	\N	1970-01-01 00:00:45.866	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	0.00	0.00	0.00	0.00	0.00	\N	60000.00	0.00	0.00	0.00	0.00	0.00	0.00	0.00		\N				2.00	30000.00	0.00	0.00	30000.00	60000.00	0.00	0.00	2025-07-30 01:20:32.586738	1060
@@ -5859,780 +6496,781 @@ COPY public.invoice_details (detail_id, invoice_id, product_id, invoice_code, pr
 -- Data for Name: invoices; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.invoices (invoice_id, invoice_code, invoice_date, return_code, customer_id, customer_name, branch_id, total_amount, customer_paid, notes, status, created_at, updated_at, discount_type, discount_value, vat_rate, vat_amount) FROM stdin;
-570	HD004774	2025-07-07 14:23:21.723	\N	906	ANH CHÍNH - VÔ NHIỄM	1	4100000.00	0.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00
-2	HD005353	2025-07-28 10:34:36.866	\N	909	CHỊ TRÂM - VÔ NHIỄM 3K	1	400000.00	0.00	\N	completed	2025-07-30 00:54:56.163	2025-07-30 00:54:56.163	percentage	0.00	0.00	0.00
-3	HD005352	2025-07-28 10:03:36.082	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	2140000.00	0.00	\N	completed	2025-07-30 00:54:56.164	2025-07-30 00:54:56.164	percentage	0.00	0.00	0.00
-4	HD005351	2025-07-28 10:02:19.822	\N	1133	TRINH - HIPPRA	1	2380000.00	0.00	\N	completed	2025-07-30 00:54:56.164	2025-07-30 00:54:56.164	percentage	0.00	0.00	0.00
-5	HD005350	2025-07-28 09:57:22.903	\N	1115	CÔ TUYẾT THU - PHÚ CƯỜNG 11K	1	14760000.00	0.00	\N	completed	2025-07-30 00:54:56.165	2025-07-30 00:54:56.165	percentage	0.00	0.00	0.00
-6	HD005349	2025-07-28 09:51:28.827	\N	1060	ĐINH QUỐC TUẤN	1	500000.00	0.00	\N	completed	2025-07-30 00:54:56.165	2025-07-30 00:54:56.165	percentage	0.00	0.00	0.00
-7	HD005348	2025-07-28 09:47:50.299	\N	1208	ANH SỸ - VỊT	1	4120000.00	0.00	\N	completed	2025-07-30 00:54:56.165	2025-07-30 00:54:56.165	percentage	0.00	0.00	0.00
-8	HD005347	2025-07-28 09:31:53.206	\N	1199	ANH HÙNG - CẦU CƯỜNG	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:56.165	2025-07-30 00:54:56.165	percentage	0.00	0.00	0.00
-9	HD005346	2025-07-28 09:11:08.117	\N	1048	ANH TRIỆU - GIA KIỆM	1	180000.00	0.00	\N	completed	2025-07-30 00:54:56.166	2025-07-30 00:54:56.166	percentage	0.00	0.00	0.00
-10	HD005345.02	2025-07-28 08:36:59.96	\N	1216	ANH HƯNG - MARTINO	1	900000.00	0.00	\N	completed	2025-07-30 00:54:56.166	2025-07-30 00:54:56.166	percentage	0.00	0.00	0.00
-12	HD005343.01	2025-07-28 08:15:02.823	\N	850	ANH QUỐC - DẦU GIÂY	1	4770000.00	0.00	\N	completed	2025-07-30 00:54:56.166	2025-07-30 00:54:56.166	percentage	0.00	0.00	0.00
-13	HD005342.01	2025-07-28 08:12:39.647	\N	862	HOÀ MEGA	1	10240000.00	0.00	\N	completed	2025-07-30 00:54:56.166	2025-07-30 00:54:56.166	percentage	0.00	0.00	0.00
-14	HD005341	2025-07-28 07:55:32.827	\N	932	ANH KHÁNH - VỊT - SOKLU	1	1300000.00	1300000.00	\N	completed	2025-07-30 00:54:56.167	2025-07-30 00:54:56.167	percentage	0.00	0.00	0.00
-15	HD005340	2025-07-28 06:59:08.61	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	2200000.00	0.00	\N	completed	2025-07-30 00:54:56.167	2025-07-30 00:54:56.167	percentage	0.00	0.00	0.00
-16	HD005339.01	2025-07-28 06:57:13.743	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	4200000.00	0.00	\N	completed	2025-07-30 00:54:56.167	2025-07-30 00:54:56.167	percentage	0.00	0.00	0.00
-17	HD005338	2025-07-28 06:35:58.126	\N	1198	CÔ QUYỀN - ĐỨC LONG	1	4630000.00	0.00	\N	completed	2025-07-30 00:54:56.167	2025-07-30 00:54:56.167	percentage	0.00	0.00	0.00
-18	HD005337	2025-07-28 06:25:53.863	\N	923	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	4520000.00	0.00	\N	completed	2025-07-30 00:54:56.167	2025-07-30 00:54:56.167	percentage	0.00	0.00	0.00
-19	HD005336	2025-07-28 06:24:28.543	\N	1183	ANH CU - TAM HOÀNG HƯNG LỘC	1	3840000.00	0.00	\N	completed	2025-07-30 00:54:56.167	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00
-20	HD005335	2025-07-27 18:23:43.266	\N	1057	KHÁCH LẺ	1	230000.00	230000.00	\N	completed	2025-07-30 00:54:56.168	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00
-21	HD005334	2025-07-27 14:46:34.557	\N	1211	ANH PHONG - BÀU SẬY	1	10000.00	0.00	\N	completed	2025-07-30 00:54:56.168	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00
-22	HD005333	2025-07-27 14:42:14.643	\N	1011	HẢI - TRẢNG BOM	1	2000000.00	2000000.00	\N	completed	2025-07-30 00:54:56.168	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00
-23	HD005332	2025-07-27 10:23:35.457	\N	881	CHÚ HUỲNH - XÃ LỘ 25	1	6800000.00	0.00	\N	completed	2025-07-30 00:54:56.168	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00
-24	HD005331	2025-07-27 09:37:05.899	\N	1211	ANH PHONG - BÀU SẬY	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:56.168	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00
-25	HD005330	2025-07-27 09:29:14.737	\N	1032	ANH LÂM (5K) - TRẠI 2	1	520000.00	0.00	\N	completed	2025-07-30 00:54:56.168	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00
-26	HD005329	2025-07-27 09:16:34.403	\N	1041	KHẢI ( CÔ CHUNG)	1	7580000.00	0.00	\N	completed	2025-07-30 00:54:56.169	2025-07-30 00:54:56.169	percentage	0.00	0.00	0.00
-27	HD005328	2025-07-27 08:41:47.637	\N	1155	ANH PHONG - VỊT (NHÀ)	1	420000.00	0.00	\N	completed	2025-07-30 00:54:56.169	2025-07-30 00:54:56.169	percentage	0.00	0.00	0.00
-28	HD005327	2025-07-27 08:30:10.677	\N	1176	ANH SỸ -TAM HOÀNG	1	450000.00	0.00	\N	completed	2025-07-30 00:54:56.169	2025-07-30 00:54:56.169	percentage	0.00	0.00	0.00
-29	HD005326	2025-07-27 08:24:27.587	\N	875	NHUNG VIETVET	1	6750000.00	0.00	\N	completed	2025-07-30 00:54:56.169	2025-07-30 00:54:56.169	percentage	0.00	0.00	0.00
-31	HD005324	2025-07-27 07:32:07.793	\N	1155	ANH PHONG - VỊT (NHÀ)	1	2520000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00
-32	HD005323	2025-07-27 07:16:03.769	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	4200000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00
-33	HD005322	2025-07-27 06:34:59.55	\N	1043	HÀ HOÀNG	1	1680000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00
-34	HD005321	2025-07-27 06:33:48.137	\N	1206	ANH NGHĨA - SOKLU	1	4260000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00
-35	HD005320	2025-07-27 06:32:00.94	\N	923	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	6800000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00
-36	HD005319	2025-07-26 14:22:22.862	\N	1080	CÔNG ARIVIET	1	4750000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00
-37	HD005318	2025-07-26 14:18:12.117	\N	859	ANH QUẢNG - LONG THÀNH	1	1500000.00	0.00	\N	completed	2025-07-30 00:54:56.171	2025-07-30 00:54:56.171	percentage	0.00	0.00	0.00
-38	HD005317	2025-07-26 14:16:40.633	\N	865	ANH HỌC (LONG)	1	6800000.00	0.00	\N	completed	2025-07-30 00:54:56.171	2025-07-30 00:54:56.171	percentage	0.00	0.00	0.00
-39	HD005316	2025-07-26 11:26:21.67	\N	1037	ANH THIỆN - TAM HOÀNG - PHÚ TÚC	1	9900000.00	0.00	\N	completed	2025-07-30 00:54:56.171	2025-07-30 00:54:56.171	percentage	0.00	0.00	0.00
-40	HD005315.01	2025-07-26 11:19:43.542	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	1830000.00	0.00	\N	completed	2025-07-30 00:54:56.171	2025-07-30 00:54:56.171	percentage	0.00	0.00	0.00
-41	HD005314	2025-07-26 11:17:59.993	\N	906	ANH CHÍNH - VÔ NHIỄM	1	3400000.00	0.00	\N	completed	2025-07-30 00:54:56.171	2025-07-30 00:54:56.171	percentage	0.00	0.00	0.00
-42	HD005313.01	2025-07-26 11:13:41.736	\N	1129	SÁNG TẰNG HAID	1	8825000.00	8755000.00	\N	completed	2025-07-30 00:54:56.171	2025-07-30 00:54:56.171	percentage	0.00	0.00	0.00
-43	HD005312.01	2025-07-26 10:49:43.322	\N	954	KHẢI HAIDER - BÀU CẠN LÔ 20k	1	7200000.00	0.00	\N	completed	2025-07-30 00:54:56.172	2025-07-30 00:54:56.172	percentage	0.00	0.00	0.00
-44	HD005311	2025-07-26 10:33:14.557	\N	1126	EM TÀI - CÁM - TOGET	1	700000.00	0.00	\N	completed	2025-07-30 00:54:56.172	2025-07-30 00:54:56.172	percentage	0.00	0.00	0.00
-45	HD005310.01	2025-07-26 10:14:22.703	TH000192	831	ANH HẢI (TUẤN)	1	6630000.00	0.00	\N	completed	2025-07-30 00:54:56.172	2025-07-30 00:54:56.172	percentage	0.00	0.00	0.00
-46	HD005309	2025-07-26 10:05:54.516	\N	862	HOÀ MEGA	1	1800000.00	0.00	\N	completed	2025-07-30 00:54:56.172	2025-07-30 00:54:56.172	percentage	0.00	0.00	0.00
-47	HD005308	2025-07-26 09:51:27.61	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:56.172	2025-07-30 00:54:56.172	percentage	0.00	0.00	0.00
-48	HD005307	2025-07-26 09:35:02.993	\N	1057	KHÁCH LẺ	1	150000.00	150000.00	\N	completed	2025-07-30 00:54:56.172	2025-07-30 00:54:56.172	percentage	0.00	0.00	0.00
-50	HD005305	2025-07-26 09:03:35.653	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	1250000.00	0.00	\N	completed	2025-07-30 00:54:56.173	2025-07-30 00:54:56.173	percentage	0.00	0.00	0.00
-51	HD005304.01	2025-07-26 08:22:51.6	\N	945	ANH TÂM ( NHÀ) - LÔ 2	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:56.46	2025-07-30 00:54:56.46	percentage	0.00	0.00	0.00
-52	HD005303	2025-07-26 08:16:54.337	\N	1048	ANH TRIỆU - GIA KIỆM	1	8400000.00	0.00	\N	completed	2025-07-30 00:54:56.46	2025-07-30 00:54:56.46	percentage	0.00	0.00	0.00
-53	HD005302	2025-07-26 08:08:26.26	\N	1161	CHÚ THÀNH - GÀ TRE	1	220000.00	220000.00	\N	completed	2025-07-30 00:54:56.46	2025-07-30 00:54:56.46	percentage	0.00	0.00	0.00
-54	HD005301	2025-07-26 08:00:27.987	\N	885	ANH THỨC - TAM HOÀNG	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00
-55	HD005300	2025-07-26 07:44:57.61	\N	1208	ANH SỸ - VỊT	1	2610000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00
-56	HD005299	2025-07-26 07:31:22.899	\N	1135	TÂM UNITEK	1	4290000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00
-57	HD005298	2025-07-26 06:56:08.383	\N	832	ANH HẢI (THUÝ)	1	440000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00
-58	HD005297	2025-07-26 06:52:08.672	\N	1179	CÔ LAN ( TUẤN) - TAM HOÀNG	1	1980000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00
-59	HD005296	2025-07-26 06:51:08.053	\N	1023	CHỊ QUY - BÌNH DƯƠNG	1	9400000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00
-60	HD005295	2025-07-26 06:49:45.396	\N	1203	CHỊ LOAN ( ĐỊNH)	1	1100000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00
-61	HD005294	2025-07-26 06:48:50.666	\N	966	ANH THANH - XUÂN BẮC	1	2640000.00	0.00	\N	completed	2025-07-30 00:54:56.462	2025-07-30 00:54:56.462	percentage	0.00	0.00	0.00
-62	HD005293	2025-07-26 06:47:32.043	\N	1194	ANH DŨNG - VỊT	1	4400000.00	0.00	\N	completed	2025-07-30 00:54:56.462	2025-07-30 00:54:56.462	percentage	0.00	0.00	0.00
-63	HD005292	2025-07-26 06:45:49.767	\N	1204	ANH HỌC	1	960000.00	0.00	\N	completed	2025-07-30 00:54:56.462	2025-07-30 00:54:56.462	percentage	0.00	0.00	0.00
-579	HD004765	2025-07-07 08:34:41.597	\N	1046	ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2	1	520000.00	0.00	\N	completed	2025-07-30 00:54:59.234	2025-07-30 00:54:59.234	percentage	0.00	0.00	0.00
-65	HD005290	2025-07-26 06:43:09.093	\N	833	Thắng bida (test)	1	170000.00	170000.00	\N	completed	2025-07-30 00:54:56.462	2025-07-30 00:54:56.462	percentage	0.00	0.00	0.00
-66	HD005288	2025-07-26 06:40:02.096	\N	838	ANH LÂM - TRẠI 5	1	520000.00	0.00	\N	completed	2025-07-30 00:54:56.463	2025-07-30 00:54:56.463	percentage	0.00	0.00	0.00
-68	HD005286	2025-07-26 06:32:42.71	\N	1178	CHÚ CHƯƠNG - TAM HOÀNG	1	1400000.00	0.00	\N	completed	2025-07-30 00:54:56.463	2025-07-30 00:54:56.463	percentage	0.00	0.00	0.00
-69	HD005285	2025-07-26 06:30:55.626	\N	1192	CÔ PHƯỢNG - BÌNH LỘC	1	2220000.00	0.00	\N	completed	2025-07-30 00:54:56.463	2025-07-30 00:54:56.463	percentage	0.00	0.00	0.00
-70	HD005283	2025-07-25 16:31:11.573	\N	923	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	4600000.00	0.00	\N	completed	2025-07-30 00:54:56.463	2025-07-30 00:54:56.463	percentage	0.00	0.00	0.00
-71	HD005282.01	2025-07-25 16:27:45.657	\N	849	ANH HẢI HÀO LÔ MỚI	1	3030000.00	0.00	\N	completed	2025-07-30 00:54:56.464	2025-07-30 00:54:56.464	percentage	0.00	0.00	0.00
-72	HD005281	2025-07-25 16:25:08.123	\N	834	CHỊ LIỄU - LONG THÀNH	1	10760000.00	0.00	\N	completed	2025-07-30 00:54:56.464	2025-07-30 00:54:56.464	percentage	0.00	0.00	0.00
-73	HD005280	2025-07-25 15:33:24.62	\N	856	TRUNG - BƯU ĐIỆN - LÔ 2	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:56.464	2025-07-30 00:54:56.464	percentage	0.00	0.00	0.00
-74	HD005279	2025-07-25 14:57:19.6	\N	1159	EM SƠN - ECOVET	1	4350000.00	0.00	\N	completed	2025-07-30 00:54:56.464	2025-07-30 00:54:56.464	percentage	0.00	0.00	0.00
-75	HD005278	2025-07-25 14:44:32.973	\N	885	ANH THỨC - TAM HOÀNG	1	3500000.00	0.00	\N	completed	2025-07-30 00:54:56.464	2025-07-30 00:54:56.464	percentage	0.00	0.00	0.00
-76	HD005277	2025-07-25 14:36:27.067	\N	1126	EM TÀI - CÁM - TOGET	1	1980000.00	0.00	\N	completed	2025-07-30 00:54:56.464	2025-07-30 00:54:56.464	percentage	0.00	0.00	0.00
-77	HD005276	2025-07-25 14:34:03.002	\N	909	CHỊ TRÂM - VÔ NHIỄM 3K	1	550000.00	0.00	\N	completed	2025-07-30 00:54:56.465	2025-07-30 00:54:56.465	percentage	0.00	0.00	0.00
-78	HD005275.01	2025-07-25 14:31:59.893	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	2415000.00	0.00	\N	completed	2025-07-30 00:54:56.465	2025-07-30 00:54:56.465	percentage	0.00	0.00	0.00
-79	HD005274	2025-07-25 14:16:01.297	\N	1208	ANH SỸ - VỊT	1	4615000.00	0.00	\N	completed	2025-07-30 00:54:56.466	2025-07-30 00:54:56.466	percentage	0.00	0.00	0.00
-80	HD005273.02	2025-07-25 11:22:39.297	\N	1011	HẢI - TRẢNG BOM	1	7380000.00	7380000.00	\N	completed	2025-07-30 00:54:56.466	2025-07-30 00:54:56.466	percentage	0.00	0.00	0.00
-81	HD005272	2025-07-25 11:14:26.64	\N	1172	CHỊ TRANG-TAM HOÀNG-NAGOA	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:56.466	2025-07-30 00:54:56.466	percentage	0.00	0.00	0.00
-82	HD005271	2025-07-25 10:56:50.666	\N	1080	CÔNG ARIVIET	1	1100000.00	0.00	\N	completed	2025-07-30 00:54:56.466	2025-07-30 00:54:56.466	percentage	0.00	0.00	0.00
-83	HD005270	2025-07-25 10:00:21.77	\N	1026	HUYỀN TIGERVET	1	440000.00	0.00	\N	completed	2025-07-30 00:54:56.466	2025-07-30 00:54:56.466	percentage	0.00	0.00	0.00
-84	HD005269	2025-07-25 09:25:31.59	\N	1057	KHÁCH LẺ	1	200000.00	200000.00	\N	completed	2025-07-30 00:54:56.466	2025-07-30 00:54:56.466	percentage	0.00	0.00	0.00
-85	HD005268	2025-07-25 08:53:28.803	\N	1226	ANH LÂM (5k) - TRẠI 1	1	2700000.00	0.00	\N	completed	2025-07-30 00:54:56.467	2025-07-30 00:54:56.467	percentage	0.00	0.00	0.00
-86	HD005267	2025-07-25 08:51:14.667	\N	1135	TÂM UNITEK	1	11600000.00	0.00	\N	completed	2025-07-30 00:54:56.467	2025-07-30 00:54:56.467	percentage	0.00	0.00	0.00
-88	HD005265	2025-07-25 07:53:02.33	\N	1185	ANH LÂM (8K) - TRẠI 4	1	910000.00	0.00	\N	completed	2025-07-30 00:54:56.467	2025-07-30 00:54:56.467	percentage	0.00	0.00	0.00
-89	HD005264	2025-07-25 07:44:04.527	\N	894	ANH DANH - GÀ TRE - VÔ NHIỄM 9K	1	3500000.00	0.00	\N	completed	2025-07-30 00:54:56.467	2025-07-30 00:54:56.467	percentage	0.00	0.00	0.00
-90	HD005263	2025-07-25 07:42:44.966	\N	1188	ANH HIỂN - BÀU SẬY	1	3300000.00	0.00	\N	completed	2025-07-30 00:54:56.468	2025-07-30 00:54:56.468	percentage	0.00	0.00	0.00
-91	HD005262	2025-07-25 07:39:06.427	\N	861	CHÚ PHÁT - DỐC MƠ	1	570000.00	0.00	\N	completed	2025-07-30 00:54:56.468	2025-07-30 00:54:56.468	percentage	0.00	0.00	0.00
-92	HD005261	2025-07-25 07:35:12.746	\N	846	ANH KHÔI	1	880000.00	0.00	\N	completed	2025-07-30 00:54:56.468	2025-07-30 00:54:56.468	percentage	0.00	0.00	0.00
-93	HD005260	2025-07-25 07:27:23.893	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	900000.00	0.00	\N	completed	2025-07-30 00:54:56.468	2025-07-30 00:54:56.468	percentage	0.00	0.00	0.00
-94	HD005259	2025-07-25 07:23:56.82	\N	840	ANH TÂM (CÔNG) LÔ MỚI	1	350000.00	0.00	\N	completed	2025-07-30 00:54:56.468	2025-07-30 00:54:56.468	percentage	0.00	0.00	0.00
-95	HD005258	2025-07-25 07:22:36.812	\N	992	XUÂN ( THUÊ NGÁT)	1	4200000.00	0.00	\N	completed	2025-07-30 00:54:56.468	2025-07-30 00:54:56.468	percentage	0.00	0.00	0.00
-96	HD005257	2025-07-25 07:21:38.853	\N	1209	XUÂN - VỊT ( NHÀ)	1	1550000.00	0.00	\N	completed	2025-07-30 00:54:56.469	2025-07-30 00:54:56.469	percentage	0.00	0.00	0.00
-97	HD005256.01	2025-07-25 06:59:28.452	\N	1188	ANH HIỂN - BÀU SẬY	1	5350000.00	0.00	\N	completed	2025-07-30 00:54:56.469	2025-07-30 00:54:56.469	percentage	0.00	0.00	0.00
-98	HD005255	2025-07-25 06:51:49.476	\N	899	KHẢI GIA KIỆM	1	4590000.00	0.00	\N	completed	2025-07-30 00:54:56.469	2025-07-30 00:54:56.469	percentage	0.00	0.00	0.00
-99	HD005254.01	2025-07-25 06:36:11.502	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	2380000.00	0.00	\N	completed	2025-07-30 00:54:56.469	2025-07-30 00:54:56.469	percentage	0.00	0.00	0.00
-100	HD005253	2025-07-25 06:32:24.422	\N	1179	CÔ LAN ( TUẤN) - TAM HOÀNG	1	0.00	0.00	\N	completed	2025-07-30 00:54:56.469	2025-07-30 00:54:56.469	percentage	0.00	0.00	0.00
-101	HD005252	2025-07-25 06:31:55.926	\N	1179	CÔ LAN ( TUẤN) - TAM HOÀNG	1	12700000.00	0.00	\N	completed	2025-07-30 00:54:56.717	2025-07-30 00:54:56.717	percentage	0.00	0.00	0.00
-102	HD005251	2025-07-24 17:49:41.56	\N	850	ANH QUỐC - DẦU GIÂY	1	950000.00	0.00	\N	completed	2025-07-30 00:54:56.718	2025-07-30 00:54:56.718	percentage	0.00	0.00	0.00
-104	HD005249	2025-07-24 17:27:56.5	\N	861	CHÚ PHÁT - DỐC MƠ	1	440000.00	0.00	\N	completed	2025-07-30 00:54:56.718	2025-07-30 00:54:56.718	percentage	0.00	0.00	0.00
-105	HD005248	2025-07-24 17:25:52.922	\N	1080	CÔNG ARIVIET	1	32000000.00	0.00	\N	completed	2025-07-30 00:54:56.719	2025-07-30 00:54:56.719	percentage	0.00	0.00	0.00
-106	HD005247	2025-07-24 16:44:45.577	\N	1057	KHÁCH LẺ	1	100000.00	100000.00	\N	completed	2025-07-30 00:54:56.719	2025-07-30 00:54:56.719	percentage	0.00	0.00	0.00
-107	HD005246	2025-07-24 16:38:07.523	\N	862	HOÀ MEGA	1	8850000.00	0.00	\N	completed	2025-07-30 00:54:56.719	2025-07-30 00:54:56.719	percentage	0.00	0.00	0.00
-108	HD005245	2025-07-24 15:46:57.596	\N	906	ANH CHÍNH - VÔ NHIỄM	1	350000.00	0.00	\N	completed	2025-07-30 00:54:56.719	2025-07-30 00:54:56.719	percentage	0.00	0.00	0.00
-109	HD005244	2025-07-24 15:09:18.55	\N	930	TUẤN NGÔ - SOKLU	1	1300000.00	1235000.00	\N	completed	2025-07-30 00:54:56.719	2025-07-30 00:54:56.719	percentage	0.00	0.00	0.00
-110	HD005243	2025-07-24 14:53:24.533	\N	1034	CHỊ DUNG - SOKLU	1	10700000.00	0.00	\N	completed	2025-07-30 00:54:56.719	2025-07-30 00:54:56.719	percentage	0.00	0.00	0.00
-111	HD005241.01	2025-07-24 14:32:34.683	\N	990	ANH HIẾU - DÊ	1	140000.00	140000.00	\N	completed	2025-07-30 00:54:56.72	2025-07-30 00:54:56.72	percentage	0.00	0.00	0.00
-112	HD005240	2025-07-24 11:21:36.672	\N	1032	ANH LÂM (5K) - TRẠI 2	1	660000.00	0.00	\N	completed	2025-07-30 00:54:56.72	2025-07-30 00:54:56.72	percentage	0.00	0.00	0.00
-113	HD005239	2025-07-24 11:20:44.13	\N	1226	ANH LÂM (5k) - TRẠI 1	1	1320000.00	0.00	\N	completed	2025-07-30 00:54:56.72	2025-07-30 00:54:56.72	percentage	0.00	0.00	0.00
-114	HD005238	2025-07-24 11:16:02.83	\N	1080	CÔNG ARIVIET	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:56.72	2025-07-30 00:54:56.72	percentage	0.00	0.00	0.00
-115	HD005237	2025-07-24 10:31:37.97	\N	836	ANH KHÁNH - TAM HOÀNG - SOKLU 2	1	0.00	0.00	\N	completed	2025-07-30 00:54:56.72	2025-07-30 00:54:56.72	percentage	0.00	0.00	0.00
-116	HD005236	2025-07-24 10:30:31.117	\N	836	ANH KHÁNH - TAM HOÀNG - SOKLU 2	1	9540000.00	0.00	\N	completed	2025-07-30 00:54:56.72	2025-07-30 00:54:56.72	percentage	0.00	0.00	0.00
-117	HD005235.01	2025-07-24 09:49:56.087	\N	835	CHỊ TRINH - VĨNH AN	1	8270000.00	0.00	\N	completed	2025-07-30 00:54:56.721	2025-07-30 00:54:56.721	percentage	0.00	0.00	0.00
-118	HD005234	2025-07-24 09:22:35.647	\N	885	ANH THỨC - TAM HOÀNG	1	1800000.00	0.00	\N	completed	2025-07-30 00:54:56.721	2025-07-30 00:54:56.721	percentage	0.00	0.00	0.00
-119	HD005233	2025-07-24 08:06:58.56	\N	1092	CHỊ THÚY - BƯU ĐIỆN	1	11640000.00	0.00	\N	completed	2025-07-30 00:54:56.721	2025-07-30 00:54:56.721	percentage	0.00	0.00	0.00
-120	HD005232	2025-07-24 07:27:41.463	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	650000.00	0.00	\N	completed	2025-07-30 00:54:56.721	2025-07-30 00:54:56.721	percentage	0.00	0.00	0.00
-121	HD005231.02	2025-07-24 07:17:59.847	\N	1204	ANH HỌC	1	2100000.00	2100000.00	\N	completed	2025-07-30 00:54:56.721	2025-07-30 00:54:56.721	percentage	0.00	0.00	0.00
-123	HD005229	2025-07-24 07:00:56.773	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:56.722	2025-07-30 00:54:56.722	percentage	0.00	0.00	0.00
-124	HD005228	2025-07-24 06:59:09.75	\N	878	ANH TÈO - VÔ NHIỄM	1	200000.00	0.00	\N	completed	2025-07-30 00:54:56.722	2025-07-30 00:54:56.722	percentage	0.00	0.00	0.00
-125	HD005227	2025-07-24 06:56:56.573	\N	1080	CÔNG ARIVIET	1	260000.00	0.00	\N	completed	2025-07-30 00:54:56.722	2025-07-30 00:54:56.722	percentage	0.00	0.00	0.00
-126	HD005226	2025-07-24 06:42:44.057	\N	1183	ANH CU - TAM HOÀNG HƯNG LỘC	1	3370000.00	0.00	\N	completed	2025-07-30 00:54:56.722	2025-07-30 00:54:56.722	percentage	0.00	0.00	0.00
-127	HD005225	2025-07-24 06:40:59.257	\N	1209	XUÂN - VỊT ( NHÀ)	1	520000.00	0.00	\N	completed	2025-07-30 00:54:56.722	2025-07-30 00:54:56.722	percentage	0.00	0.00	0.00
-601	HD004743	2025-07-06 08:03:55.64	\N	1215	ANH TÂM ( ANH CÔNG)	1	7650000.00	0.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00
-128	HD005224	2025-07-24 06:33:29.193	\N	1159	EM SƠN - ECOVET	1	5220000.00	0.00	\N	completed	2025-07-30 00:54:56.723	2025-07-30 00:54:56.723	percentage	0.00	0.00	0.00
-130	HD005222	2025-07-24 06:29:43.7	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	2820000.00	0.00	\N	completed	2025-07-30 00:54:56.723	2025-07-30 00:54:56.723	percentage	0.00	0.00	0.00
-131	HD005221	2025-07-24 06:26:58.257	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:56.723	2025-07-30 00:54:56.723	percentage	0.00	0.00	0.00
-132	HD005220	2025-07-23 17:01:48.517	\N	1057	KHÁCH LẺ	1	800000.00	800000.00	\N	completed	2025-07-30 00:54:56.723	2025-07-30 00:54:56.723	percentage	0.00	0.00	0.00
-133	HD005218	2025-07-23 16:24:40.657	\N	840	ANH TÂM (CÔNG) LÔ MỚI	1	590000.00	0.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00
-134	HD005217	2025-07-23 15:02:45.929	\N	1199	ANH HÙNG - CẦU CƯỜNG	1	140000.00	0.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00
-135	HD005216	2025-07-23 14:41:50.377	\N	1136	ANH GIA CHÍCH	1	630000.00	0.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00
-136	HD005215.01	2025-07-23 14:30:19.167	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	2010000.00	0.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00
-137	HD005214	2025-07-23 14:28:27.653	\N	1203	CHỊ LOAN ( ĐỊNH)	1	5800000.00	0.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00
-138	HD005213	2025-07-23 14:24:11.697	\N	1057	KHÁCH LẺ	1	230000.00	230000.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00
-139	HD005212	2025-07-23 14:23:17.179	\N	1155	ANH PHONG - VỊT (NHÀ)	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00
-140	HD005211.02	2025-07-23 14:21:49.852	\N	861	CHÚ PHÁT - DỐC MƠ	1	1260000.00	0.00	\N	completed	2025-07-30 00:54:56.725	2025-07-30 00:54:56.725	percentage	0.00	0.00	0.00
-141	HD005210	2025-07-23 11:16:53.639	\N	962	CÔ TUYẾT THU (5K) - LÔ SONG HÀNH	1	1230000.00	0.00	\N	completed	2025-07-30 00:54:56.725	2025-07-30 00:54:56.725	percentage	0.00	0.00	0.00
-143	HD005208	2025-07-23 11:13:41.583	\N	1115	CÔ TUYẾT THU - PHÚ CƯỜNG 11K	1	1920000.00	0.00	\N	completed	2025-07-30 00:54:56.725	2025-07-30 00:54:56.725	percentage	0.00	0.00	0.00
-144	HD005207	2025-07-23 11:04:05.717	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	450000.00	0.00	\N	completed	2025-07-30 00:54:56.725	2025-07-30 00:54:56.725	percentage	0.00	0.00	0.00
-145	HD005206	2025-07-23 10:32:12.03	\N	1057	KHÁCH LẺ	1	100000.00	100000.00	\N	completed	2025-07-30 00:54:56.725	2025-07-30 00:54:56.725	percentage	0.00	0.00	0.00
-146	HD005205	2025-07-23 10:26:19.953	\N	1006	THUỲ TRANG	1	665000.00	0.00	\N	completed	2025-07-30 00:54:56.726	2025-07-30 00:54:56.726	percentage	0.00	0.00	0.00
-147	HD005204.01	2025-07-23 09:45:09.747	\N	864	ANH TÀI - MARTINO (BÀ NGOẠI)	1	3120000.00	0.00	\N	completed	2025-07-30 00:54:56.726	2025-07-30 00:54:56.726	percentage	0.00	0.00	0.00
-148	HD005203.01	2025-07-23 09:43:32.943	\N	1113	ANH TÀI - GÀ TA - MARTINO	1	3120000.00	0.00	\N	completed	2025-07-30 00:54:56.726	2025-07-30 00:54:56.726	percentage	0.00	0.00	0.00
-149	HD005202	2025-07-23 09:10:37.532	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	4710000.00	0.00	\N	completed	2025-07-30 00:54:56.726	2025-07-30 00:54:56.726	percentage	0.00	0.00	0.00
-150	HD005201	2025-07-23 09:01:54.21	\N	1092	CHỊ THÚY - BƯU ĐIỆN	1	3395000.00	0.00	\N	completed	2025-07-30 00:54:56.726	2025-07-30 00:54:56.726	percentage	0.00	0.00	0.00
-151	HD005200	2025-07-23 09:00:07.503	\N	1092	CHỊ THÚY - BƯU ĐIỆN	1	15705000.00	0.00	\N	completed	2025-07-30 00:54:56.96	2025-07-30 00:54:56.96	percentage	0.00	0.00	0.00
-152	HD005199	2025-07-23 08:42:39.96	\N	894	ANH DANH - GÀ TRE - VÔ NHIỄM 9K	1	2500000.00	0.00	\N	completed	2025-07-30 00:54:56.961	2025-07-30 00:54:56.961	percentage	0.00	0.00	0.00
-153	HD005198	2025-07-23 08:37:26.753	\N	877	ANH DANH - GÀ TRE - VÔ NHIỄM 4K	1	640000.00	0.00	\N	completed	2025-07-30 00:54:56.961	2025-07-30 00:54:56.961	percentage	0.00	0.00	0.00
-154	HD005197.02	2025-07-23 08:27:14.506	\N	859	ANH QUẢNG - LONG THÀNH	1	3950000.00	0.00	\N	completed	2025-07-30 00:54:56.961	2025-07-30 00:54:56.961	percentage	0.00	0.00	0.00
-155	HD005196	2025-07-23 08:24:41.69	\N	898	ANH ĐEN - GÀ - VÔ NHIỄM 2K	1	260000.00	0.00	\N	completed	2025-07-30 00:54:56.961	2025-07-30 00:54:56.961	percentage	0.00	0.00	0.00
-156	HD005195.02	2025-07-23 07:47:29.642	\N	836	ANH KHÁNH - TAM HOÀNG - SOKLU 2	1	950000.00	0.00	\N	completed	2025-07-30 00:54:56.961	2025-07-30 00:54:56.961	percentage	0.00	0.00	0.00
-157	HD005194	2025-07-23 07:13:20.14	\N	889	TRUNG - BƯU ĐIỆN - LÔ MỚI	1	2800000.00	0.00	\N	completed	2025-07-30 00:54:56.961	2025-07-30 00:54:56.961	percentage	0.00	0.00	0.00
-158	HD005193	2025-07-23 07:12:33.72	\N	1217	TRUNG - BƯU ĐIỆN - VỊT	1	280000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00
-159	HD005192	2025-07-23 07:11:36.123	\N	1211	ANH PHONG - BÀU SẬY	1	950000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00
-160	HD005191	2025-07-23 07:09:38.029	\N	1176	ANH SỸ -TAM HOÀNG	1	2200000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00
-161	HD005190	2025-07-23 07:02:38.91	\N	909	CHỊ TRÂM - VÔ NHIỄM 3K	1	220000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00
-162	HD005189.01	2025-07-23 06:32:51.636	\N	1025	CÔ NGA VỊT - SUỐI NHO	1	4100000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00
-163	HD005188	2025-07-23 06:31:13.96	\N	917	ANH VŨ CÁM ODON	1	1350000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00
-164	HD005187	2025-07-23 06:30:07.573	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	3500000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00
-165	HD005186	2025-07-23 06:28:22.653	\N	1062	CHỊ HƯƠNG-THÀNH AN	1	115000.00	0.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00
-166	HD005185	2025-07-23 06:21:16.517	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	6330000.00	0.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00
-167	HD005184	2025-07-22 17:27:20	\N	1057	KHÁCH LẺ	1	200000.00	200000.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00
-168	HD005183	2025-07-22 17:21:11.407	\N	1050	EM HOÀNG AGRIVIET	1	15294000.00	0.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00
-170	HD005181	2025-07-22 15:40:53.023	\N	837	EM HẢI - TÂN PHÚ	1	5392000.00	0.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00
-171	HD005180	2025-07-22 15:27:34.37	\N	1204	ANH HỌC	1	3400000.00	3400000.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00
-172	HD005179	2025-07-22 14:57:50.806	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	3520000.00	0.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00
-173	HD005178.02	2025-07-22 14:44:37.227	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	3300000.00	0.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00
-174	HD005177	2025-07-22 14:41:02.013	\N	934	CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K	1	4200000.00	0.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00
-175	HD005176	2025-07-22 14:32:41.547	\N	950	ANH LÂM  FIVEVET	1	2920000.00	2920000.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00
-176	HD005175	2025-07-22 14:24:41.91	\N	1135	TÂM UNITEK	1	6610000.00	2100000.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00
-177	HD005174	2025-07-22 10:57:18.727	\N	1023	CHỊ QUY - BÌNH DƯƠNG	1	4800000.00	0.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00
-178	HD005173	2025-07-22 10:29:37.373	\N	945	ANH TÂM ( NHÀ) - LÔ 2	1	6230000.00	0.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00
-179	HD005172.01	2025-07-22 10:17:26.403	TH000189	1080	CÔNG ARIVIET	1	11900000.00	0.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00
-180	HD005171	2025-07-22 10:15:32.14	\N	1080	CÔNG ARIVIET	1	3220000.00	0.00	\N	completed	2025-07-30 00:54:56.965	2025-07-30 00:54:56.965	percentage	0.00	0.00	0.00
-181	HD005170	2025-07-22 09:22:26.923	\N	1168	CÔ THỌ - GÀ TA - SUỐI NHO	1	1100000.00	0.00	\N	completed	2025-07-30 00:54:56.965	2025-07-30 00:54:56.965	percentage	0.00	0.00	0.00
-182	HD005169.01	2025-07-22 09:20:43.113	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	3880000.00	0.00	\N	completed	2025-07-30 00:54:56.965	2025-07-30 00:54:56.965	percentage	0.00	0.00	0.00
-183	HD005168	2025-07-22 09:15:36.207	\N	1203	CHỊ LOAN ( ĐỊNH)	1	0.00	0.00	\N	completed	2025-07-30 00:54:56.966	2025-07-30 00:54:56.966	percentage	0.00	0.00	0.00
-184	HD005167.01	2025-07-22 09:03:26.199	\N	1203	CHỊ LOAN ( ĐỊNH)	1	11800000.00	0.00	\N	completed	2025-07-30 00:54:56.966	2025-07-30 00:54:56.966	percentage	0.00	0.00	0.00
-186	HD005164	2025-07-22 08:56:34.09	\N	1176	ANH SỸ -TAM HOÀNG	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:56.966	2025-07-30 00:54:56.966	percentage	0.00	0.00	0.00
-187	HD005163.01	2025-07-22 08:45:02.702	\N	838	ANH LÂM - TRẠI 5	1	3340000.00	0.00	\N	completed	2025-07-30 00:54:56.967	2025-07-30 00:54:56.967	percentage	0.00	0.00	0.00
-188	HD005162	2025-07-22 08:36:19.67	\N	1032	ANH LÂM (5K) - TRẠI 2	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:56.967	2025-07-30 00:54:56.967	percentage	0.00	0.00	0.00
-189	HD005161	2025-07-22 08:10:36.437	\N	1092	CHỊ THÚY - BƯU ĐIỆN	1	5145000.00	0.00	\N	completed	2025-07-30 00:54:56.967	2025-07-30 00:54:56.967	percentage	0.00	0.00	0.00
-616	HD004728	2025-07-05 10:53:16.502	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	1190000.00	1190000.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00
-192	HD005158	2025-07-22 07:05:41.703	\N	1006	THUỲ TRANG	1	745000.00	494000.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00
-193	HD005157	2025-07-22 07:04:25.546	\N	1122	TÚ GÀ TA	1	640000.00	0.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00
-194	HD005156	2025-07-22 06:49:35.889	\N	1057	KHÁCH LẺ	1	10000.00	10000.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00
-195	HD005155.01	2025-07-22 06:36:59.952	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	1120000.00	0.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00
-196	HD005154	2025-07-22 06:34:54.559	\N	1203	CHỊ LOAN ( ĐỊNH)	1	4400000.00	0.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00
-197	HD005153	2025-07-22 06:31:49.303	\N	943	THÚ Y ĐÌNH HIỀN	1	4900000.00	0.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00
-198	HD005152	2025-07-22 06:28:04.207	\N	1194	ANH DŨNG - VỊT	1	2940000.00	0.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00
-199	HD005151	2025-07-22 06:23:22.74	\N	905	ANH DUY - PHƯƠNG LÂM	1	2600000.00	0.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00
-200	HD005150	2025-07-22 06:20:56.179	\N	1134	CHÚ CẦN - GÀ ĐẺ - NINH PHÁT	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:56.969	2025-07-30 00:54:56.969	percentage	0.00	0.00	0.00
-201	HD005149	2025-07-21 17:25:43.077	\N	840	ANH TÂM (CÔNG) LÔ MỚI	1	500000.00	0.00	\N	completed	2025-07-30 00:54:57.296	2025-07-30 00:54:57.296	percentage	0.00	0.00	0.00
-202	HD005148	2025-07-21 17:04:30.986	\N	882	ANH PHONG - CTY GREENTECH	1	2520000.00	0.00	\N	completed	2025-07-30 00:54:57.296	2025-07-30 00:54:57.296	percentage	0.00	0.00	0.00
-203	HD005147	2025-07-21 16:25:03.857	TH000190	862	HOÀ MEGA	1	3300000.00	0.00	\N	completed	2025-07-30 00:54:57.297	2025-07-30 00:54:57.297	percentage	0.00	0.00	0.00
-204	HD005146.01	2025-07-21 16:14:49.737	\N	846	ANH KHÔI	1	3050000.00	0.00	\N	completed	2025-07-30 00:54:57.297	2025-07-30 00:54:57.297	percentage	0.00	0.00	0.00
-205	HD005145	2025-07-21 15:57:12.299	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	800000.00	0.00	\N	completed	2025-07-30 00:54:57.297	2025-07-30 00:54:57.297	percentage	0.00	0.00	0.00
-207	HD005143	2025-07-21 15:26:40.07	\N	1057	KHÁCH LẺ	1	820000.00	820000.00	\N	completed	2025-07-30 00:54:57.298	2025-07-30 00:54:57.298	percentage	0.00	0.00	0.00
-208	HD005142	2025-07-21 15:22:17.04	\N	909	CHỊ TRÂM - VÔ NHIỄM 3K	1	110000.00	0.00	\N	completed	2025-07-30 00:54:57.298	2025-07-30 00:54:57.298	percentage	0.00	0.00	0.00
-209	HD005141	2025-07-21 15:19:55.099	\N	1135	TÂM UNITEK	1	5400000.00	5400000.00	\N	completed	2025-07-30 00:54:57.302	2025-07-30 00:54:57.302	percentage	0.00	0.00	0.00
-210	HD005140.01	2025-07-21 14:59:00.419	\N	839	CHÚ PHƯỚC VỊNH - NINH PHÁT	1	2800000.00	2800000.00	\N	completed	2025-07-30 00:54:57.302	2025-07-30 00:54:57.302	percentage	0.00	0.00	0.00
-211	HD005139	2025-07-21 14:47:23.896	\N	1209	XUÂN - VỊT ( NHÀ)	1	1260000.00	0.00	\N	completed	2025-07-30 00:54:57.303	2025-07-30 00:54:57.303	percentage	0.00	0.00	0.00
-212	HD005138	2025-07-21 14:17:06.963	\N	1048	ANH TRIỆU - GIA KIỆM	1	3910000.00	0.00	\N	completed	2025-07-30 00:54:57.303	2025-07-30 00:54:57.303	percentage	0.00	0.00	0.00
-213	HD005137	2025-07-21 09:17:37.952	\N	1057	KHÁCH LẺ	1	60000.00	60000.00	\N	completed	2025-07-30 00:54:57.303	2025-07-30 00:54:57.303	percentage	0.00	0.00	0.00
-214	HD005136	2025-07-21 09:15:10.427	\N	1224	KHẢI HAIDER - BÀU CẠN	1	9200000.00	0.00	\N	completed	2025-07-30 00:54:57.303	2025-07-30 00:54:57.303	percentage	0.00	0.00	0.00
-215	HD005135	2025-07-21 09:02:00.703	\N	1212	KHẢI 8.500 CON - XUYÊN MỘC	1	4150000.00	0.00	\N	completed	2025-07-30 00:54:57.303	2025-07-30 00:54:57.303	percentage	0.00	0.00	0.00
-216	HD005134	2025-07-21 08:59:24.43	\N	1195	ANH PHONG - SUỐI ĐÁ 2	1	7720000.00	0.00	\N	completed	2025-07-30 00:54:57.304	2025-07-30 00:54:57.304	percentage	0.00	0.00	0.00
-217	HD005133	2025-07-21 08:57:25.757	\N	1080	CÔNG ARIVIET	1	14680000.00	0.00	\N	completed	2025-07-30 00:54:57.304	2025-07-30 00:54:57.304	percentage	0.00	0.00	0.00
-218	HD005132	2025-07-21 08:42:59.253	\N	1080	CÔNG ARIVIET	1	1740000.00	0.00	\N	completed	2025-07-30 00:54:57.304	2025-07-30 00:54:57.304	percentage	0.00	0.00	0.00
-219	HD005131	2025-07-21 08:33:56.412	\N	905	ANH DUY - PHƯƠNG LÂM	1	4030000.00	0.00	\N	completed	2025-07-30 00:54:57.304	2025-07-30 00:54:57.304	percentage	0.00	0.00	0.00
-220	HD005130	2025-07-21 08:13:47.289	\N	996	ANH PHONG - SUỐI ĐÁ 3	1	1350000.00	0.00	\N	completed	2025-07-30 00:54:57.304	2025-07-30 00:54:57.304	percentage	0.00	0.00	0.00
-221	HD005129	2025-07-21 08:06:44.917	\N	1058	ANH PHONG - SUỐI ĐÁ 1	1	3470000.00	0.00	\N	completed	2025-07-30 00:54:57.304	2025-07-30 00:54:57.304	percentage	0.00	0.00	0.00
-222	HD005128	2025-07-21 07:55:31.453	\N	906	ANH CHÍNH - VÔ NHIỄM	1	5800000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00
-223	HD005127.01	2025-07-21 07:50:21.45	\N	1183	ANH CU - TAM HOÀNG HƯNG LỘC	1	13950000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00
-224	HD005126	2025-07-21 07:43:41.866	\N	1182	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	3150000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00
-225	HD005125	2025-07-21 07:28:48.84	\N	1172	CHỊ TRANG-TAM HOÀNG-NAGOA	1	1400000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00
-226	HD005124	2025-07-21 06:39:14.08	\N	1122	TÚ GÀ TA	1	280000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00
-227	HD005123.01	2025-07-21 06:36:34.562	\N	1117	ANH HƯNG - GÀ - SUỐI ĐÁ	1	19100000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00
-228	HD005122	2025-07-21 06:32:17.777	\N	992	XUÂN ( THUÊ NGÁT)	1	2500000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00
-230	HD005120.01	2025-07-20 14:42:31.447	\N	1057	KHÁCH LẺ	1	240000.00	240000.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00
-231	HD005119	2025-07-20 14:21:06.336	\N	1026	HUYỀN TIGERVET	1	10024000.00	0.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00
-232	HD005118	2025-07-20 11:46:53.957	\N	1057	KHÁCH LẺ	1	120000.00	120000.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00
-233	HD005117	2025-07-20 11:09:58.272	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	2560000.00	1100000.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00
-234	HD005116	2025-07-20 11:07:50.797	\N	1057	KHÁCH LẺ	1	50000.00	50000.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00
-235	HD005115	2025-07-20 11:05:16.273	\N	909	CHỊ TRÂM - VÔ NHIỄM 3K	1	1900000.00	0.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00
-236	HD005114	2025-07-20 10:52:24.396	\N	1032	ANH LÂM (5K) - TRẠI 2	1	1400000.00	0.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00
-237	HD005113	2025-07-20 10:51:05.497	\N	1226	ANH LÂM (5k) - TRẠI 1	1	4800000.00	0.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00
-238	HD005111	2025-07-20 07:36:30.73	\N	1180	ANH HÙNG - BỘ - TAM HOÀNG	1	2010000.00	0.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00
-239	HD005110	2025-07-20 06:59:06.267	\N	923	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	4520000.00	0.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00
-240	HD005109	2025-07-20 06:55:04.093	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	5240000.00	0.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00
-241	HD005108	2025-07-19 16:35:53.453	TH000186	1026	HUYỀN TIGERVET	1	15600000.00	0.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00
-242	HD005107	2025-07-19 16:31:54.643	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	960000.00	960000.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00
-243	HD005106	2025-07-19 14:34:54.817	\N	842	ANH THẾ - VÕ DÕNG	1	670000.00	670000.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00
-244	HD005105	2025-07-19 14:32:06.626	\N	840	ANH TÂM (CÔNG) LÔ MỚI	1	4760000.00	0.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00
-245	HD005104	2025-07-19 10:53:01.887	\N	1057	KHÁCH LẺ	1	50000.00	50000.00	\N	completed	2025-07-30 00:54:57.308	2025-07-30 00:54:57.308	percentage	0.00	0.00	0.00
-246	HD005103	2025-07-19 10:46:25.207	\N	1034	CHỊ DUNG - SOKLU	1	2900000.00	0.00	\N	completed	2025-07-30 00:54:57.308	2025-07-30 00:54:57.308	percentage	0.00	0.00	0.00
-247	HD005102	2025-07-19 10:33:18.379	\N	920	KHÁNH EMIVET	1	660000.00	0.00	\N	completed	2025-07-30 00:54:57.308	2025-07-30 00:54:57.308	percentage	0.00	0.00	0.00
-249	HD005100	2025-07-19 10:12:07.289	\N	1176	ANH SỸ -TAM HOÀNG	1	2200000.00	0.00	\N	completed	2025-07-30 00:54:57.308	2025-07-30 00:54:57.308	percentage	0.00	0.00	0.00
-250	HD005099	2025-07-19 10:08:26.267	\N	1006	THUỲ TRANG	1	385000.00	385000.00	\N	completed	2025-07-30 00:54:57.308	2025-07-30 00:54:57.308	percentage	0.00	0.00	0.00
-251	HD005098.01	2025-07-19 09:45:29.939	\N	1159	EM SƠN - ECOVET	1	3170000.00	0.00	\N	completed	2025-07-30 00:54:57.531	2025-07-30 00:54:57.531	percentage	0.00	0.00	0.00
-252	HD005097	2025-07-19 09:04:06.757	\N	898	ANH ĐEN - GÀ - VÔ NHIỄM 2K	1	1100000.00	0.00	\N	completed	2025-07-30 00:54:57.531	2025-07-30 00:54:57.531	percentage	0.00	0.00	0.00
-253	HD005096	2025-07-19 08:58:39.177	\N	895	CƯỜNG UNITEX	1	1080000.00	1080000.00	\N	completed	2025-07-30 00:54:57.531	2025-07-30 00:54:57.531	percentage	0.00	0.00	0.00
-633	HD004711.01	2025-07-05 07:11:46.04	\N	1113	ANH TÀI - GÀ TA - MARTINO	1	930000.00	0.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00
-255	HD005094.01	2025-07-19 08:24:46.326	\N	1050	EM HOÀNG AGRIVIET	1	6660000.00	0.00	\N	completed	2025-07-30 00:54:57.532	2025-07-30 00:54:57.532	percentage	0.00	0.00	0.00
-256	HD005093	2025-07-19 07:55:08.65	\N	1057	KHÁCH LẺ	1	10000.00	10000.00	\N	completed	2025-07-30 00:54:57.532	2025-07-30 00:54:57.532	percentage	0.00	0.00	0.00
-257	HD005092	2025-07-19 07:49:28.627	\N	1190	CHỊ QUYÊN - VỊT	1	6850000.00	0.00	\N	completed	2025-07-30 00:54:57.532	2025-07-30 00:54:57.532	percentage	0.00	0.00	0.00
-258	HD005091	2025-07-19 07:07:12.077	\N	1092	CHỊ THÚY - BƯU ĐIỆN	1	0.00	0.00	\N	completed	2025-07-30 00:54:57.533	2025-07-30 00:54:57.533	percentage	0.00	0.00	0.00
-259	HD005090.01	2025-07-19 07:06:31.483	\N	1092	CHỊ THÚY - BƯU ĐIỆN	1	8500000.00	0.00	\N	completed	2025-07-30 00:54:57.533	2025-07-30 00:54:57.533	percentage	0.00	0.00	0.00
-260	HD005089	2025-07-19 06:57:39.877	\N	917	ANH VŨ CÁM ODON	1	500000.00	0.00	\N	completed	2025-07-30 00:54:57.533	2025-07-30 00:54:57.533	percentage	0.00	0.00	0.00
-261	HD005088	2025-07-19 06:51:39.143	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	2680000.00	0.00	\N	completed	2025-07-30 00:54:57.533	2025-07-30 00:54:57.533	percentage	0.00	0.00	0.00
-262	HD005087	2025-07-19 06:39:27.163	\N	1023	CHỊ QUY - BÌNH DƯƠNG	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:57.533	2025-07-30 00:54:57.533	percentage	0.00	0.00	0.00
-264	HD005085.01	2025-07-19 06:31:42.9	\N	861	CHÚ PHÁT - DỐC MƠ	1	440000.00	0.00	\N	completed	2025-07-30 00:54:57.534	2025-07-30 00:54:57.534	percentage	0.00	0.00	0.00
-265	HD005084	2025-07-19 06:15:45.887	\N	1179	CÔ LAN ( TUẤN) - TAM HOÀNG	1	3640000.00	3640000.00	\N	completed	2025-07-30 00:54:57.534	2025-07-30 00:54:57.534	percentage	0.00	0.00	0.00
-266	HD005083	2025-07-18 17:42:34.56	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	960000.00	960000.00	\N	completed	2025-07-30 00:54:57.534	2025-07-30 00:54:57.534	percentage	0.00	0.00	0.00
-267	HD005082	2025-07-18 17:07:38.906	\N	844	ANH PHONG - VĨNH TÂN	1	0.00	0.00	\N	completed	2025-07-30 00:54:57.534	2025-07-30 00:54:57.534	percentage	0.00	0.00	0.00
-268	HD005081	2025-07-18 16:46:29.169	\N	881	CHÚ HUỲNH - XÃ LỘ 25	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:57.534	2025-07-30 00:54:57.534	percentage	0.00	0.00	0.00
-269	HD005080	2025-07-18 16:35:18.656	\N	967	ANH ĐỨC - VÔ NHIỄM	1	450000.00	450000.00	\N	completed	2025-07-30 00:54:57.535	2025-07-30 00:54:57.535	percentage	0.00	0.00	0.00
-270	HD005079	2025-07-18 16:29:53.213	\N	846	ANH KHÔI	1	1160000.00	0.00	\N	completed	2025-07-30 00:54:57.535	2025-07-30 00:54:57.535	percentage	0.00	0.00	0.00
-271	HD005078	2025-07-18 16:24:00.679	\N	892	ANH HOAN - XUÂN BẮC	1	950000.00	0.00	\N	completed	2025-07-30 00:54:57.535	2025-07-30 00:54:57.535	percentage	0.00	0.00	0.00
-272	HD005077	2025-07-18 16:21:43.306	\N	1026	HUYỀN TIGERVET	1	18180000.00	0.00	\N	completed	2025-07-30 00:54:57.535	2025-07-30 00:54:57.535	percentage	0.00	0.00	0.00
-273	HD005076	2025-07-18 15:37:58.879	\N	1011	HẢI - TRẢNG BOM	1	3150000.00	3150000.00	\N	completed	2025-07-30 00:54:57.535	2025-07-30 00:54:57.535	percentage	0.00	0.00	0.00
-274	HD005075	2025-07-18 15:10:52.14	\N	849	ANH HẢI HÀO LÔ MỚI	1	900000.00	900000.00	\N	completed	2025-07-30 00:54:57.535	2025-07-30 00:54:57.535	percentage	0.00	0.00	0.00
-275	HD005074	2025-07-18 15:01:19.353	\N	1102	ANH HƯNG - SƠN MAI	1	3000000.00	0.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00
-276	HD005072	2025-07-18 14:56:57.137	\N	841	ANH VƯƠNG NHẤT - TÍN NGHĨA	1	1890000.00	0.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00
-277	HD005071	2025-07-18 14:46:46.053	\N	840	ANH TÂM (CÔNG) LÔ MỚI	1	2160000.00	0.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00
-278	HD005070	2025-07-18 14:31:05.09	\N	1194	ANH DŨNG - VỊT	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00
-279	HD005069	2025-07-18 11:27:11.1	\N	1199	ANH HÙNG - CẦU CƯỜNG	1	1260000.00	0.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00
-280	HD005068	2025-07-18 11:24:27.577	\N	1203	CHỊ LOAN ( ĐỊNH)	1	7800000.00	0.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00
-281	HD005067.01	2025-07-18 11:23:09.207	\N	844	ANH PHONG - VĨNH TÂN	1	13670000.00	13670000.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00
-283	HD005065	2025-07-18 09:33:37.462	\N	885	ANH THỨC - TAM HOÀNG	1	1900000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00
-284	HD005064	2025-07-18 09:22:34.316	\N	1040	Đ.LÝ  DUNG TÙNG - TÂN PHÚ	1	2500000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00
-285	HD005063	2025-07-18 09:14:06.803	\N	1114	CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI	1	7600000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00
-286	HD005062	2025-07-18 09:07:57.07	\N	906	ANH CHÍNH - VÔ NHIỄM	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00
-287	HD005061	2025-07-18 09:04:10.993	\N	1057	KHÁCH LẺ	1	120000.00	120000.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00
-288	HD005060	2025-07-18 08:57:35.393	\N	859	ANH QUẢNG - LONG THÀNH	1	5200000.00	5200000.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00
-289	HD005059	2025-07-18 08:49:12.856	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	630000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00
-290	HD005058	2025-07-18 08:47:21.517	\N	1057	KHÁCH LẺ	1	380000.00	380000.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00
-291	HD005057	2025-07-18 08:40:32.386	\N	909	CHỊ TRÂM - VÔ NHIỄM 3K	1	1220000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00
-292	HD005056	2025-07-18 08:35:02.399	\N	878	ANH TÈO - VÔ NHIỄM	1	2800000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00
-293	HD005055	2025-07-18 07:59:27.399	\N	875	NHUNG VIETVET	1	3480000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00
-294	HD005054	2025-07-18 07:55:52.327	\N	1048	ANH TRIỆU - GIA KIỆM	1	3230000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00
-295	HD005053	2025-07-18 06:53:27.113	\N	1080	CÔNG ARIVIET	1	1335000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00
-297	HD005052	2025-07-18 06:29:14.943	\N	892	ANH HOAN - XUÂN BẮC	1	1350000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00
-298	HD005051	2025-07-18 06:24:28.053	\N	920	KHÁNH EMIVET	1	2240000.00	0.00	\N	completed	2025-07-30 00:54:57.539	2025-07-30 00:54:57.539	percentage	0.00	0.00	0.00
-299	HD005049	2025-07-18 06:22:26.136	\N	1176	ANH SỸ -TAM HOÀNG	1	4610000.00	0.00	\N	completed	2025-07-30 00:54:57.539	2025-07-30 00:54:57.539	percentage	0.00	0.00	0.00
-300	HD005048.01	2025-07-17 17:36:19.976	\N	1117	ANH HƯNG - GÀ - SUỐI ĐÁ	1	6340000.00	0.00	\N	completed	2025-07-30 00:54:57.539	2025-07-30 00:54:57.539	percentage	0.00	0.00	0.00
-301	HD005047	2025-07-17 16:40:13.497	\N	1138	ĐẠI LÝ VĂN THANH	1	1540000.00	0.00	\N	completed	2025-07-30 00:54:57.842	2025-07-30 00:54:57.842	percentage	0.00	0.00	0.00
-302	HD005046.01	2025-07-17 16:37:29.706	\N	917	ANH VŨ CÁM ODON	1	1950000.00	0.00	\N	completed	2025-07-30 00:54:57.842	2025-07-30 00:54:57.842	percentage	0.00	0.00	0.00
-303	HD005045	2025-07-17 16:32:16.607	\N	1180	ANH HÙNG - BỘ - TAM HOÀNG	1	1980000.00	0.00	\N	completed	2025-07-30 00:54:57.842	2025-07-30 00:54:57.842	percentage	0.00	0.00	0.00
-304	HD005044	2025-07-17 16:26:49.613	\N	1080	CÔNG ARIVIET	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:57.843	2025-07-30 00:54:57.843	percentage	0.00	0.00	0.00
-305	HD005043	2025-07-17 16:08:59.91	\N	1185	ANH LÂM (8K) - TRẠI 4	1	1190000.00	0.00	\N	completed	2025-07-30 00:54:57.843	2025-07-30 00:54:57.843	percentage	0.00	0.00	0.00
-306	HD005042.01	2025-07-17 14:25:10.13	\N	964	ANH HÀNH - XUÂN BẮC	1	6500000.00	0.00	\N	completed	2025-07-30 00:54:57.843	2025-07-30 00:54:57.843	percentage	0.00	0.00	0.00
-307	HD005041	2025-07-17 14:23:54.583	\N	1135	TÂM UNITEK	1	15400000.00	15400000.00	\N	completed	2025-07-30 00:54:57.843	2025-07-30 00:54:57.843	percentage	0.00	0.00	0.00
-308	HD005040.01	2025-07-17 14:22:25.967	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	1600000.00	1600000.00	\N	completed	2025-07-30 00:54:57.843	2025-07-30 00:54:57.843	percentage	0.00	0.00	0.00
-309	HD005039	2025-07-17 14:21:12.52	\N	875	NHUNG VIETVET	1	6570000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00
-311	HD005037	2025-07-17 10:53:48.687	\N	1212	KHẢI 8.500 CON - XUYÊN MỘC	1	2880000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00
-312	HD005036	2025-07-17 10:22:23.663	\N	842	ANH THẾ - VÕ DÕNG	1	1850000.00	1850000.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00
-313	HD005035.02	2025-07-17 10:18:14.622	\N	877	ANH DANH - GÀ TRE - VÔ NHIỄM 4K	1	1850000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00
-314	HD005034	2025-07-17 08:38:11.61	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	840000.00	840000.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00
-315	HD005033	2025-07-17 08:33:50.513	\N	1159	EM SƠN - ECOVET	1	2550000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00
-316	HD005032	2025-07-17 08:28:33.643	\N	1026	HUYỀN TIGERVET	1	0.00	0.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00
-317	HD005031	2025-07-17 08:28:04.74	\N	1026	HUYỀN TIGERVET	1	1400000.00	0.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00
-639	HD004705	2025-07-05 06:16:49.2	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	1000000.00	1000000.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00
-318	HD005030	2025-07-17 08:07:19.162	\N	1057	KHÁCH LẺ	1	250000.00	250000.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00
-320	HD005028	2025-07-17 07:20:14.959	\N	1178	CHÚ CHƯƠNG - TAM HOÀNG	1	1920000.00	0.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00
-321	HD005027	2025-07-17 06:25:39.677	\N	1115	CÔ TUYẾT THU - PHÚ CƯỜNG 11K	1	5630000.00	0.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00
-322	HD005025.03	2025-07-17 06:18:50.143	\N	878	ANH TÈO - VÔ NHIỄM	1	4900000.00	0.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00
-323	HD005024	2025-07-16 16:48:32.159	\N	863	NGUYỆT SƠN LÂM	1	350000.00	350000.00	\N	completed	2025-07-30 00:54:57.846	2025-07-30 00:54:57.846	percentage	0.00	0.00	0.00
-324	HD005023	2025-07-16 16:45:45.103	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	900000.00	0.00	\N	completed	2025-07-30 00:54:57.846	2025-07-30 00:54:57.846	percentage	0.00	0.00	0.00
-325	HD005022	2025-07-16 16:42:33.982	\N	963	CHỊ QUÝ - TÂN PHÚ	1	12840000.00	0.00	\N	completed	2025-07-30 00:54:57.846	2025-07-30 00:54:57.846	percentage	0.00	0.00	0.00
-326	HD005021	2025-07-16 16:33:29.023	\N	1133	TRINH - HIPPRA	1	7350000.00	7350000.00	\N	completed	2025-07-30 00:54:57.846	2025-07-30 00:54:57.846	percentage	0.00	0.00	0.00
-327	HD005020	2025-07-16 16:13:41.942	\N	1057	KHÁCH LẺ	1	440000.00	440000.00	\N	completed	2025-07-30 00:54:57.846	2025-07-30 00:54:57.846	percentage	0.00	0.00	0.00
-328	HD005019	2025-07-16 15:22:37.62	TH000184	844	ANH PHONG - VĨNH TÂN	1	16685000.00	14595000.00	\N	completed	2025-07-30 00:54:57.846	2025-07-30 00:54:57.846	percentage	0.00	0.00	0.00
-329	HD005017	2025-07-16 15:12:32.239	\N	880	ANH HẢI (KẾ)	1	1400000.00	1400000.00	\N	completed	2025-07-30 00:54:57.847	2025-07-30 00:54:57.847	percentage	0.00	0.00	0.00
-330	HD005016	2025-07-16 09:47:13.379	\N	865	ANH HỌC (LONG)	1	11550000.00	0.00	\N	completed	2025-07-30 00:54:57.847	2025-07-30 00:54:57.847	percentage	0.00	0.00	0.00
-331	HD005015	2025-07-16 09:32:00.53	\N	920	KHÁNH EMIVET	1	940000.00	0.00	\N	completed	2025-07-30 00:54:57.847	2025-07-30 00:54:57.847	percentage	0.00	0.00	0.00
-332	HD005014	2025-07-16 09:28:56.227	\N	923	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	12920000.00	0.00	\N	completed	2025-07-30 00:54:57.847	2025-07-30 00:54:57.847	percentage	0.00	0.00	0.00
-333	HD005013	2025-07-16 09:17:19.416	\N	962	CÔ TUYẾT THU (5K) - LÔ SONG HÀNH	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00
-334	HD005012	2025-07-16 09:05:30.183	\N	1048	ANH TRIỆU - GIA KIỆM	1	3405000.00	0.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00
-336	HD005010	2025-07-16 08:54:09.206	\N	1134	CHÚ CẦN - GÀ ĐẺ - NINH PHÁT	1	2050000.00	0.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00
-337	HD005009	2025-07-16 08:48:59.46	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	820000.00	820000.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00
-338	HD005008	2025-07-16 07:42:03.106	\N	1057	KHÁCH LẺ	1	120000.00	120000.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00
-339	HD005007	2025-07-16 07:13:03.26	\N	1182	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	1960000.00	0.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00
-340	HD005006	2025-07-16 07:10:11.45	\N	1203	CHỊ LOAN ( ĐỊNH)	1	0.00	0.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00
-341	HD005005	2025-07-16 06:50:33.48	\N	1209	XUÂN - VỊT ( NHÀ)	1	750000.00	0.00	\N	completed	2025-07-30 00:54:57.849	2025-07-30 00:54:57.849	percentage	0.00	0.00	0.00
-342	HD005004	2025-07-16 06:49:18.529	\N	1057	KHÁCH LẺ	1	50000.00	50000.00	\N	completed	2025-07-30 00:54:57.849	2025-07-30 00:54:57.849	percentage	0.00	0.00	0.00
-343	HD005003	2025-07-16 06:41:39.686	\N	1023	CHỊ QUY - BÌNH DƯƠNG	1	1400000.00	0.00	\N	completed	2025-07-30 00:54:57.849	2025-07-30 00:54:57.849	percentage	0.00	0.00	0.00
-344	HD005002	2025-07-16 06:40:00.797	\N	1122	TÚ GÀ TA	1	440000.00	0.00	\N	completed	2025-07-30 00:54:57.849	2025-07-30 00:54:57.849	percentage	0.00	0.00	0.00
-345	HD005001	2025-07-16 06:35:27.47	\N	900	ANH TÂN - TÍN NGHĨA	1	2565000.00	0.00	\N	completed	2025-07-30 00:54:57.849	2025-07-30 00:54:57.849	percentage	0.00	0.00	0.00
-346	HD005000	2025-07-16 06:30:56.813	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	15720000.00	0.00	\N	completed	2025-07-30 00:54:57.849	2025-07-30 00:54:57.849	percentage	0.00	0.00	0.00
-347	HD004999.01	2025-07-16 06:27:42.627	\N	856	TRUNG - BƯU ĐIỆN - LÔ 2	1	3200000.00	0.00	\N	completed	2025-07-30 00:54:57.85	2025-07-30 00:54:57.85	percentage	0.00	0.00	0.00
-348	HD004998	2025-07-16 06:26:17.827	\N	1226	ANH LÂM (5k) - TRẠI 1	1	2340000.00	0.00	\N	completed	2025-07-30 00:54:57.85	2025-07-30 00:54:57.85	percentage	0.00	0.00	0.00
-349	HD004997	2025-07-15 16:10:33.613	\N	1080	CÔNG ARIVIET	1	14928000.00	5629800.00	\N	completed	2025-07-30 00:54:57.85	2025-07-30 00:54:57.85	percentage	0.00	0.00	0.00
-350	HD004996	2025-07-15 15:59:59.992	\N	881	CHÚ HUỲNH - XÃ LỘ 25	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:57.85	2025-07-30 00:54:57.85	percentage	0.00	0.00	0.00
-351	HD004995.01	2025-07-15 15:24:15.38	\N	845	CHỊ VY - LÂM ĐỒNG	1	8515000.00	8515000.00	\N	completed	2025-07-30 00:54:58.097	2025-07-30 00:54:58.097	percentage	0.00	0.00	0.00
-352	HD004994	2025-07-15 15:19:53.05	\N	1178	CHÚ CHƯƠNG - TAM HOÀNG	1	1650000.00	0.00	\N	completed	2025-07-30 00:54:58.098	2025-07-30 00:54:58.098	percentage	0.00	0.00	0.00
-353	HD004993	2025-07-15 15:04:08.9	\N	1034	CHỊ DUNG - SOKLU	1	1450000.00	0.00	\N	completed	2025-07-30 00:54:58.098	2025-07-30 00:54:58.098	percentage	0.00	0.00	0.00
-354	HD004992.01	2025-07-15 15:02:48.3	\N	1176	ANH SỸ -TAM HOÀNG	1	0.00	0.00	\N	completed	2025-07-30 00:54:58.098	2025-07-30 00:54:58.098	percentage	0.00	0.00	0.00
-355	HD004991.01	2025-07-15 15:01:52.102	\N	1176	ANH SỸ -TAM HOÀNG	1	5200000.00	0.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00
-356	HD004990	2025-07-15 14:24:01.962	\N	1011	HẢI - TRẢNG BOM	1	2040000.00	2040000.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00
-358	HD004988	2025-07-15 11:42:05.406	\N	1052	TRẠI GÀ ĐẺ - LONG THÀNH	1	1900000.00	1900000.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00
-359	HD004987	2025-07-15 11:32:07.643	\N	1080	CÔNG ARIVIET	1	1360000.00	1360000.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00
-360	HD004986	2025-07-15 10:53:23.879	\N	1057	KHÁCH LẺ	1	120000.00	120000.00	\N	completed	2025-07-30 00:54:58.1	2025-07-30 00:54:58.1	percentage	0.00	0.00	0.00
-361	HD004985	2025-07-15 10:37:30.922	\N	1135	TÂM UNITEK	1	3300000.00	3300000.00	\N	completed	2025-07-30 00:54:58.1	2025-07-30 00:54:58.1	percentage	0.00	0.00	0.00
-362	HD004984	2025-07-15 10:19:31.067	\N	992	XUÂN ( THUÊ NGÁT)	1	3800000.00	0.00	\N	completed	2025-07-30 00:54:58.101	2025-07-30 00:54:58.101	percentage	0.00	0.00	0.00
-363	HD004983.01	2025-07-15 09:55:51.219	\N	869	ANH HỌC - CTY TIẾN THẠNH	1	890000.00	0.00	\N	completed	2025-07-30 00:54:58.101	2025-07-30 00:54:58.101	percentage	0.00	0.00	0.00
-364	HD004982	2025-07-15 09:03:55.962	\N	1080	CÔNG ARIVIET	1	6980000.00	6980000.00	\N	completed	2025-07-30 00:54:58.101	2025-07-30 00:54:58.101	percentage	0.00	0.00	0.00
-365	HDD_TH000179	2025-07-15 08:55:13.427	\N	990	ANH HIẾU - DÊ	1	30000.00	0.00	\N	completed	2025-07-30 00:54:58.101	2025-07-30 00:54:58.101	percentage	0.00	0.00	0.00
-366	HD004981	2025-07-15 08:48:55.916	\N	1161	CHÚ THÀNH - GÀ TRE	1	610000.00	610000.00	\N	completed	2025-07-30 00:54:58.101	2025-07-30 00:54:58.101	percentage	0.00	0.00	0.00
-367	HD004980	2025-07-15 08:48:12.032	\N	990	ANH HIẾU - DÊ	1	1600000.00	1600000.00	\N	completed	2025-07-30 00:54:58.102	2025-07-30 00:54:58.102	percentage	0.00	0.00	0.00
-368	HD004979	2025-07-15 07:43:03.837	\N	846	ANH KHÔI	1	7620000.00	0.00	\N	completed	2025-07-30 00:54:58.102	2025-07-30 00:54:58.102	percentage	0.00	0.00	0.00
-369	HD004978	2025-07-15 07:35:50.012	\N	1043	HÀ HOÀNG	1	420000.00	0.00	\N	completed	2025-07-30 00:54:58.102	2025-07-30 00:54:58.102	percentage	0.00	0.00	0.00
-370	HD004977.01	2025-07-15 07:33:24.977	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	3460000.00	0.00	\N	completed	2025-07-30 00:54:58.102	2025-07-30 00:54:58.102	percentage	0.00	0.00	0.00
-371	HD004976	2025-07-15 07:31:24.913	\N	1190	CHỊ QUYÊN - VỊT	1	5000000.00	0.00	\N	completed	2025-07-30 00:54:58.102	2025-07-30 00:54:58.102	percentage	0.00	0.00	0.00
-372	HD004975	2025-07-15 06:41:14.163	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	3600000.00	2220000.00	\N	completed	2025-07-30 00:54:58.102	2025-07-30 00:54:58.102	percentage	0.00	0.00	0.00
-373	HD004974	2025-07-15 06:34:24.717	\N	957	CHỊ LOAN -BỐT ĐỎ	1	6180000.00	0.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00
-375	HD004972.01	2025-07-15 06:22:00.807	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	2200000.00	0.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00
-376	HD004971	2025-07-15 06:17:59.096	\N	1182	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	2600000.00	0.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00
-377	HD004970	2025-07-14 17:05:16.193	\N	1057	KHÁCH LẺ	1	80000.00	80000.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00
-378	HD004969	2025-07-14 16:56:53.466	\N	1192	CÔ PHƯỢNG - BÌNH LỘC	1	2250000.00	0.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00
-379	HD004968	2025-07-14 16:36:22.123	\N	947	ANH LÂM (6K) - TRẠI 3	1	660000.00	0.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00
-380	HD004967	2025-07-14 16:35:28.189	\N	1226	ANH LÂM (5k) - TRẠI 1	1	4020000.00	0.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00
-382	HD004965	2025-07-14 16:11:38.583	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	500000.00	500000.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00
-383	HD004964	2025-07-14 16:01:36.262	\N	847	ANH NAM - CẦU QUÂN Y	1	5800000.00	5800000.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00
-384	HD004963	2025-07-14 15:58:13.403	\N	999	ANH HƯNG LÔ MỚI - MARTINO	1	500000.00	500000.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00
-385	HD004962	2025-07-14 15:56:34.012	TH000180	848	CHÚ HOÀ	1	1100000.00	0.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00
-386	HD004961	2025-07-14 15:54:42.71	\N	1080	CÔNG ARIVIET	1	2140000.00	2140000.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00
-387	HD004960	2025-07-14 15:10:03.663	\N	1057	KHÁCH LẺ	1	120000.00	120000.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00
-388	HD004959	2025-07-14 14:58:40.033	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	720000.00	720000.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00
-389	HD004957	2025-07-14 11:31:00.25	\N	849	ANH HẢI HÀO LÔ MỚI	1	2210000.00	2210000.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00
-390	HD004956	2025-07-14 11:29:15.54	\N	889	TRUNG - BƯU ĐIỆN - LÔ MỚI	1	800000.00	800000.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00
-391	HD004955.02	2025-07-14 10:56:11.387	\N	850	ANH QUỐC - DẦU GIÂY	1	5600000.00	5600000.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00
-392	HD004954	2025-07-14 08:49:15.563	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	4105000.00	0.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00
-393	HD004953.01	2025-07-14 08:46:37.129	\N	1139	ĐẠI LÝ TIÊN PHÚC	1	4690000.00	4690000.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00
-395	HD004951	2025-07-14 07:37:25.687	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	720000.00	720000.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00
-396	HD004950	2025-07-14 07:28:47.05	\N	1057	KHÁCH LẺ	1	60000.00	60000.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00
-397	HD004949.01	2025-07-14 07:20:17.737	\N	878	ANH TÈO - VÔ NHIỄM	1	2250000.00	0.00	\N	completed	2025-07-30 00:54:58.106	2025-07-30 00:54:58.106	percentage	0.00	0.00	0.00
-398	HD004948.01	2025-07-14 07:17:50.477	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	3250000.00	0.00	\N	completed	2025-07-30 00:54:58.106	2025-07-30 00:54:58.106	percentage	0.00	0.00	0.00
-399	HD004947	2025-07-14 07:04:37.12	\N	1155	ANH PHONG - VỊT (NHÀ)	1	950000.00	0.00	\N	completed	2025-07-30 00:54:58.106	2025-07-30 00:54:58.106	percentage	0.00	0.00	0.00
-400	HD004946	2025-07-14 06:47:39.122	TH000178	999	ANH HƯNG LÔ MỚI - MARTINO	1	1830000.00	930000.00	\N	completed	2025-07-30 00:54:58.106	2025-07-30 00:54:58.106	percentage	0.00	0.00	0.00
-401	HD004945	2025-07-14 06:36:07.87	\N	1180	ANH HÙNG - BỘ - TAM HOÀNG	1	2010000.00	0.00	\N	completed	2025-07-30 00:54:58.423	2025-07-30 00:54:58.423	percentage	0.00	0.00	0.00
-402	HD004944	2025-07-14 06:34:32.409	\N	1185	ANH LÂM (8K) - TRẠI 4	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:58.424	2025-07-30 00:54:58.424	percentage	0.00	0.00	0.00
-403	HD004943	2025-07-14 06:30:19.656	\N	905	ANH DUY - PHƯƠNG LÂM	1	2970000.00	0.00	\N	completed	2025-07-30 00:54:58.427	2025-07-30 00:54:58.427	percentage	0.00	0.00	0.00
-404	HD004942.01	2025-07-14 06:22:51.687	\N	1046	ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2	1	520000.00	0.00	\N	completed	2025-07-30 00:54:58.428	2025-07-30 00:54:58.428	percentage	0.00	0.00	0.00
-405	HD004941	2025-07-14 06:21:53.749	\N	918	TIẾN CHÍCH	1	840000.00	840000.00	\N	completed	2025-07-30 00:54:58.428	2025-07-30 00:54:58.428	percentage	0.00	0.00	0.00
-406	HD004940	2025-07-14 06:19:16.867	\N	900	ANH TÂN - TÍN NGHĨA	1	2735000.00	0.00	\N	completed	2025-07-30 00:54:58.428	2025-07-30 00:54:58.428	percentage	0.00	0.00	0.00
-407	HD004939	2025-07-13 16:44:23.857	\N	917	ANH VŨ CÁM ODON	1	2340000.00	2340000.00	\N	completed	2025-07-30 00:54:58.428	2025-07-30 00:54:58.428	percentage	0.00	0.00	0.00
-409	HD004937	2025-07-13 16:42:19.157	\N	1057	KHÁCH LẺ	1	80000.00	80000.00	\N	completed	2025-07-30 00:54:58.429	2025-07-30 00:54:58.429	percentage	0.00	0.00	0.00
-410	HD004936	2025-07-13 11:13:16.973	\N	992	XUÂN ( THUÊ NGÁT)	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.429	2025-07-30 00:54:58.429	percentage	0.00	0.00	0.00
-411	HD004935	2025-07-13 09:23:14.66	TH000176	1043	HÀ HOÀNG	1	840000.00	0.00	\N	completed	2025-07-30 00:54:58.429	2025-07-30 00:54:58.429	percentage	0.00	0.00	0.00
-412	HD004934	2025-07-13 09:22:09.873	\N	1182	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	900000.00	0.00	\N	completed	2025-07-30 00:54:58.429	2025-07-30 00:54:58.429	percentage	0.00	0.00	0.00
-413	HD004933	2025-07-13 09:04:34.282	\N	1048	ANH TRIỆU - GIA KIỆM	1	160000.00	0.00	\N	completed	2025-07-30 00:54:58.429	2025-07-30 00:54:58.429	percentage	0.00	0.00	0.00
-414	HD004932	2025-07-13 08:15:06.933	\N	1178	CHÚ CHƯƠNG - TAM HOÀNG	1	500000.00	0.00	\N	completed	2025-07-30 00:54:58.43	2025-07-30 00:54:58.43	percentage	0.00	0.00	0.00
-415	HD004931	2025-07-13 07:15:51.829	\N	957	CHỊ LOAN -BỐT ĐỎ	1	2250000.00	0.00	\N	completed	2025-07-30 00:54:58.43	2025-07-30 00:54:58.43	percentage	0.00	0.00	0.00
-416	HD004930	2025-07-13 07:14:26.833	\N	996	ANH PHONG - SUỐI ĐÁ 3	1	450000.00	0.00	\N	completed	2025-07-30 00:54:58.43	2025-07-30 00:54:58.43	percentage	0.00	0.00	0.00
-417	HD004929	2025-07-13 07:13:07.85	\N	1058	ANH PHONG - SUỐI ĐÁ 1	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.43	2025-07-30 00:54:58.43	percentage	0.00	0.00	0.00
-418	HD004928	2025-07-13 07:11:50.643	\N	1211	ANH PHONG - BÀU SẬY	1	2550000.00	2550000.00	\N	completed	2025-07-30 00:54:58.43	2025-07-30 00:54:58.43	percentage	0.00	0.00	0.00
-419	HD004927	2025-07-13 07:10:15.346	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	5550000.00	0.00	\N	completed	2025-07-30 00:54:58.431	2025-07-30 00:54:58.431	percentage	0.00	0.00	0.00
-420	HD004926	2025-07-13 07:07:08.687	\N	865	ANH HỌC (LONG)	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.431	2025-07-30 00:54:58.431	percentage	0.00	0.00	0.00
-421	HD004924	2025-07-13 06:22:10.223	\N	1131	ĐẠI LÝ TUẤN PHÁT	1	6480000.00	6480000.00	\N	completed	2025-07-30 00:54:58.431	2025-07-30 00:54:58.431	percentage	0.00	0.00	0.00
-422	HD004923	2025-07-12 16:19:48.107	\N	1122	TÚ GÀ TA	1	630000.00	0.00	\N	completed	2025-07-30 00:54:58.431	2025-07-30 00:54:58.431	percentage	0.00	0.00	0.00
-424	HD004921	2025-07-12 15:43:38.747	\N	1135	TÂM UNITEK	1	1080000.00	1080000.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00
-425	HD004920	2025-07-12 15:30:40.57	\N	879	MI TIGERVET	1	4500000.00	4500000.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00
-426	HD004919	2025-07-12 15:29:03.462	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	2550000.00	0.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00
-427	HD004918	2025-07-12 15:08:37.406	\N	1026	HUYỀN TIGERVET	1	450000.00	0.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00
-428	HD004917	2025-07-12 14:51:46.652	\N	1203	CHỊ LOAN ( ĐỊNH)	1	5800000.00	1600000.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00
-429	HD004916	2025-07-12 14:15:16.569	\N	906	ANH CHÍNH - VÔ NHIỄM	1	3200000.00	0.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00
-430	HD004915	2025-07-12 11:03:39.067	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	2970000.00	0.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00
-431	HD004914	2025-07-12 10:54:27.962	\N	934	CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K	1	19000000.00	0.00	\N	completed	2025-07-30 00:54:58.433	2025-07-30 00:54:58.433	percentage	0.00	0.00	0.00
-432	HD004913	2025-07-12 10:48:20.056	TH000177	1026	HUYỀN TIGERVET	1	11000000.00	0.00	\N	completed	2025-07-30 00:54:58.433	2025-07-30 00:54:58.433	percentage	0.00	0.00	0.00
-433	HD004912	2025-07-12 09:21:14.59	\N	1057	KHÁCH LẺ	1	20000.00	20000.00	\N	completed	2025-07-30 00:54:58.433	2025-07-30 00:54:58.433	percentage	0.00	0.00	0.00
-434	HD004911.01	2025-07-12 09:01:38.02	\N	1211	ANH PHONG - BÀU SẬY	1	6980000.00	6980000.00	\N	completed	2025-07-30 00:54:58.433	2025-07-30 00:54:58.433	percentage	0.00	0.00	0.00
-435	HD004910.01	2025-07-12 08:57:10.75	\N	1136	ANH GIA CHÍCH	1	200000.00	200000.00	\N	completed	2025-07-30 00:54:58.433	2025-07-30 00:54:58.433	percentage	0.00	0.00	0.00
-436	HD004909	2025-07-12 08:52:40.707	\N	967	ANH ĐỨC - VÔ NHIỄM	1	450000.00	450000.00	\N	completed	2025-07-30 00:54:58.433	2025-07-30 00:54:58.433	percentage	0.00	0.00	0.00
-437	HD004908	2025-07-12 08:15:38.959	\N	883	ANH HẢI CJ	1	600000.00	600000.00	\N	completed	2025-07-30 00:54:58.434	2025-07-30 00:54:58.434	percentage	0.00	0.00	0.00
-438	HD004907	2025-07-12 08:06:13.037	\N	894	ANH DANH - GÀ TRE - VÔ NHIỄM 9K	1	1470000.00	0.00	\N	completed	2025-07-30 00:54:58.434	2025-07-30 00:54:58.434	percentage	0.00	0.00	0.00
-439	HD004906	2025-07-12 07:46:07.297	\N	853	ANH ÂN - PHÚ TÚC	1	220000.00	0.00	\N	completed	2025-07-30 00:54:58.434	2025-07-30 00:54:58.434	percentage	0.00	0.00	0.00
-440	HD004905	2025-07-12 07:44:39.603	\N	861	CHÚ PHÁT - DỐC MƠ	1	1050000.00	0.00	\N	completed	2025-07-30 00:54:58.435	2025-07-30 00:54:58.435	percentage	0.00	0.00	0.00
-441	HD004904	2025-07-12 07:24:22.262	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	500000.00	500000.00	\N	completed	2025-07-30 00:54:58.435	2025-07-30 00:54:58.435	percentage	0.00	0.00	0.00
-442	HD004903	2025-07-12 07:16:45.353	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	1350000.00	0.00	\N	completed	2025-07-30 00:54:58.435	2025-07-30 00:54:58.435	percentage	0.00	0.00	0.00
-443	HD004902	2025-07-12 07:05:19.133	\N	854	ANH TỨ	1	470000.00	470000.00	\N	completed	2025-07-30 00:54:58.435	2025-07-30 00:54:58.435	percentage	0.00	0.00	0.00
-657	HD004686	2025-07-03 17:21:08.197	\N	1174	CÔ TUYẾN - TAM HOÀNG - CẦU CƯỜNG	1	1920000.00	0.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00
-445	HD004900	2025-07-12 06:26:07.356	\N	1115	CÔ TUYẾT THU - PHÚ CƯỜNG 11K	1	7150000.00	0.00	\N	completed	2025-07-30 00:54:58.435	2025-07-30 00:54:58.435	percentage	0.00	0.00	0.00
-447	HD004897	2025-07-11 17:05:49.686	\N	1057	KHÁCH LẺ	1	90000.00	90000.00	\N	completed	2025-07-30 00:54:58.436	2025-07-30 00:54:58.436	percentage	0.00	0.00	0.00
-448	HD004896	2025-07-11 16:13:07.417	\N	856	TRUNG - BƯU ĐIỆN - LÔ 2	1	950000.00	0.00	\N	completed	2025-07-30 00:54:58.436	2025-07-30 00:54:58.436	percentage	0.00	0.00	0.00
-449	HD004895.01	2025-07-11 15:35:04.61	\N	1117	ANH HƯNG - GÀ - SUỐI ĐÁ	1	3060000.00	0.00	\N	completed	2025-07-30 00:54:58.436	2025-07-30 00:54:58.436	percentage	0.00	0.00	0.00
-450	HD004894	2025-07-11 15:33:16.833	\N	885	ANH THỨC - TAM HOÀNG	1	4200000.00	0.00	\N	completed	2025-07-30 00:54:58.436	2025-07-30 00:54:58.436	percentage	0.00	0.00	0.00
-451	HD004893	2025-07-11 15:05:37.217	\N	1026	HUYỀN TIGERVET	1	0.00	0.00	\N	completed	2025-07-30 00:54:58.673	2025-07-30 00:54:58.673	percentage	0.00	0.00	0.00
-452	HD004892	2025-07-11 15:05:12.186	\N	1026	HUYỀN TIGERVET	1	6400000.00	0.00	\N	completed	2025-07-30 00:54:58.673	2025-07-30 00:54:58.673	percentage	0.00	0.00	0.00
-453	HD004891	2025-07-11 14:36:11.843	\N	1026	HUYỀN TIGERVET	1	8915000.00	0.00	\N	completed	2025-07-30 00:54:58.674	2025-07-30 00:54:58.674	percentage	0.00	0.00	0.00
-454	HD004890	2025-07-11 14:18:01.92	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	2740000.00	2740000.00	\N	completed	2025-07-30 00:54:58.674	2025-07-30 00:54:58.674	percentage	0.00	0.00	0.00
-455	HD004889	2025-07-11 11:07:02.217	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	1400000.00	30000.00	\N	completed	2025-07-30 00:54:58.674	2025-07-30 00:54:58.674	percentage	0.00	0.00	0.00
-456	HD004888	2025-07-11 11:01:11.162	\N	954	KHẢI HAIDER - BÀU CẠN LÔ 20k	1	10600000.00	0.00	\N	completed	2025-07-30 00:54:58.674	2025-07-30 00:54:58.674	percentage	0.00	0.00	0.00
-457	HD004887	2025-07-11 10:56:35.83	\N	1212	KHẢI 8.500 CON - XUYÊN MỘC	1	3680000.00	0.00	\N	completed	2025-07-30 00:54:58.674	2025-07-30 00:54:58.674	percentage	0.00	0.00	0.00
-458	HD004886	2025-07-11 09:20:11.763	\N	1159	EM SƠN - ECOVET	1	7650000.00	0.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00
-459	HD004885	2025-07-11 08:55:26.019	\N	1057	KHÁCH LẺ	1	70000.00	70000.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00
-460	HD004884	2025-07-11 08:36:31.889	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	7100000.00	7100000.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00
-461	HD004883	2025-07-11 07:49:10.272	\N	885	ANH THỨC - TAM HOÀNG	1	4300000.00	0.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00
-462	HD004882	2025-07-11 06:47:02.413	\N	1176	ANH SỸ -TAM HOÀNG	1	2360000.00	0.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00
-463	HD004881	2025-07-11 06:33:04.05	\N	885	ANH THỨC - TAM HOÀNG	1	1560000.00	0.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00
-464	HD004880	2025-07-11 06:28:21.497	\N	1178	CHÚ CHƯƠNG - TAM HOÀNG	1	220000.00	0.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00
-465	HD004879	2025-07-11 06:26:28.53	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	910000.00	910000.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00
-466	HD004878	2025-07-11 06:24:21.983	\N	1134	CHÚ CẦN - GÀ ĐẺ - NINH PHÁT	1	3900000.00	0.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00
-468	HD004876	2025-07-11 06:20:52.363	\N	1023	CHỊ QUY - BÌNH DƯƠNG	1	5900000.00	0.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00
-469	HD004875	2025-07-10 17:50:07.573	\N	1215	ANH TÂM ( ANH CÔNG)	1	6300000.00	0.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00
-470	HD004874	2025-07-10 17:49:04.44	\N	1135	TÂM UNITEK	1	12300000.00	12300000.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00
-471	HD004873	2025-07-10 17:26:44.489	\N	1062	CHỊ HƯƠNG-THÀNH AN	1	1740000.00	1225000.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00
-472	HD004872	2025-07-10 16:58:49.219	\N	1057	KHÁCH LẺ	1	30000.00	30000.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00
-473	HD004871	2025-07-10 16:51:32.23	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	500000.00	500000.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00
-474	HD004870.02	2025-07-10 16:50:30.107	\N	889	TRUNG - BƯU ĐIỆN - LÔ MỚI	1	580000.00	580000.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00
-475	HD004869	2025-07-10 16:29:23.31	\N	864	ANH TÀI - MARTINO (BÀ NGOẠI)	1	690000.00	0.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00
-476	HD004868.02	2025-07-10 16:19:08.357	\N	1113	ANH TÀI - GÀ TA - MARTINO	1	690000.00	0.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00
-477	HD004867	2025-07-10 16:10:48.239	\N	1215	ANH TÂM ( ANH CÔNG)	1	1650000.00	0.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00
-478	HD004866	2025-07-10 15:40:13.07	\N	1171	CHÚ ĐÔNG - TAM HOÀNG	1	4400000.00	0.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00
-479	HD004865	2025-07-10 15:32:41.649	\N	1176	ANH SỸ -TAM HOÀNG	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.678	2025-07-30 00:54:58.678	percentage	0.00	0.00	0.00
-480	HD004864	2025-07-10 15:31:10.24	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	740000.00	740000.00	\N	completed	2025-07-30 00:54:58.678	2025-07-30 00:54:58.678	percentage	0.00	0.00	0.00
-481	HD004863	2025-07-10 14:49:00.01	\N	1057	KHÁCH LẺ	1	100000.00	100000.00	\N	completed	2025-07-30 00:54:58.678	2025-07-30 00:54:58.678	percentage	0.00	0.00	0.00
-482	HD004862	2025-07-10 14:41:55.54	\N	1192	CÔ PHƯỢNG - BÌNH LỘC	1	2100000.00	0.00	\N	completed	2025-07-30 00:54:58.678	2025-07-30 00:54:58.678	percentage	0.00	0.00	0.00
-483	HD004861	2025-07-10 14:39:56.156	\N	1080	CÔNG ARIVIET	1	2100000.00	2100000.00	\N	completed	2025-07-30 00:54:58.679	2025-07-30 00:54:58.679	percentage	0.00	0.00	0.00
-484	HD004860	2025-07-10 14:26:40.53	\N	1209	XUÂN - VỊT ( NHÀ)	1	1140000.00	0.00	\N	completed	2025-07-30 00:54:58.679	2025-07-30 00:54:58.679	percentage	0.00	0.00	0.00
-485	HD004859	2025-07-10 14:25:03.247	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	4500000.00	0.00	\N	completed	2025-07-30 00:54:58.679	2025-07-30 00:54:58.679	percentage	0.00	0.00	0.00
-486	HD004858	2025-07-10 14:22:24.63	\N	1177	ANH SƠN ( BỘ) - TAM HOÀNG	1	3674000.00	0.00	\N	completed	2025-07-30 00:54:58.679	2025-07-30 00:54:58.679	percentage	0.00	0.00	0.00
-487	HD004857	2025-07-10 14:19:57.126	TH000174	1139	ĐẠI LÝ TIÊN PHÚC	1	3400000.00	0.00	\N	completed	2025-07-30 00:54:58.683	2025-07-30 00:54:58.683	percentage	0.00	0.00	0.00
-489	HD004855	2025-07-10 11:01:23.612	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	30000.00	0.00	\N	completed	2025-07-30 00:54:58.684	2025-07-30 00:54:58.684	percentage	0.00	0.00	0.00
-490	HD004854	2025-07-10 10:09:48.557	\N	1205	TUYẾN DONAVET	1	230000.00	230000.00	\N	completed	2025-07-30 00:54:58.684	2025-07-30 00:54:58.684	percentage	0.00	0.00	0.00
-491	HD004853	2025-07-10 08:02:04.847	\N	875	NHUNG VIETVET	1	1586000.00	0.00	\N	completed	2025-07-30 00:54:58.684	2025-07-30 00:54:58.684	percentage	0.00	0.00	0.00
-492	HD004852	2025-07-10 07:12:06.106	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	7160000.00	0.00	\N	completed	2025-07-30 00:54:58.685	2025-07-30 00:54:58.685	percentage	0.00	0.00	0.00
-493	HD004851	2025-07-10 06:43:32.18	\N	1057	KHÁCH LẺ	1	10000.00	10000.00	\N	completed	2025-07-30 00:54:58.685	2025-07-30 00:54:58.685	percentage	0.00	0.00	0.00
-494	HD004850.01	2025-07-10 06:41:00.529	TH000173	1180	ANH HÙNG - BỘ - TAM HOÀNG	1	6925000.00	0.00	\N	completed	2025-07-30 00:54:58.685	2025-07-30 00:54:58.685	percentage	0.00	0.00	0.00
-495	HD004849.01	2025-07-10 06:38:44.396	\N	856	TRUNG - BƯU ĐIỆN - LÔ 2	1	2520000.00	0.00	\N	completed	2025-07-30 00:54:58.685	2025-07-30 00:54:58.685	percentage	0.00	0.00	0.00
-496	HD004848.01	2025-07-10 06:33:18.116	TH000182	1080	CÔNG ARIVIET	1	5380000.00	3960000.00	\N	completed	2025-07-30 00:54:58.685	2025-07-30 00:54:58.685	percentage	0.00	0.00	0.00
-497	HD004847	2025-07-10 06:29:59.62	\N	1032	ANH LÂM (5K) - TRẠI 2	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.686	2025-07-30 00:54:58.686	percentage	0.00	0.00	0.00
-498	HD004846.01	2025-07-10 06:26:40.1	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	4800000.00	0.00	\N	completed	2025-07-30 00:54:58.686	2025-07-30 00:54:58.686	percentage	0.00	0.00	0.00
-499	HD004845	2025-07-09 17:22:00.32	\N	1226	ANH LÂM (5k) - TRẠI 1	1	7100000.00	0.00	\N	completed	2025-07-30 00:54:58.686	2025-07-30 00:54:58.686	percentage	0.00	0.00	0.00
-500	HD004844	2025-07-09 17:17:57.17	\N	1032	ANH LÂM (5K) - TRẠI 2	1	1450000.00	0.00	\N	completed	2025-07-30 00:54:58.686	2025-07-30 00:54:58.686	percentage	0.00	0.00	0.00
-501	HD004843.01	2025-07-09 16:35:06.456	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	1250000.00	1250000.00	\N	completed	2025-07-30 00:54:58.991	2025-07-30 00:54:58.991	percentage	0.00	0.00	0.00
-502	HD004842.01	2025-07-09 16:27:39.887	\N	1026	HUYỀN TIGERVET	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:58.991	2025-07-30 00:54:58.991	percentage	0.00	0.00	0.00
-504	HD004840	2025-07-09 15:31:48.497	\N	869	ANH HỌC - CTY TIẾN THẠNH	1	2580000.00	0.00	\N	completed	2025-07-30 00:54:58.991	2025-07-30 00:54:58.991	percentage	0.00	0.00	0.00
-505	HD004839	2025-07-09 15:29:54.926	\N	1009	ANH TRƯỜNG - CẦU CƯỜNG	1	490000.00	490000.00	\N	completed	2025-07-30 00:54:58.992	2025-07-30 00:54:58.992	percentage	0.00	0.00	0.00
-506	HD004838	2025-07-09 15:28:30.809	\N	1190	CHỊ QUYÊN - VỊT	1	5550000.00	0.00	\N	completed	2025-07-30 00:54:58.992	2025-07-30 00:54:58.992	percentage	0.00	0.00	0.00
-557	HD004787	2025-07-08 07:29:22.12	\N	860	ANH TUÝ (KIM PHÁT)	1	1560000.00	0.00	\N	completed	2025-07-30 00:54:59.231	2025-07-30 00:54:59.231	percentage	0.00	0.00	0.00
-558	HD004786	2025-07-08 07:03:03.127	\N	1057	KHÁCH LẺ	1	440000.00	440000.00	\N	completed	2025-07-30 00:54:59.231	2025-07-30 00:54:59.231	percentage	0.00	0.00	0.00
-559	HD004785	2025-07-08 06:47:07.363	\N	1203	CHỊ LOAN ( ĐỊNH)	1	2200000.00	2200000.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00
-560	HD004784	2025-07-08 06:44:39.33	\N	861	CHÚ PHÁT - DỐC MƠ	1	570000.00	0.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00
-561	HD004783	2025-07-08 06:38:11.207	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	1160000.00	1160000.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00
-562	HD004782.01	2025-07-08 06:29:25.86	\N	1220	ANH LÂM - TAM HOÀNG - NINH PHÁT	1	2850000.00	2707500.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00
-563	HD004781	2025-07-08 06:25:17.173	\N	1131	ĐẠI LÝ TUẤN PHÁT	1	2750000.00	2750000.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00
-564	HD004780	2025-07-08 06:22:48.577	\N	1046	ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2	1	2200000.00	0.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00
-565	HD004779.01	2025-07-07 18:58:33.49	\N	862	HOÀ MEGA	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00
-566	HD004778	2025-07-07 16:48:13.197	TH000171, TH000181, TH000183	862	HOÀ MEGA	1	17600000.00	1000000.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00
-567	HD004777	2025-07-07 16:46:48.097	\N	1135	TÂM UNITEK	1	1530000.00	1530000.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00
-568	HD004776	2025-07-07 14:41:04.81	TH000168	1174	CÔ TUYẾN - TAM HOÀNG - CẦU CƯỜNG	1	7390000.00	0.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00
-569	HD004775	2025-07-07 14:38:34.606	\N	880	ANH HẢI (KẾ)	1	1350000.00	1350000.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00
-516	HD004828	2025-07-09 09:41:34.719	\N	1228	Khách lẻ	1	1000000.00	1000000.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00
-508	HD004836	2025-07-09 15:24:00.929	\N	910	ANH HÀO	1	540000.00	540000.00	\N	completed	2025-07-30 00:54:58.992	2025-07-30 00:54:58.992	percentage	0.00	0.00	0.00
-509	HD004835.01	2025-07-09 15:21:55.16	\N	1135	TÂM UNITEK	1	32900000.00	32900000.00	\N	completed	2025-07-30 00:54:58.992	2025-07-30 00:54:58.992	percentage	0.00	0.00	0.00
-510	HD004834.01	2025-07-09 14:34:54.8	\N	988	LONG - BIÊN HOÀ 2	1	28200000.00	28200000.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00
-511	HD004833	2025-07-09 11:26:21.822	\N	1200	CÔ BÌNH - AN LỘC	1	6450000.00	0.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00
-512	HD004832	2025-07-09 10:36:02.81	\N	875	NHUNG VIETVET	1	16200000.00	0.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00
-513	HD004831	2025-07-09 10:07:54.96	\N	947	ANH LÂM (6K) - TRẠI 3	1	1300000.00	0.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00
-514	HD004830	2025-07-09 10:06:35.09	\N	1185	ANH LÂM (8K) - TRẠI 4	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00
-515	HD004829	2025-07-09 09:43:44.037	\N	1195	ANH PHONG - SUỐI ĐÁ 2	1	4820000.00	0.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00
-517	HD004827	2025-07-09 09:02:13.74	\N	1080	CÔNG ARIVIET	1	2780000.00	2780000.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00
-518	HD004826	2025-07-09 08:58:21.959	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	5750000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00
-519	HD004825	2025-07-09 08:52:53.217	\N	1190	CHỊ QUYÊN - VỊT	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00
-520	HD004824	2025-07-09 08:42:33.762	\N	1135	TÂM UNITEK	1	4150000.00	4150000.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00
-522	HD004822	2025-07-09 08:16:41.983	\N	906	ANH CHÍNH - VÔ NHIỄM	1	2620000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00
-523	HD004821	2025-07-09 07:36:33.13	\N	1215	ANH TÂM ( ANH CÔNG)	1	1650000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00
-524	HD004820	2025-07-09 07:35:00.243	\N	996	ANH PHONG - SUỐI ĐÁ 3	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00
-525	HD004819	2025-07-09 07:33:46.687	\N	1058	ANH PHONG - SUỐI ĐÁ 1	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00
-526	HD004818	2025-07-09 07:28:26.84	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	880000.00	880000.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00
-527	HD004817	2025-07-09 06:46:30.467	\N	1032	ANH LÂM (5K) - TRẠI 2	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00
-528	HD004816	2025-07-09 06:40:35.96	\N	1136	ANH GIA CHÍCH	1	220000.00	220000.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00
-529	HD004815	2025-07-09 06:35:06.639	\N	1215	ANH TÂM ( ANH CÔNG)	1	5510000.00	0.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00
-530	HD004814	2025-07-09 06:33:31.657	\N	1182	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	560000.00	0.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00
-531	HD004813	2025-07-09 06:31:58.883	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	18660000.00	0.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00
-532	HD004812	2025-07-09 06:26:31.559	\N	1184	CÔ CHƯNG - TAM HOÀNG - NAGOA	1	6000000.00	0.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00
-533	HD004811.01	2025-07-09 06:24:52.8	\N	858	ANH RÒN - DỐC MƠ	1	1560000.00	0.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00
-534	HD004810.01	2025-07-09 06:19:41.336	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	2300000.00	0.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00
-536	HD004808	2025-07-08 15:21:30.202	\N	878	ANH TÈO - VÔ NHIỄM	1	7210000.00	0.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00
-537	HD004807	2025-07-08 15:10:49.853	\N	1057	KHÁCH LẺ	1	500000.00	500000.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00
-538	HD004806	2025-07-08 15:00:46.266	\N	934	CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K	1	2640000.00	0.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00
-539	HD004805	2025-07-08 14:36:17.692	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	5250000.00	0.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00
-540	HD004804	2025-07-08 14:31:09.877	\N	859	ANH QUẢNG - LONG THÀNH	1	1260000.00	1260000.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00
-541	HD004803	2025-07-08 11:26:05.207	\N	1211	ANH PHONG - BÀU SẬY	1	7800000.00	7800000.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00
-542	HD004802	2025-07-08 11:02:54.403	\N	875	NHUNG VIETVET	1	3720000.00	0.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00
-543	HD004801.01	2025-07-08 10:37:28.26	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	550000.00	550000.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00
-544	HD004800.01	2025-07-08 10:36:07.269	\N	1215	ANH TÂM ( ANH CÔNG)	1	550000.00	0.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00
-545	HD004799	2025-07-08 10:32:36.037	\N	1139	ĐẠI LÝ TIÊN PHÚC	1	3000000.00	3000000.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00
-546	HD004798	2025-07-08 10:21:46.162	\N	1185	ANH LÂM (8K) - TRẠI 4	1	1840000.00	0.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00
-547	HD004797.01	2025-07-08 09:53:41.403	\N	1048	ANH TRIỆU - GIA KIỆM	1	2776000.00	0.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00
-548	HD004796	2025-07-08 09:37:24.556	\N	883	ANH HẢI CJ	1	480000.00	480000.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00
-549	HD004795	2025-07-08 08:28:59.296	\N	885	ANH THỨC - TAM HOÀNG	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.998	2025-07-30 00:54:58.998	percentage	0.00	0.00	0.00
-550	HD004794	2025-07-08 08:25:05.803	\N	962	CÔ TUYẾT THU (5K) - LÔ SONG HÀNH	1	6000000.00	0.00	\N	completed	2025-07-30 00:54:58.998	2025-07-30 00:54:58.998	percentage	0.00	0.00	0.00
-551	HD004793	2025-07-08 08:23:38.939	\N	878	ANH TÈO - VÔ NHIỄM	1	960000.00	0.00	\N	completed	2025-07-30 00:54:59.23	2025-07-30 00:54:59.23	percentage	0.00	0.00	0.00
-553	HD004791.01	2025-07-08 07:53:46.007	\N	1135	TÂM UNITEK	1	8100000.00	8100000.00	\N	completed	2025-07-30 00:54:59.23	2025-07-30 00:54:59.23	percentage	0.00	0.00	0.00
-554	HD004790	2025-07-08 07:40:24.883	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	490000.00	490000.00	\N	completed	2025-07-30 00:54:59.231	2025-07-30 00:54:59.231	percentage	0.00	0.00	0.00
-555	HD004789	2025-07-08 07:36:26.486	\N	1043	HÀ HOÀNG	1	1050000.00	270000.00	\N	completed	2025-07-30 00:54:59.231	2025-07-30 00:54:59.231	percentage	0.00	0.00	0.00
-556	HD004788	2025-07-08 07:31:36.487	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	6690000.00	6690000.00	\N	completed	2025-07-30 00:54:59.231	2025-07-30 00:54:59.231	percentage	0.00	0.00	0.00
-571	HD004773	2025-07-07 14:16:28.797	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	2000000.00	0.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00
-572	HD004772	2025-07-07 14:14:48.18	\N	1026	HUYỀN TIGERVET	1	2190000.00	0.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00
-573	HD004771.01	2025-07-07 10:25:50.712	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	4210000.00	3310000.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00
-574	HD004770	2025-07-07 09:59:35.153	\N	1178	CHÚ CHƯƠNG - TAM HOÀNG	1	2600000.00	0.00	\N	completed	2025-07-30 00:54:59.234	2025-07-30 00:54:59.234	percentage	0.00	0.00	0.00
-575	HD004769	2025-07-07 09:53:33.522	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	300000.00	300000.00	\N	completed	2025-07-30 00:54:59.234	2025-07-30 00:54:59.234	percentage	0.00	0.00	0.00
-576	HD004768.01	2025-07-07 09:52:01.677	\N	1026	HUYỀN TIGERVET	1	4400000.00	0.00	\N	completed	2025-07-30 00:54:59.234	2025-07-30 00:54:59.234	percentage	0.00	0.00	0.00
-578	HD004766	2025-07-07 09:07:47.146	\N	874	QUÂN BIOFRAM	1	480000.00	480000.00	\N	completed	2025-07-30 00:54:59.234	2025-07-30 00:54:59.234	percentage	0.00	0.00	0.00
-580	HD004764	2025-07-07 08:25:06.047	\N	887	ANH HUY - GÀ - ĐỨC HUY	1	3810000.00	0.00	\N	completed	2025-07-30 00:54:59.235	2025-07-30 00:54:59.235	percentage	0.00	0.00	0.00
-581	HD004763	2025-07-07 08:11:05.987	\N	881	CHÚ HUỲNH - XÃ LỘ 25	1	13000000.00	3000000.00	\N	completed	2025-07-30 00:54:59.235	2025-07-30 00:54:59.235	percentage	0.00	0.00	0.00
-582	HD004762	2025-07-07 07:55:43.51	\N	1057	KHÁCH LẺ	1	450000.00	450000.00	\N	completed	2025-07-30 00:54:59.235	2025-07-30 00:54:59.235	percentage	0.00	0.00	0.00
-583	HD004761	2025-07-07 07:51:29.403	\N	1215	ANH TÂM ( ANH CÔNG)	1	2340000.00	0.00	\N	completed	2025-07-30 00:54:59.235	2025-07-30 00:54:59.235	percentage	0.00	0.00	0.00
-584	HD004760	2025-07-07 07:50:33.962	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	2340000.00	2340000.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00
-585	HD004759	2025-07-07 06:58:01.556	\N	878	ANH TÈO - VÔ NHIỄM	1	920000.00	0.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00
-586	HD004758	2025-07-07 06:44:02.003	\N	1204	ANH HỌC	1	800000.00	0.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00
-587	HD004757.01	2025-07-07 06:26:40.083	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	180000.00	0.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00
-588	HD004756	2025-07-07 06:25:00.172	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	8770000.00	8770000.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00
-589	HD004755	2025-07-07 06:22:44.97	\N	957	CHỊ LOAN -BỐT ĐỎ	1	1320000.00	0.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00
-590	HD004754	2025-07-07 06:20:22.803	\N	1192	CÔ PHƯỢNG - BÌNH LỘC	1	1080000.00	0.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00
-591	HD004753.02	2025-07-07 06:18:37.313	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	1000000.00	1000000.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00
-592	HD004752.01	2025-07-06 18:25:29.489	\N	1057	KHÁCH LẺ	1	450000.00	450000.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00
-593	HD004751.01	2025-07-06 16:36:57.6	\N	1057	KHÁCH LẺ	1	30000.00	30000.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00
-594	HD004750	2025-07-06 16:11:34.343	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	650000.00	0.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00
-595	HD004749.01	2025-07-06 16:00:25.049	\N	1122	TÚ GÀ TA	1	400000.00	0.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00
-596	HD004748	2025-07-06 15:57:45.57	\N	864	ANH TÀI - MARTINO (BÀ NGOẠI)	1	520000.00	0.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00
-597	HD004747	2025-07-06 15:55:41.84	\N	1113	ANH TÀI - GÀ TA - MARTINO	1	520000.00	0.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00
-598	HD004746	2025-07-06 09:36:39.452	\N	1062	CHỊ HƯƠNG-THÀNH AN	1	465000.00	465000.00	\N	completed	2025-07-30 00:54:59.238	2025-07-30 00:54:59.238	percentage	0.00	0.00	0.00
-599	HD004745	2025-07-06 08:17:44.786	\N	863	NGUYỆT SƠN LÂM	1	600000.00	600000.00	\N	completed	2025-07-30 00:54:59.238	2025-07-30 00:54:59.238	percentage	0.00	0.00	0.00
-600	HD004744	2025-07-06 08:09:40.576	\N	1030	CHÚ HÙNG - VÕ DÕNG	1	820000.00	0.00	\N	completed	2025-07-30 00:54:59.238	2025-07-30 00:54:59.238	percentage	0.00	0.00	0.00
-602	HD004742	2025-07-06 07:33:36.196	\N	1176	ANH SỸ -TAM HOÀNG	1	700000.00	0.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00
-603	HD004741.01	2025-07-06 07:11:26.083	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00
-604	HD004740	2025-07-06 06:51:36.287	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	2500000.00	0.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00
-605	HD004739	2025-07-06 06:49:02.053	\N	1175	ANH PHÙNG - TAM HOÀNG-NINH PHÁT	1	1900000.00	1805000.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00
-606	HD004738	2025-07-06 06:34:20.723	\N	1114	CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI	1	3250000.00	0.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00
-607	HD004737.01	2025-07-06 06:33:13.252	\N	1025	CÔ NGA VỊT - SUỐI NHO	1	4100000.00	0.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00
-608	HD004736	2025-07-06 06:26:59.653	\N	1057	KHÁCH LẺ	1	20000.00	20000.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00
-609	HD004735	2025-07-05 17:22:54.98	\N	1057	KHÁCH LẺ	1	50000.00	50000.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00
-610	HD004734.01	2025-07-05 16:21:56.907	\N	942	ANH TRUYỀN  - TAM HOÀNG - GIA PHÁT 1	1	2250000.00	0.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00
-611	HD004733	2025-07-05 15:24:17.673	\N	1009	ANH TRƯỜNG - CẦU CƯỜNG	1	680000.00	680000.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00
-612	HD004732	2025-07-05 14:32:04.303	\N	1129	SÁNG TẰNG HAID	1	1750000.00	1750000.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00
-613	HD004731	2025-07-05 14:30:17.587	\N	1208	ANH SỸ - VỊT	1	4500000.00	0.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00
-614	HD004730	2025-07-05 14:29:00.623	\N	1190	CHỊ QUYÊN - VỊT	1	6700000.00	0.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00
-615	HD004729	2025-07-05 11:23:35.08	\N	875	NHUNG VIETVET	1	2238000.00	0.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00
-617	HD004727.01	2025-07-05 10:26:38.383	\N	1215	ANH TÂM ( ANH CÔNG)	1	1440000.00	0.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00
-618	HD004726	2025-07-05 09:52:23.522	\N	943	THÚ Y ĐÌNH HIỀN	1	2910000.00	2910000.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00
-619	HD004725	2025-07-05 09:43:24.527	\N	1185	ANH LÂM (8K) - TRẠI 4	1	600000.00	0.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00
-620	HD004724	2025-07-05 09:42:36.53	\N	1032	ANH LÂM (5K) - TRẠI 2	1	660000.00	0.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00
-621	HD004723	2025-07-05 09:41:58.95	\N	1226	ANH LÂM (5k) - TRẠI 1	1	1320000.00	0.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00
-622	HD004722	2025-07-05 09:41:11.953	\N	1041	KHẢI ( CÔ CHUNG)	1	1800000.00	0.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00
-623	HD004721	2025-07-05 09:40:08.792	TH000179	990	ANH HIẾU - DÊ	1	550000.00	550000.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00
-624	HD004720	2025-07-05 09:31:23.182	\N	1048	ANH TRIỆU - GIA KIỆM	1	3500000.00	0.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00
-625	HD004719	2025-07-05 08:57:20.729	\N	1195	ANH PHONG - SUỐI ĐÁ 2	1	4800000.00	0.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00
-626	HD004718	2025-07-05 08:41:31.15	\N	864	ANH TÀI - MARTINO (BÀ NGOẠI)	1	930000.00	0.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00
-627	HD004717	2025-07-05 08:39:00.98	\N	936	ANH VŨ - GÀ ĐẺ	1	350000.00	90000.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00
-628	HD004716.01	2025-07-05 08:15:31.512	\N	1122	TÚ GÀ TA	1	360000.00	0.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00
-629	HD004715.01	2025-07-05 08:11:37.237	\N	996	ANH PHONG - SUỐI ĐÁ 3	1	1100000.00	0.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00
-630	HD004714	2025-07-05 08:10:25.477	\N	1058	ANH PHONG - SUỐI ĐÁ 1	1	3300000.00	0.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00
-631	HD004713.01	2025-07-05 07:30:01.853	\N	1215	ANH TÂM ( ANH CÔNG)	1	8610000.00	0.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00
-632	HD004712	2025-07-05 07:12:53.893	\N	1176	ANH SỸ -TAM HOÀNG	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00
-577	HD004767	2025-07-07 09:46:55.303	\N	1228	Khách lẻ	1	130000.00	130000.00	\N	completed	2025-07-30 00:54:59.234	2025-07-30 00:54:59.234	percentage	0.00	0.00	0.00
-634	HD004710.03	2025-07-05 06:29:57.73	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	600000.00	600000.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00
-635	HD004709	2025-07-05 06:27:16.777	\N	883	ANH HẢI CJ	1	1110000.00	1110000.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00
-636	HD004708	2025-07-05 06:21:12.987	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	2360000.00	2360000.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00
-637	HD004707.01	2025-07-05 06:19:27.293	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	1380000.00	0.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00
-638	HD004706	2025-07-05 06:18:12.219	\N	1134	CHÚ CẦN - GÀ ĐẺ - NINH PHÁT	1	1380000.00	0.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00
-640	HD004704	2025-07-04 17:42:26.12	\N	1062	CHỊ HƯƠNG-THÀNH AN	1	1190000.00	1190000.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00
-641	HD004703	2025-07-04 17:21:00.4	\N	1051	ANH HUYẾN - CÚT	1	800000.00	760000.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00
-642	HD004702	2025-07-04 15:41:08.846	\N	1135	TÂM UNITEK	1	5900000.00	5900000.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00
-643	HD004701	2025-07-04 15:25:19.492	\N	1032	ANH LÂM (5K) - TRẠI 2	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00
-644	HD004700	2025-07-04 15:00:35.897	\N	990	ANH HIẾU - DÊ	1	2950000.00	840000.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00
-645	HD004699.01	2025-07-04 14:42:09.846	\N	1190	CHỊ QUYÊN - VỊT	1	1400000.00	0.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00
-646	HD004698	2025-07-04 14:37:01.387	\N	875	NHUNG VIETVET	1	10800000.00	0.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00
-647	HD004697	2025-07-04 14:30:33.863	\N	1043	HÀ HOÀNG	1	840000.00	840000.00	\N	completed	2025-07-30 00:54:59.465	2025-07-30 00:54:59.465	percentage	0.00	0.00	0.00
-648	HD004696	2025-07-04 14:29:12.307	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	7990000.00	7990000.00	\N	completed	2025-07-30 00:54:59.465	2025-07-30 00:54:59.465	percentage	0.00	0.00	0.00
-649	HD004695	2025-07-04 10:59:28.653	\N	992	XUÂN ( THUÊ NGÁT)	1	3150000.00	150000.00	\N	completed	2025-07-30 00:54:59.465	2025-07-30 00:54:59.465	percentage	0.00	0.00	0.00
-650	HD004694	2025-07-04 09:04:57.276	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	3000000.00	3000000.00	\N	completed	2025-07-30 00:54:59.465	2025-07-30 00:54:59.465	percentage	0.00	0.00	0.00
-651	HD004693	2025-07-04 09:03:39.073	\N	1154	ANH THÁI - VỊT - PHÚC NHẠC	1	3000000.00	3000000.00	\N	completed	2025-07-30 00:54:59.714	2025-07-30 00:54:59.714	percentage	0.00	0.00	0.00
-652	HD004692	2025-07-04 07:39:12.047	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	8480000.00	8480000.00	\N	completed	2025-07-30 00:54:59.715	2025-07-30 00:54:59.715	percentage	0.00	0.00	0.00
-653	HD004691	2025-07-04 06:38:51.43	\N	1046	ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2	1	7750000.00	0.00	\N	completed	2025-07-30 00:54:59.715	2025-07-30 00:54:59.715	percentage	0.00	0.00	0.00
-654	HD004690	2025-07-04 06:27:45.413	\N	1025	CÔ NGA VỊT - SUỐI NHO	1	5500000.00	0.00	\N	completed	2025-07-30 00:54:59.715	2025-07-30 00:54:59.715	percentage	0.00	0.00	0.00
-655	HD004689	2025-07-04 06:25:28.043	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	1230000.00	0.00	\N	completed	2025-07-30 00:54:59.715	2025-07-30 00:54:59.715	percentage	0.00	0.00	0.00
-656	HD004687	2025-07-03 17:45:56.57	\N	912	CÔ VỠI - XUÂN BẮC	1	5350000.00	0.00	\N	completed	2025-07-30 00:54:59.715	2025-07-30 00:54:59.715	percentage	0.00	0.00	0.00
-658	HD004685	2025-07-03 17:00:18.41	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	3450000.00	0.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00
-659	HD004684	2025-07-03 16:46:54.623	\N	1198	CÔ QUYỀN - ĐỨC LONG	1	15920000.00	0.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00
-660	HD004683	2025-07-03 15:40:30.613	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	1950000.00	1950000.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00
-661	HD004682	2025-07-03 15:07:56.277	\N	1057	KHÁCH LẺ	1	230000.00	230000.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00
-662	HD004681	2025-07-03 15:03:09.973	\N	1185	ANH LÂM (8K) - TRẠI 4	1	900000.00	0.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00
-663	HD004680	2025-07-03 15:00:56.62	\N	947	ANH LÂM (6K) - TRẠI 3	1	2250000.00	0.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00
-664	HD004679	2025-07-03 14:59:42.883	\N	1032	ANH LÂM (5K) - TRẠI 2	1	450000.00	0.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00
-665	HD004678	2025-07-03 14:58:20.72	\N	1226	ANH LÂM (5k) - TRẠI 1	1	450000.00	0.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00
-666	HD004677	2025-07-03 14:23:47.44	\N	1122	TÚ GÀ TA	1	1950000.00	0.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00
-667	HD004676	2025-07-03 14:17:17.116	\N	1057	KHÁCH LẺ	1	210000.00	210000.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00
-668	HD004675	2025-07-03 11:25:07.647	\N	1155	ANH PHONG - VỊT (NHÀ)	1	7020000.00	1570000.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00
-669	HD004674	2025-07-03 10:21:24.48	\N	990	ANH HIẾU - DÊ	1	1320000.00	1320000.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00
-670	HD004673	2025-07-03 10:10:00.393	\N	1176	ANH SỸ -TAM HOÀNG	1	3640000.00	0.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00
-671	HD004672	2025-07-03 10:05:30.57	\N	1135	TÂM UNITEK	1	3900000.00	3900000.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00
-672	HD004671.01	2025-07-03 09:02:12.567	\N	1062	CHỊ HƯƠNG-THÀNH AN	1	5070000.00	5070000.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00
-673	HD004670	2025-07-03 08:45:59.01	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	7150000.00	7150000.00	\N	completed	2025-07-30 00:54:59.718	2025-07-30 00:54:59.718	percentage	0.00	0.00	0.00
-674	HD004669	2025-07-03 08:44:15.437	\N	922	HUY - NINH PHÁT	1	310000.00	0.00	\N	completed	2025-07-30 00:54:59.718	2025-07-30 00:54:59.718	percentage	0.00	0.00	0.00
-675	HD004668	2025-07-03 08:27:03.813	\N	1080	CÔNG ARIVIET	1	9170000.00	9170000.00	\N	completed	2025-07-30 00:54:59.718	2025-07-30 00:54:59.718	percentage	0.00	0.00	0.00
-676	HD004667	2025-07-03 07:04:22.753	\N	1080	CÔNG ARIVIET	1	4520000.00	4520000.00	\N	completed	2025-07-30 00:54:59.718	2025-07-30 00:54:59.718	percentage	0.00	0.00	0.00
-677	HD004666	2025-07-03 06:44:12.992	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	4500000.00	0.00	\N	completed	2025-07-30 00:54:59.718	2025-07-30 00:54:59.718	percentage	0.00	0.00	0.00
-678	HD004665	2025-07-03 06:32:42.773	\N	1080	CÔNG ARIVIET	1	1100000.00	1100000.00	\N	completed	2025-07-30 00:54:59.719	2025-07-30 00:54:59.719	percentage	0.00	0.00	0.00
-680	HD004663.01	2025-07-03 06:28:22.647	\N	1048	ANH TRIỆU - GIA KIỆM	1	2500000.00	0.00	\N	completed	2025-07-30 00:54:59.719	2025-07-30 00:54:59.719	percentage	0.00	0.00	0.00
-681	HD004662	2025-07-03 06:20:38.712	\N	1180	ANH HÙNG - BỘ - TAM HOÀNG	1	1130000.00	0.00	\N	completed	2025-07-30 00:54:59.719	2025-07-30 00:54:59.719	percentage	0.00	0.00	0.00
-682	HD004661	2025-07-03 06:18:02.26	\N	992	XUÂN ( THUÊ NGÁT)	1	0.00	0.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00
-683	HD004660	2025-07-03 06:17:03.013	\N	992	XUÂN ( THUÊ NGÁT)	1	8000000.00	8000000.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00
-684	HD004659	2025-07-03 06:14:08.56	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	900000.00	900000.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00
-685	HD004658	2025-07-02 16:51:47.13	\N	1057	KHÁCH LẺ	1	200000.00	200000.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00
-686	HD004657.01	2025-07-02 15:01:49.23	\N	1192	CÔ PHƯỢNG - BÌNH LỘC	1	1110000.00	0.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00
-687	HD004656	2025-07-02 15:00:21.75	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	2600000.00	2600000.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00
-688	HD004655	2025-07-02 14:46:32.543	\N	990	ANH HIẾU - DÊ	1	1100000.00	1100000.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00
-689	HD004654	2025-07-02 14:43:20.087	\N	892	ANH HOAN - XUÂN BẮC	1	5200000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00
-690	HD004653	2025-07-02 11:10:03.79	\N	1215	ANH TÂM ( ANH CÔNG)	1	6760000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00
-691	HD004652	2025-07-02 10:26:01.62	\N	1062	CHỊ HƯƠNG-THÀNH AN	1	520000.00	520000.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00
-692	HD004651	2025-07-02 10:04:07.187	\N	1048	ANH TRIỆU - GIA KIỆM	1	800000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00
-693	HD004650	2025-07-02 09:11:54.223	\N	1182	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	5800000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00
-694	HD004649	2025-07-02 08:54:49.752	\N	1185	ANH LÂM (8K) - TRẠI 4	1	2980000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00
-695	HD004648	2025-07-02 08:51:38.883	\N	1226	ANH LÂM (5k) - TRẠI 1	1	2640000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00
-1	HD005354	2025-07-28 10:36:38.429	\N	1208	ANH SỸ - VỊT	1	7365000.00	0.00	\N	completed	2025-07-30 00:54:56.163	2025-07-30 00:54:56.163	percentage	0.00	0.00	0.00
-11	HD005344	2025-07-28 08:16:52.967	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	2760000.00	0.00	\N	completed	2025-07-30 00:54:56.166	2025-07-30 00:54:56.166	percentage	0.00	0.00	0.00
-30	HD005325	2025-07-27 07:52:23.696	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	350000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00
-49	HD005306	2025-07-26 09:10:06.159	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	1635000.00	0.00	\N	completed	2025-07-30 00:54:56.173	2025-07-30 00:54:56.173	percentage	0.00	0.00	0.00
-64	HD005291.02	2025-07-26 06:43:11.927	\N	1220	ANH LÂM - TAM HOÀNG - NINH PHÁT	1	2160000.00	400000.00	\N	completed	2025-07-30 00:54:56.462	2025-07-30 00:54:56.462	percentage	0.00	0.00	0.00
-67	HD005287	2025-07-26 06:34:31.203	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	1030000.00	0.00	\N	completed	2025-07-30 00:54:56.463	2025-07-30 00:54:56.463	percentage	0.00	0.00	0.00
-87	HD005266	2025-07-25 07:54:19.44	\N	905	ANH DUY - PHƯƠNG LÂM	1	3420000.00	0.00	\N	completed	2025-07-30 00:54:56.467	2025-07-30 00:54:56.467	percentage	0.00	0.00	0.00
-103	HD005250	2025-07-24 17:46:57.219	\N	887	ANH HUY - GÀ - ĐỨC HUY	1	1750000.00	0.00	\N	completed	2025-07-30 00:54:56.718	2025-07-30 00:54:56.718	percentage	0.00	0.00	0.00
-122	HD005230.01	2025-07-24 07:02:30.622	\N	841	ANH VƯƠNG NHẤT - TÍN NGHĨA	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:56.721	2025-07-30 00:54:56.721	percentage	0.00	0.00	0.00
-129	HD005223	2025-07-24 06:31:11.267	\N	1180	ANH HÙNG - BỘ - TAM HOÀNG	1	1130000.00	0.00	\N	completed	2025-07-30 00:54:56.723	2025-07-30 00:54:56.723	percentage	0.00	0.00	0.00
-142	HD005209	2025-07-23 11:15:11.17	\N	1114	CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI	1	5250000.00	0.00	\N	completed	2025-07-30 00:54:56.725	2025-07-30 00:54:56.725	percentage	0.00	0.00	0.00
-169	HD005182	2025-07-22 15:44:54.319	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00
-185	HD005165	2025-07-22 08:59:28.177	\N	898	ANH ĐEN - GÀ - VÔ NHIỄM 2K	1	260000.00	0.00	\N	completed	2025-07-30 00:54:56.966	2025-07-30 00:54:56.966	percentage	0.00	0.00	0.00
-190	HD005160	2025-07-22 07:56:15.109	\N	1183	ANH CU - TAM HOÀNG HƯNG LỘC	1	13950000.00	0.00	\N	completed	2025-07-30 00:54:56.967	2025-07-30 00:54:56.967	percentage	0.00	0.00	0.00
-191	HD005159.01	2025-07-22 07:18:18.882	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	400000.00	0.00	\N	completed	2025-07-30 00:54:56.967	2025-07-30 00:54:56.967	percentage	0.00	0.00	0.00
-206	HD005144	2025-07-21 15:54:55.656	\N	923	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	12600000.00	0.00	\N	completed	2025-07-30 00:54:57.298	2025-07-30 00:54:57.298	percentage	0.00	0.00	0.00
-229	HD005121	2025-07-20 15:44:13.797	\N	859	ANH QUẢNG - LONG THÀNH	1	2600000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00
-248	HD005101.01	2025-07-19 10:26:30.713	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	700000.00	0.00	\N	completed	2025-07-30 00:54:57.308	2025-07-30 00:54:57.308	percentage	0.00	0.00	0.00
-697	HD004646.02	2025-07-02 08:23:16.333	\N	881	CHÚ HUỲNH - XÃ LỘ 25	1	3100000.00	3100000.00	\N	completed	2025-07-30 00:54:59.722	2025-07-30 00:54:59.722	percentage	0.00	0.00	0.00
-698	HD004645	2025-07-02 08:08:08.757	\N	865	ANH HỌC (LONG)	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:59.722	2025-07-30 00:54:59.722	percentage	0.00	0.00	0.00
-699	HD004644	2025-07-02 08:06:44.962	\N	1135	TÂM UNITEK	1	5800000.00	5800000.00	\N	completed	2025-07-30 00:54:59.722	2025-07-30 00:54:59.722	percentage	0.00	0.00	0.00
-700	HD004643	2025-07-02 08:04:48.132	\N	912	CÔ VỠI - XUÂN BẮC	1	3000000.00	0.00	\N	completed	2025-07-30 00:54:59.722	2025-07-30 00:54:59.722	percentage	0.00	0.00	0.00
-701	HD004642	2025-07-02 07:54:12.702	\N	957	CHỊ LOAN -BỐT ĐỎ	1	2250000.00	0.00	\N	completed	2025-07-30 00:54:59.936	2025-07-30 00:54:59.936	percentage	0.00	0.00	0.00
-702	HD004641	2025-07-02 07:47:15.697	\N	1212	KHẢI 8.500 CON - XUYÊN MỘC	1	4320000.00	0.00	\N	completed	2025-07-30 00:54:59.937	2025-07-30 00:54:59.937	percentage	0.00	0.00	0.00
-704	HD004639	2025-07-02 07:43:36.947	\N	1195	ANH PHONG - SUỐI ĐÁ 2	1	1800000.00	0.00	\N	completed	2025-07-30 00:54:59.937	2025-07-30 00:54:59.937	percentage	0.00	0.00	0.00
-705	HD004638	2025-07-02 07:41:29.62	\N	874	QUÂN BIOFRAM	1	600000.00	600000.00	\N	completed	2025-07-30 00:54:59.937	2025-07-30 00:54:59.937	percentage	0.00	0.00	0.00
-706	HD004637.01	2025-07-02 07:38:47.693	\N	1080	CÔNG ARIVIET	1	1395000.00	1395000.00	\N	completed	2025-07-30 00:54:59.938	2025-07-30 00:54:59.938	percentage	0.00	0.00	0.00
-707	HD004636.01	2025-07-02 07:35:28.597	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	2940000.00	0.00	\N	completed	2025-07-30 00:54:59.938	2025-07-30 00:54:59.938	percentage	0.00	0.00	0.00
-708	HD004635	2025-07-02 07:31:01.216	\N	885	ANH THỨC - TAM HOÀNG	1	3050000.00	0.00	\N	completed	2025-07-30 00:54:59.938	2025-07-30 00:54:59.938	percentage	0.00	0.00	0.00
-709	HD004634	2025-07-02 06:52:07.286	\N	1057	KHÁCH LẺ	1	350000.00	350000.00	\N	completed	2025-07-30 00:54:59.938	2025-07-30 00:54:59.938	percentage	0.00	0.00	0.00
-710	HD004633	2025-07-02 06:49:41.43	\N	1135	TÂM UNITEK	1	1100000.00	1100000.00	\N	completed	2025-07-30 00:54:59.938	2025-07-30 00:54:59.938	percentage	0.00	0.00	0.00
-711	HD004632	2025-07-02 06:45:22.847	\N	1135	TÂM UNITEK	1	7350000.00	7350000.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00
-712	HD004631.01	2025-07-02 06:43:39.499	\N	906	ANH CHÍNH - VÔ NHIỄM	1	11020000.00	0.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00
-713	HD004630.01	2025-07-02 06:39:02.967	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	1820000.00	0.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00
-714	HD004629	2025-07-02 06:35:40.006	\N	1208	ANH SỸ - VỊT	1	3400000.00	0.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00
-715	HD004628	2025-07-01 17:34:34.316	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	3500000.00	0.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00
-716	HD004627.01	2025-07-01 17:10:43.47	\N	1122	TÚ GÀ TA	1	720000.00	0.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00
-717	HD004626	2025-07-01 17:02:40.492	\N	1028	A VŨ - GÀ ĐẺ	1	1210000.00	1210000.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00
-718	HD004625	2025-07-01 16:38:14.563	\N	1011	HẢI - TRẢNG BOM	1	860000.00	860000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00
-719	HD004624	2025-07-01 16:33:09.047	\N	866	ANH TÂN - LỘC HOÀ	1	12000000.00	0.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00
-720	HD004623	2025-07-01 14:54:08.782	\N	894	ANH DANH - GÀ TRE - VÔ NHIỄM 9K	1	5490000.00	0.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00
-721	HD004622	2025-07-01 14:49:04.003	\N	1057	KHÁCH LẺ	1	160000.00	160000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00
-723	HD004620	2025-07-01 14:44:46.823	\N	1188	ANH HIỂN - BÀU SẬY	1	5850000.00	5850000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00
-724	HD004619	2025-07-01 14:41:19.043	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	3850000.00	3850000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00
-725	HD004618	2025-07-01 14:38:47.957	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	5030000.00	5030000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00
-726	HD004617	2025-07-01 14:23:37.266	\N	926	ĐẠI LÝ GẤU - BÀU CÁ	1	440000.00	440000.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00
-727	HD004616	2025-07-01 14:20:45.08	\N	1041	KHẢI ( CÔ CHUNG)	1	2300000.00	0.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00
-728	HD004615.01	2025-07-01 09:46:47.347	\N	1057	KHÁCH LẺ	1	280000.00	280000.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00
-729	HD004614	2025-07-01 09:42:55.99	\N	887	ANH HUY - GÀ - ĐỨC HUY	1	3400000.00	0.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00
-730	HD004613	2025-07-01 09:40:13.432	\N	958	ANH THUỲ - XUÂN BẮC	1	4200000.00	0.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00
-731	HD004612	2025-07-01 09:38:35.097	\N	1026	HUYỀN TIGERVET	1	4950000.00	0.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00
-732	HD004611	2025-07-01 09:37:21.973	\N	1215	ANH TÂM ( ANH CÔNG)	1	2020000.00	0.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00
-733	HD004610.01	2025-07-01 08:09:20.069	\N	996	ANH PHONG - SUỐI ĐÁ 3	1	980000.00	0.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00
-734	HD004609.01	2025-07-01 08:07:02.859	\N	1058	ANH PHONG - SUỐI ĐÁ 1	1	2030000.00	0.00	\N	completed	2025-07-30 00:54:59.942	2025-07-30 00:54:59.942	percentage	0.00	0.00	0.00
-735	HD004608	2025-07-01 07:05:36.113	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	4900000.00	0.00	\N	completed	2025-07-30 00:54:59.942	2025-07-30 00:54:59.942	percentage	0.00	0.00	0.00
-736	HD004607	2025-07-01 06:26:22.236	\N	1192	CÔ PHƯỢNG - BÌNH LỘC	1	740000.00	0.00	\N	completed	2025-07-30 00:54:59.942	2025-07-30 00:54:59.942	percentage	0.00	0.00	0.00
-737	HD004606	2025-07-01 06:22:20.213	\N	1208	ANH SỸ - VỊT	1	500000.00	0.00	\N	completed	2025-07-30 00:54:59.942	2025-07-30 00:54:59.942	percentage	0.00	0.00	0.00
-738	HD004605.01	2025-07-01 06:20:14.472	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	13080000.00	0.00	\N	completed	2025-07-30 00:54:59.942	2025-07-30 00:54:59.942	percentage	0.00	0.00	0.00
-739	HD004604	2025-07-01 06:18:56.463	\N	881	CHÚ HUỲNH - XÃ LỘ 25	1	1120000.00	1120000.00	\N	completed	2025-07-30 00:54:59.942	2025-07-30 00:54:59.942	percentage	0.00	0.00	0.00
-254	HD005095	2025-07-19 08:44:30.122	\N	1205	TUYẾN DONAVET	1	100000.00	100000.00	\N	completed	2025-07-30 00:54:57.531	2025-07-30 00:54:57.531	percentage	0.00	0.00	0.00
-263	HD005086	2025-07-19 06:34:59.61	\N	1139	ĐẠI LÝ TIÊN PHÚC	1	11840000.00	0.00	\N	completed	2025-07-30 00:54:57.534	2025-07-30 00:54:57.534	percentage	0.00	0.00	0.00
-296	HD004919.01	2025-07-18 06:45:59.777	\N	841	ANH VƯƠNG NHẤT - TÍN NGHĨA	1	3050000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00
-335	HD005011	2025-07-16 08:57:05.252	\N	889	TRUNG - BƯU ĐIỆN - LÔ MỚI	1	2520000.00	0.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00
-374	HD004973	2025-07-15 06:25:47.579	\N	1052	TRẠI GÀ ĐẺ - LONG THÀNH	1	1250000.00	1250000.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00
-446	HD004898	2025-07-12 06:21:23.81	\N	1174	CÔ TUYẾN - TAM HOÀNG - CẦU CƯỜNG	1	1120000.00	0.00	\N	completed	2025-07-30 00:54:58.436	2025-07-30 00:54:58.436	percentage	0.00	0.00	0.00
-467	HD004877.01	2025-07-11 06:23:04.09	\N	855	ANH THIÊN - TÍN NGHĨA - LÔ MỚI	1	1260000.00	1260000.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00
-488	HD004856	2025-07-10 14:17:08.379	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	2720000.00	2720000.00	\N	completed	2025-07-30 00:54:58.683	2025-07-30 00:54:58.683	percentage	0.00	0.00	0.00
-503	HD004841	2025-07-09 16:09:13.87	\N	934	CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K	1	7560000.00	0.00	\N	completed	2025-07-30 00:54:58.991	2025-07-30 00:54:58.991	percentage	0.00	0.00	0.00
-552	HD004792.02	2025-07-08 08:11:50.21	\N	1114	CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI	1	4220000.00	0.00	\N	completed	2025-07-30 00:54:59.23	2025-07-30 00:54:59.23	percentage	0.00	0.00	0.00
-679	HD004664	2025-07-03 06:31:58.917	TH000167	1080	CÔNG ARIVIET	1	3640000.00	0.00	\N	completed	2025-07-30 00:54:59.719	2025-07-30 00:54:59.719	percentage	0.00	0.00	0.00
-703	HD004640	2025-07-02 07:45:41.16	\N	992	XUÂN ( THUÊ NGÁT)	1	7360000.00	7360000.00	\N	completed	2025-07-30 00:54:59.937	2025-07-30 00:54:59.937	percentage	0.00	0.00	0.00
-740	HD1754246827011	2025-08-03 18:47:07.011	\N	874	QUÂN BIOFRAM	1	3080000.00	3080000.00	Thanh toán bằng tiền mặt	completed	2025-08-03 18:47:06.080625	2025-08-03 18:47:06.080625	percentage	0.00	0.00	0.00
-743	HD1754312829160	2025-08-04 13:07:09.16	\N	932	ANH KHÁNH - VỊT - SOKLU	1	693000.00	693000.00	Thanh toán bằng chuyển khoản	completed	2025-08-04 13:07:07.43665	2025-08-04 13:07:07.43665	percentage	0.00	0.00	0.00
-746	HD1754380819	2025-08-05 08:00:19.181657	\N	1170	CHÚ CHIỂU - GÀ TA - ĐỨC LONG	1	600000.00	600000.00	Thanh toán tiền mặt | 2 items | Tạo bởi: POS System | Đã thu: 600000 | Thối lại: 0.0000000000000000000000000000000000000000	completed	2025-08-05 08:00:19.181657	2025-08-05 08:00:19.181657	percentage	0.00	0.00	0.00
-749	HD1754382197	2025-08-05 08:23:16.964938	\N	832	ANH HẢI (THUÝ)	1	598500.00	598500.00	POS | Tiền mặt | 2 items | Giảm 50k | VAT 5%	completed	2025-08-05 08:23:16.964938	2025-08-05 08:23:16.964938	amount	50000.00	5.00	28500.00
-752	PAY1754408362	2025-08-05 15:39:21.892108	\N	833	Thắng bida (test)	1	30000000.00	30000000.00	Thu tiền nợ - trả nợ, con thiêu s  20tr	debt_payment	2025-08-05 15:39:21.892108	2025-08-05 15:39:21.892108	percentage	0.00	0.00	0.00
-755	INV2508060003	2025-08-06 06:35:34.302495	\N	833	Thắng bida (test)	1	1301500.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 801500 VND, Phương thức: cash	partial	2025-08-06 06:35:34.302495	2025-08-06 06:35:34.302495	percentage	5.00	0.00	0.00
-758	INV2508060005	2025-08-06 10:55:32.415395	\N	833	Thắng bida (test)	1	2540000.00	0.00	Thanh toán debt: 0 VND, Ghi nợ: 2540000 VND, Phương thức: cash	partial	2025-08-06 10:55:32.415395	2025-08-06 10:55:32.415395	percentage	0.00	0.00	0.00
-761	INV2508060008	2025-08-06 12:52:47.639838	\N	833	Thắng bida (test)	1	891000.00	400000.00	Thanh toán partial: 400000 VND, Ghi nợ: 491000 VND, Phương thức: cash	partial	2025-08-06 12:52:47.639838	2025-08-06 12:52:47.639838	amount	90000.00	10.00	81000.00
-764	INV2508110011	2025-08-11 11:21:02.467332	\N	833	Thắng bida (test)	1	820000.00	120000.00	Thanh toán partial: 120000 VND, Ghi nợ: 700000 VND, Phương thức: cash	partial	2025-08-11 11:21:02.467332	2025-08-11 11:21:02.467332	percentage	0.00	0.00	0.00
-767	PAY1755245220	2025-08-15 08:07:00.450693	\N	873	THÚ Y KHANH THUỶ - VĨNH CỬU	1	2000000.00	2000000.00	Thu tiền nợ - Text thử	debt_payment	2025-08-15 08:07:00.450693	2025-08-15 08:07:00.450693	percentage	0.00	0.00	0.00
-770	PAY1755322734	2025-08-16 05:38:54.49221	\N	833	Thắng bida (test)	1	4000000.00	4000000.00	Thu tiền nợ - tran tien mat	debt_payment	2025-08-16 05:38:54.49221	2025-08-16 05:38:54.49221	percentage	0.00	0.00	0.00
-773	INV2509030015	2025-09-03 05:10:37.025034	\N	839	CHÚ PHƯỚC VỊNH - NINH PHÁT	1	50000.00	20000.00	Thanh toán partial: 20000 VND, Ghi nợ: 27500 VND, Phương thức: cash	partial	2025-09-03 05:10:37.025034	2025-09-03 05:10:37.025034	percentage	0.00	0.00	0.00
-282	HD005066	2025-07-18 09:56:36.503	\N	1203	CHỊ LOAN ( ĐỊNH)	1	5800000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00
-357	HD004989	2025-07-15 11:54:47.662	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	5280000.00	0.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00
-381	HD004966.01	2025-07-14 16:25:29.287	\N	1048	ANH TRIỆU - GIA KIỆM	1	200000.00	0.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00
-408	HD004938	2025-07-13 16:43:26.82	\N	1009	ANH TRƯỜNG - CẦU CƯỜNG	1	400000.00	0.00	\N	completed	2025-07-30 00:54:58.429	2025-07-30 00:54:58.429	percentage	0.00	0.00	0.00
-423	HD004922	2025-07-12 15:46:33.11	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00
-444	HD004901	2025-07-12 06:54:05.963	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	6560000.00	0.00	\N	completed	2025-07-30 00:54:58.435	2025-07-30 00:54:58.435	percentage	0.00	0.00	0.00
-507	HD004837	2025-07-09 15:25:51.916	\N	1057	KHÁCH LẺ	1	40000.00	40000.00	\N	completed	2025-07-30 00:54:58.992	2025-07-30 00:54:58.992	percentage	0.00	0.00	0.00
-535	HD004809	2025-07-08 16:35:04.012	\N	889	TRUNG - BƯU ĐIỆN - LÔ MỚI	1	1040000.00	1040000.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00
-696	HD004647	2025-07-02 08:49:16.029	\N	1032	ANH LÂM (5K) - TRẠI 2	1	5680000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00
-741	HD1754268864323	2025-08-04 00:54:24.324	\N	932	ANH KHÁNH - VỊT - SOKLU	1	836000.00	836000.00	Thanh toán bằng chuyển khoản	completed	2025-08-04 00:54:23.328636	2025-08-04 00:54:23.328636	percentage	0.00	0.00	0.00
-744	HD1754328295337	2025-08-04 17:24:55.337	\N	932	ANH KHÁNH - VỊT - SOKLU	1	660000.00	660000.00	Thanh toán bằng thẻ	completed	2025-08-04 17:24:53.98314	2025-08-04 17:24:53.98314	percentage	0.00	0.00	0.00
-747	HD1754381052	2025-08-05 08:04:12.175956	\N	830	CHỊ TRINH - VĨNH CỬU 4K	1	1018500.00	1018500.00	Thanh toán tiền mặt | 2 items | Tạo bởi: POS System | Đã thu: 1018500 | Thối lại: 0.00000000000000000000	completed	2025-08-05 08:04:12.175956	2025-08-05 08:04:12.175956	amount	50000.00	5.00	48500.00
-750	HD1754382269	2025-08-05 08:24:29.140906	\N	873	THÚ Y KHANH THUỶ - VĨNH CỬU	1	2430648.00	2430648.00	POS | Tiền mặt | 4 items | Giảm 7% | VAT 8%	completed	2025-08-05 08:24:29.140906	2025-08-05 08:24:29.140906	percentage	7.00	8.00	180048.00
-756	PAY1754462404	2025-08-06 06:40:04.187086	\N	833	Thắng bida (test)	1	3500000.00	3500000.00	Thu tiền nợ - trả tiền mặt	debt_payment	2025-08-06 06:40:04.187086	2025-08-06 06:40:04.187086	percentage	0.00	0.00	0.00
-759	INV2508060006	2025-08-06 12:45:58.938618	\N	831	ANH HẢI (TUẤN)	1	691200.00	300000.00	Thanh toán partial: 300000 VND, Ghi nợ: 391200 VND, Phương thức: cash	partial	2025-08-06 12:45:58.938618	2025-08-06 12:45:58.938618	amount	50000.00	8.00	51200.00
-762	INV2508060009	2025-08-06 12:57:39.945966	\N	833	Thắng bida (test)	1	1870000.00	100000.00	Thanh toán partial: 100000 VND, Ghi nợ: 1770000 VND, Phương thức: cash	partial	2025-08-06 12:57:39.945966	2025-08-06 12:57:39.945966	amount	70000.00	10.00	170000.00
-765	PAY1754911338	2025-08-11 11:22:17.770479	\N	833	Thắng bida (test)	1	5000000.00	5000000.00	Thu tiền nợ - Gì nợ	debt_payment	2025-08-11 11:22:17.770479	2025-08-11 11:22:17.770479	percentage	0.00	0.00	0.00
-768	INV2508150012	2025-08-15 08:11:51.434329	\N	834	CHỊ LIỄU - LONG THÀNH	1	1050000.00	0.00	Thanh toán debt: 0 VND, Ghi nợ: 1050000 VND, Phương thức: cash	partial	2025-08-15 08:11:51.434329	2025-08-15 08:11:51.434329	percentage	0.00	0.00	0.00
-771	INV2508180014	2025-08-18 16:01:41.222297	\N	937	ANH TUẤN - VỊT - TÍN NGHĨA	1	5520000.00	1000000.00	Thanh toán partial: 1000000 VND, Ghi nợ: 4520000 VND, Phương thức: cash	partial	2025-08-18 16:01:41.222297	2025-08-18 16:01:41.222297	amount	500000.00	0.00	0.00
-774	INV2509030016	2025-09-03 06:07:03.497387	\N	837	EM HẢI - TÂN PHÚ	1	47500.00	0.00	Thanh toán debt: 0 VND, Ghi nợ: 47500 VND, Phương thức: cash	partial	2025-09-03 06:07:03.497387	2025-09-03 06:07:03.497387	percentage	0.00	0.00	0.00
-310	HD005038	2025-07-17 11:07:21.637	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	700000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00
-319	HD005029	2025-07-17 08:01:31.273	\N	843	CHÚ MẪN - CÚT - VÕ DÕNG	1	650000.00	650000.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00
-394	HD004952	2025-07-14 08:15:38.13	\N	1215	ANH TÂM ( ANH CÔNG)	1	2150000.00	0.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00
-521	HD004823.01	2025-07-09 08:18:13.403	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	830000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00
-722	HD004621	2025-07-01 14:47:20.637	\N	1220	ANH LÂM - TAM HOÀNG - NINH PHÁT	1	4400000.00	4180000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00
-742	HD1754307855017	2025-08-04 11:44:15.017	\N	925	ANH THUỶ - VỊT - ĐỨC HUY	1	2684000.00	2684000.00	Thanh toán bằng chuyển khoản	completed	2025-08-04 11:44:13.407038	2025-08-04 11:44:13.407038	percentage	0.00	0.00	0.00
-745	HD1754361111	2025-08-05 02:31:51.073582	\N	1076	ANH CHIẾN-KHÁNH	1	1890000.00	1890000.00	{"summary": "Thanh toán thẻ | VAT 5% (90000.00000000000000000000000000000000 VND) | Giảm giá 10% = 200000.000000000000 VND | Tạm tính: 2000000 VND | Thành tiền: 1890000.00000000000000000000000000000000 VND", "vat_rate": 5, "warnings": [], "created_by": "POS System", "item_count": 2, "vat_amount": 90000.00000000000000000000000000000000, "change_amount": 0.00000000000000000000000000000000, "discount_type": "percentage", "discount_value": 10, "payment_method": "card", "total_quantity": 3, "discount_amount": 200000.000000000000, "subtotal_amount": 2000000}	completed	2025-08-05 02:31:51.073582	2025-08-05 02:31:51.073582	percentage	0.00	0.00	0.00
-748	HD1754381745	2025-08-05 08:15:45.23856	\N	875	NHUNG VIETVET	1	570000.00	570000.00	POS | Tiền mặt | 2 items | Giảm 50000%	completed	2025-08-05 08:15:45.23856	2025-08-05 08:15:45.23856	amount	50000.00	0.00	0.00
-751	HD1754384038	2025-08-05 08:53:57.727982	\N	925	ANH THUỶ - VỊT - ĐỨC HUY	1	783000.00	783000.00	Tiền mặt | 2 items | Giảm 75k | VAT 8%	completed	2025-08-05 08:53:57.727982	2025-08-05 08:53:57.727982	amount	75000.00	8.00	58000.00
-757	INV2508060004	2025-08-06 09:39:19.718783	\N	873	THÚ Y KHANH THUỶ - VĨNH CỬU	1	2950000.00	0.00	Thanh toán debt: 0 VND, Ghi nợ: 2950000 VND, Phương thức: cash	partial	2025-08-06 09:39:19.718783	2025-08-06 09:39:19.718783	percentage	0.00	0.00	0.00
-760	INV2508060007	2025-08-06 12:50:43.070254	\N	833	Thắng bida (test)	1	1760000.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 1260000 VND, Phương thức: cash	partial	2025-08-06 12:50:43.070254	2025-08-06 12:50:43.070254	amount	70000.00	10.00	160000.00
-763	INV2508100010	2025-08-10 02:08:19.340138	\N	937	ANH TUẤN - VỊT - TÍN NGHĨA	1	1220000.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 720000 VND, Phương thức: card	partial	2025-08-10 02:08:19.340138	2025-08-10 02:08:19.340138	percentage	0.00	0.00	0.00
-766	PAY1755245144	2025-08-15 08:05:43.962274	\N	833	Thắng bida (test)	1	10000000.00	10000000.00	Thu tiền nợ - Thanh toán công nợ	debt_payment	2025-08-15 08:05:43.962274	2025-08-15 08:05:43.962274	percentage	0.00	0.00	0.00
-769	INV2508160013	2025-08-16 05:34:15.268621	\N	833	Thắng bida (test)	1	1995000.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 1495000 VND, Phương thức: cash	partial	2025-08-16 05:34:15.268621	2025-08-16 05:34:15.268621	amount	50000.00	5.00	95000.00
-772	PAY1756038463	2025-08-24 12:27:42.557076	\N	835	CHỊ TRINH - VĨNH AN	1	6000000.00	6000000.00	Thu tiền nợ - gí nợ trên Vĩnh Cửu	debt_payment	2025-08-24 12:27:42.557076	2025-08-24 12:27:42.557076	percentage	0.00	0.00	0.00
-775	INV2509030017	2025-09-03 06:19:33.52699	\N	1065	A HOÀNG HIẾU VỊT	1	185000.00	50000.00	Thanh toán partial: 50000 VND, Ghi nợ: 135000 VND, Phương thức: cash	partial	2025-09-03 06:19:33.52699	2025-09-03 06:19:33.52699	percentage	0.00	0.00	0.00
+COPY public.invoices (invoice_id, invoice_code, invoice_date, return_code, customer_id, customer_name, branch_id, total_amount, customer_paid, notes, status, created_at, updated_at, discount_type, discount_value, vat_rate, vat_amount, invoice_type, expected_delivery_date, actual_delivery_date) FROM stdin;
+570	HD004774	2025-07-07 14:23:21.723	\N	906	ANH CHÍNH - VÔ NHIỄM	1	4100000.00	0.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00	normal	\N	\N
+2	HD005353	2025-07-28 10:34:36.866	\N	909	CHỊ TRÂM - VÔ NHIỄM 3K	1	400000.00	0.00	\N	completed	2025-07-30 00:54:56.163	2025-07-30 00:54:56.163	percentage	0.00	0.00	0.00	normal	\N	\N
+3	HD005352	2025-07-28 10:03:36.082	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	2140000.00	0.00	\N	completed	2025-07-30 00:54:56.164	2025-07-30 00:54:56.164	percentage	0.00	0.00	0.00	normal	\N	\N
+4	HD005351	2025-07-28 10:02:19.822	\N	1133	TRINH - HIPPRA	1	2380000.00	0.00	\N	completed	2025-07-30 00:54:56.164	2025-07-30 00:54:56.164	percentage	0.00	0.00	0.00	normal	\N	\N
+5	HD005350	2025-07-28 09:57:22.903	\N	1115	CÔ TUYẾT THU - PHÚ CƯỜNG 11K	1	14760000.00	0.00	\N	completed	2025-07-30 00:54:56.165	2025-07-30 00:54:56.165	percentage	0.00	0.00	0.00	normal	\N	\N
+6	HD005349	2025-07-28 09:51:28.827	\N	1060	ĐINH QUỐC TUẤN	1	500000.00	0.00	\N	completed	2025-07-30 00:54:56.165	2025-07-30 00:54:56.165	percentage	0.00	0.00	0.00	normal	\N	\N
+7	HD005348	2025-07-28 09:47:50.299	\N	1208	ANH SỸ - VỊT	1	4120000.00	0.00	\N	completed	2025-07-30 00:54:56.165	2025-07-30 00:54:56.165	percentage	0.00	0.00	0.00	normal	\N	\N
+8	HD005347	2025-07-28 09:31:53.206	\N	1199	ANH HÙNG - CẦU CƯỜNG	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:56.165	2025-07-30 00:54:56.165	percentage	0.00	0.00	0.00	normal	\N	\N
+9	HD005346	2025-07-28 09:11:08.117	\N	1048	ANH TRIỆU - GIA KIỆM	1	180000.00	0.00	\N	completed	2025-07-30 00:54:56.166	2025-07-30 00:54:56.166	percentage	0.00	0.00	0.00	normal	\N	\N
+10	HD005345.02	2025-07-28 08:36:59.96	\N	1216	ANH HƯNG - MARTINO	1	900000.00	0.00	\N	completed	2025-07-30 00:54:56.166	2025-07-30 00:54:56.166	percentage	0.00	0.00	0.00	normal	\N	\N
+12	HD005343.01	2025-07-28 08:15:02.823	\N	850	ANH QUỐC - DẦU GIÂY	1	4770000.00	0.00	\N	completed	2025-07-30 00:54:56.166	2025-07-30 00:54:56.166	percentage	0.00	0.00	0.00	normal	\N	\N
+13	HD005342.01	2025-07-28 08:12:39.647	\N	862	HOÀ MEGA	1	10240000.00	0.00	\N	completed	2025-07-30 00:54:56.166	2025-07-30 00:54:56.166	percentage	0.00	0.00	0.00	normal	\N	\N
+14	HD005341	2025-07-28 07:55:32.827	\N	932	ANH KHÁNH - VỊT - SOKLU	1	1300000.00	1300000.00	\N	completed	2025-07-30 00:54:56.167	2025-07-30 00:54:56.167	percentage	0.00	0.00	0.00	normal	\N	\N
+15	HD005340	2025-07-28 06:59:08.61	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	2200000.00	0.00	\N	completed	2025-07-30 00:54:56.167	2025-07-30 00:54:56.167	percentage	0.00	0.00	0.00	normal	\N	\N
+16	HD005339.01	2025-07-28 06:57:13.743	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	4200000.00	0.00	\N	completed	2025-07-30 00:54:56.167	2025-07-30 00:54:56.167	percentage	0.00	0.00	0.00	normal	\N	\N
+17	HD005338	2025-07-28 06:35:58.126	\N	1198	CÔ QUYỀN - ĐỨC LONG	1	4630000.00	0.00	\N	completed	2025-07-30 00:54:56.167	2025-07-30 00:54:56.167	percentage	0.00	0.00	0.00	normal	\N	\N
+18	HD005337	2025-07-28 06:25:53.863	\N	923	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	4520000.00	0.00	\N	completed	2025-07-30 00:54:56.167	2025-07-30 00:54:56.167	percentage	0.00	0.00	0.00	normal	\N	\N
+19	HD005336	2025-07-28 06:24:28.543	\N	1183	ANH CU - TAM HOÀNG HƯNG LỘC	1	3840000.00	0.00	\N	completed	2025-07-30 00:54:56.167	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00	normal	\N	\N
+20	HD005335	2025-07-27 18:23:43.266	\N	1057	KHÁCH LẺ	1	230000.00	230000.00	\N	completed	2025-07-30 00:54:56.168	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00	normal	\N	\N
+21	HD005334	2025-07-27 14:46:34.557	\N	1211	ANH PHONG - BÀU SẬY	1	10000.00	0.00	\N	completed	2025-07-30 00:54:56.168	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00	normal	\N	\N
+22	HD005333	2025-07-27 14:42:14.643	\N	1011	HẢI - TRẢNG BOM	1	2000000.00	2000000.00	\N	completed	2025-07-30 00:54:56.168	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00	normal	\N	\N
+23	HD005332	2025-07-27 10:23:35.457	\N	881	CHÚ HUỲNH - XÃ LỘ 25	1	6800000.00	0.00	\N	completed	2025-07-30 00:54:56.168	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00	normal	\N	\N
+24	HD005331	2025-07-27 09:37:05.899	\N	1211	ANH PHONG - BÀU SẬY	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:56.168	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00	normal	\N	\N
+25	HD005330	2025-07-27 09:29:14.737	\N	1032	ANH LÂM (5K) - TRẠI 2	1	520000.00	0.00	\N	completed	2025-07-30 00:54:56.168	2025-07-30 00:54:56.168	percentage	0.00	0.00	0.00	normal	\N	\N
+26	HD005329	2025-07-27 09:16:34.403	\N	1041	KHẢI ( CÔ CHUNG)	1	7580000.00	0.00	\N	completed	2025-07-30 00:54:56.169	2025-07-30 00:54:56.169	percentage	0.00	0.00	0.00	normal	\N	\N
+27	HD005328	2025-07-27 08:41:47.637	\N	1155	ANH PHONG - VỊT (NHÀ)	1	420000.00	0.00	\N	completed	2025-07-30 00:54:56.169	2025-07-30 00:54:56.169	percentage	0.00	0.00	0.00	normal	\N	\N
+28	HD005327	2025-07-27 08:30:10.677	\N	1176	ANH SỸ -TAM HOÀNG	1	450000.00	0.00	\N	completed	2025-07-30 00:54:56.169	2025-07-30 00:54:56.169	percentage	0.00	0.00	0.00	normal	\N	\N
+29	HD005326	2025-07-27 08:24:27.587	\N	875	NHUNG VIETVET	1	6750000.00	0.00	\N	completed	2025-07-30 00:54:56.169	2025-07-30 00:54:56.169	percentage	0.00	0.00	0.00	normal	\N	\N
+31	HD005324	2025-07-27 07:32:07.793	\N	1155	ANH PHONG - VỊT (NHÀ)	1	2520000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00	normal	\N	\N
+32	HD005323	2025-07-27 07:16:03.769	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	4200000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00	normal	\N	\N
+33	HD005322	2025-07-27 06:34:59.55	\N	1043	HÀ HOÀNG	1	1680000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00	normal	\N	\N
+34	HD005321	2025-07-27 06:33:48.137	\N	1206	ANH NGHĨA - SOKLU	1	4260000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00	normal	\N	\N
+35	HD005320	2025-07-27 06:32:00.94	\N	923	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	6800000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00	normal	\N	\N
+36	HD005319	2025-07-26 14:22:22.862	\N	1080	CÔNG ARIVIET	1	4750000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00	normal	\N	\N
+37	HD005318	2025-07-26 14:18:12.117	\N	859	ANH QUẢNG - LONG THÀNH	1	1500000.00	0.00	\N	completed	2025-07-30 00:54:56.171	2025-07-30 00:54:56.171	percentage	0.00	0.00	0.00	normal	\N	\N
+38	HD005317	2025-07-26 14:16:40.633	\N	865	ANH HỌC (LONG)	1	6800000.00	0.00	\N	completed	2025-07-30 00:54:56.171	2025-07-30 00:54:56.171	percentage	0.00	0.00	0.00	normal	\N	\N
+39	HD005316	2025-07-26 11:26:21.67	\N	1037	ANH THIỆN - TAM HOÀNG - PHÚ TÚC	1	9900000.00	0.00	\N	completed	2025-07-30 00:54:56.171	2025-07-30 00:54:56.171	percentage	0.00	0.00	0.00	normal	\N	\N
+40	HD005315.01	2025-07-26 11:19:43.542	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	1830000.00	0.00	\N	completed	2025-07-30 00:54:56.171	2025-07-30 00:54:56.171	percentage	0.00	0.00	0.00	normal	\N	\N
+41	HD005314	2025-07-26 11:17:59.993	\N	906	ANH CHÍNH - VÔ NHIỄM	1	3400000.00	0.00	\N	completed	2025-07-30 00:54:56.171	2025-07-30 00:54:56.171	percentage	0.00	0.00	0.00	normal	\N	\N
+42	HD005313.01	2025-07-26 11:13:41.736	\N	1129	SÁNG TẰNG HAID	1	8825000.00	8755000.00	\N	completed	2025-07-30 00:54:56.171	2025-07-30 00:54:56.171	percentage	0.00	0.00	0.00	normal	\N	\N
+43	HD005312.01	2025-07-26 10:49:43.322	\N	954	KHẢI HAIDER - BÀU CẠN LÔ 20k	1	7200000.00	0.00	\N	completed	2025-07-30 00:54:56.172	2025-07-30 00:54:56.172	percentage	0.00	0.00	0.00	normal	\N	\N
+44	HD005311	2025-07-26 10:33:14.557	\N	1126	EM TÀI - CÁM - TOGET	1	700000.00	0.00	\N	completed	2025-07-30 00:54:56.172	2025-07-30 00:54:56.172	percentage	0.00	0.00	0.00	normal	\N	\N
+45	HD005310.01	2025-07-26 10:14:22.703	TH000192	831	ANH HẢI (TUẤN)	1	6630000.00	0.00	\N	completed	2025-07-30 00:54:56.172	2025-07-30 00:54:56.172	percentage	0.00	0.00	0.00	normal	\N	\N
+46	HD005309	2025-07-26 10:05:54.516	\N	862	HOÀ MEGA	1	1800000.00	0.00	\N	completed	2025-07-30 00:54:56.172	2025-07-30 00:54:56.172	percentage	0.00	0.00	0.00	normal	\N	\N
+47	HD005308	2025-07-26 09:51:27.61	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:56.172	2025-07-30 00:54:56.172	percentage	0.00	0.00	0.00	normal	\N	\N
+48	HD005307	2025-07-26 09:35:02.993	\N	1057	KHÁCH LẺ	1	150000.00	150000.00	\N	completed	2025-07-30 00:54:56.172	2025-07-30 00:54:56.172	percentage	0.00	0.00	0.00	normal	\N	\N
+50	HD005305	2025-07-26 09:03:35.653	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	1250000.00	0.00	\N	completed	2025-07-30 00:54:56.173	2025-07-30 00:54:56.173	percentage	0.00	0.00	0.00	normal	\N	\N
+51	HD005304.01	2025-07-26 08:22:51.6	\N	945	ANH TÂM ( NHÀ) - LÔ 2	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:56.46	2025-07-30 00:54:56.46	percentage	0.00	0.00	0.00	normal	\N	\N
+52	HD005303	2025-07-26 08:16:54.337	\N	1048	ANH TRIỆU - GIA KIỆM	1	8400000.00	0.00	\N	completed	2025-07-30 00:54:56.46	2025-07-30 00:54:56.46	percentage	0.00	0.00	0.00	normal	\N	\N
+53	HD005302	2025-07-26 08:08:26.26	\N	1161	CHÚ THÀNH - GÀ TRE	1	220000.00	220000.00	\N	completed	2025-07-30 00:54:56.46	2025-07-30 00:54:56.46	percentage	0.00	0.00	0.00	normal	\N	\N
+54	HD005301	2025-07-26 08:00:27.987	\N	885	ANH THỨC - TAM HOÀNG	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00	normal	\N	\N
+55	HD005300	2025-07-26 07:44:57.61	\N	1208	ANH SỸ - VỊT	1	2610000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00	normal	\N	\N
+56	HD005299	2025-07-26 07:31:22.899	\N	1135	TÂM UNITEK	1	4290000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00	normal	\N	\N
+57	HD005298	2025-07-26 06:56:08.383	\N	832	ANH HẢI (THUÝ)	1	440000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00	normal	\N	\N
+58	HD005297	2025-07-26 06:52:08.672	\N	1179	CÔ LAN ( TUẤN) - TAM HOÀNG	1	1980000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00	normal	\N	\N
+59	HD005296	2025-07-26 06:51:08.053	\N	1023	CHỊ QUY - BÌNH DƯƠNG	1	9400000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00	normal	\N	\N
+60	HD005295	2025-07-26 06:49:45.396	\N	1203	CHỊ LOAN ( ĐỊNH)	1	1100000.00	0.00	\N	completed	2025-07-30 00:54:56.461	2025-07-30 00:54:56.461	percentage	0.00	0.00	0.00	normal	\N	\N
+61	HD005294	2025-07-26 06:48:50.666	\N	966	ANH THANH - XUÂN BẮC	1	2640000.00	0.00	\N	completed	2025-07-30 00:54:56.462	2025-07-30 00:54:56.462	percentage	0.00	0.00	0.00	normal	\N	\N
+62	HD005293	2025-07-26 06:47:32.043	\N	1194	ANH DŨNG - VỊT	1	4400000.00	0.00	\N	completed	2025-07-30 00:54:56.462	2025-07-30 00:54:56.462	percentage	0.00	0.00	0.00	normal	\N	\N
+63	HD005292	2025-07-26 06:45:49.767	\N	1204	ANH HỌC	1	960000.00	0.00	\N	completed	2025-07-30 00:54:56.462	2025-07-30 00:54:56.462	percentage	0.00	0.00	0.00	normal	\N	\N
+579	HD004765	2025-07-07 08:34:41.597	\N	1046	ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2	1	520000.00	0.00	\N	completed	2025-07-30 00:54:59.234	2025-07-30 00:54:59.234	percentage	0.00	0.00	0.00	normal	\N	\N
+65	HD005290	2025-07-26 06:43:09.093	\N	833	Thắng bida (test)	1	170000.00	170000.00	\N	completed	2025-07-30 00:54:56.462	2025-07-30 00:54:56.462	percentage	0.00	0.00	0.00	normal	\N	\N
+66	HD005288	2025-07-26 06:40:02.096	\N	838	ANH LÂM - TRẠI 5	1	520000.00	0.00	\N	completed	2025-07-30 00:54:56.463	2025-07-30 00:54:56.463	percentage	0.00	0.00	0.00	normal	\N	\N
+68	HD005286	2025-07-26 06:32:42.71	\N	1178	CHÚ CHƯƠNG - TAM HOÀNG	1	1400000.00	0.00	\N	completed	2025-07-30 00:54:56.463	2025-07-30 00:54:56.463	percentage	0.00	0.00	0.00	normal	\N	\N
+69	HD005285	2025-07-26 06:30:55.626	\N	1192	CÔ PHƯỢNG - BÌNH LỘC	1	2220000.00	0.00	\N	completed	2025-07-30 00:54:56.463	2025-07-30 00:54:56.463	percentage	0.00	0.00	0.00	normal	\N	\N
+70	HD005283	2025-07-25 16:31:11.573	\N	923	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	4600000.00	0.00	\N	completed	2025-07-30 00:54:56.463	2025-07-30 00:54:56.463	percentage	0.00	0.00	0.00	normal	\N	\N
+71	HD005282.01	2025-07-25 16:27:45.657	\N	849	ANH HẢI HÀO LÔ MỚI	1	3030000.00	0.00	\N	completed	2025-07-30 00:54:56.464	2025-07-30 00:54:56.464	percentage	0.00	0.00	0.00	normal	\N	\N
+72	HD005281	2025-07-25 16:25:08.123	\N	834	CHỊ LIỄU - LONG THÀNH	1	10760000.00	0.00	\N	completed	2025-07-30 00:54:56.464	2025-07-30 00:54:56.464	percentage	0.00	0.00	0.00	normal	\N	\N
+73	HD005280	2025-07-25 15:33:24.62	\N	856	TRUNG - BƯU ĐIỆN - LÔ 2	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:56.464	2025-07-30 00:54:56.464	percentage	0.00	0.00	0.00	normal	\N	\N
+74	HD005279	2025-07-25 14:57:19.6	\N	1159	EM SƠN - ECOVET	1	4350000.00	0.00	\N	completed	2025-07-30 00:54:56.464	2025-07-30 00:54:56.464	percentage	0.00	0.00	0.00	normal	\N	\N
+75	HD005278	2025-07-25 14:44:32.973	\N	885	ANH THỨC - TAM HOÀNG	1	3500000.00	0.00	\N	completed	2025-07-30 00:54:56.464	2025-07-30 00:54:56.464	percentage	0.00	0.00	0.00	normal	\N	\N
+76	HD005277	2025-07-25 14:36:27.067	\N	1126	EM TÀI - CÁM - TOGET	1	1980000.00	0.00	\N	completed	2025-07-30 00:54:56.464	2025-07-30 00:54:56.464	percentage	0.00	0.00	0.00	normal	\N	\N
+77	HD005276	2025-07-25 14:34:03.002	\N	909	CHỊ TRÂM - VÔ NHIỄM 3K	1	550000.00	0.00	\N	completed	2025-07-30 00:54:56.465	2025-07-30 00:54:56.465	percentage	0.00	0.00	0.00	normal	\N	\N
+78	HD005275.01	2025-07-25 14:31:59.893	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	2415000.00	0.00	\N	completed	2025-07-30 00:54:56.465	2025-07-30 00:54:56.465	percentage	0.00	0.00	0.00	normal	\N	\N
+79	HD005274	2025-07-25 14:16:01.297	\N	1208	ANH SỸ - VỊT	1	4615000.00	0.00	\N	completed	2025-07-30 00:54:56.466	2025-07-30 00:54:56.466	percentage	0.00	0.00	0.00	normal	\N	\N
+80	HD005273.02	2025-07-25 11:22:39.297	\N	1011	HẢI - TRẢNG BOM	1	7380000.00	7380000.00	\N	completed	2025-07-30 00:54:56.466	2025-07-30 00:54:56.466	percentage	0.00	0.00	0.00	normal	\N	\N
+81	HD005272	2025-07-25 11:14:26.64	\N	1172	CHỊ TRANG-TAM HOÀNG-NAGOA	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:56.466	2025-07-30 00:54:56.466	percentage	0.00	0.00	0.00	normal	\N	\N
+82	HD005271	2025-07-25 10:56:50.666	\N	1080	CÔNG ARIVIET	1	1100000.00	0.00	\N	completed	2025-07-30 00:54:56.466	2025-07-30 00:54:56.466	percentage	0.00	0.00	0.00	normal	\N	\N
+83	HD005270	2025-07-25 10:00:21.77	\N	1026	HUYỀN TIGERVET	1	440000.00	0.00	\N	completed	2025-07-30 00:54:56.466	2025-07-30 00:54:56.466	percentage	0.00	0.00	0.00	normal	\N	\N
+84	HD005269	2025-07-25 09:25:31.59	\N	1057	KHÁCH LẺ	1	200000.00	200000.00	\N	completed	2025-07-30 00:54:56.466	2025-07-30 00:54:56.466	percentage	0.00	0.00	0.00	normal	\N	\N
+85	HD005268	2025-07-25 08:53:28.803	\N	1226	ANH LÂM (5k) - TRẠI 1	1	2700000.00	0.00	\N	completed	2025-07-30 00:54:56.467	2025-07-30 00:54:56.467	percentage	0.00	0.00	0.00	normal	\N	\N
+86	HD005267	2025-07-25 08:51:14.667	\N	1135	TÂM UNITEK	1	11600000.00	0.00	\N	completed	2025-07-30 00:54:56.467	2025-07-30 00:54:56.467	percentage	0.00	0.00	0.00	normal	\N	\N
+88	HD005265	2025-07-25 07:53:02.33	\N	1185	ANH LÂM (8K) - TRẠI 4	1	910000.00	0.00	\N	completed	2025-07-30 00:54:56.467	2025-07-30 00:54:56.467	percentage	0.00	0.00	0.00	normal	\N	\N
+89	HD005264	2025-07-25 07:44:04.527	\N	894	ANH DANH - GÀ TRE - VÔ NHIỄM 9K	1	3500000.00	0.00	\N	completed	2025-07-30 00:54:56.467	2025-07-30 00:54:56.467	percentage	0.00	0.00	0.00	normal	\N	\N
+90	HD005263	2025-07-25 07:42:44.966	\N	1188	ANH HIỂN - BÀU SẬY	1	3300000.00	0.00	\N	completed	2025-07-30 00:54:56.468	2025-07-30 00:54:56.468	percentage	0.00	0.00	0.00	normal	\N	\N
+91	HD005262	2025-07-25 07:39:06.427	\N	861	CHÚ PHÁT - DỐC MƠ	1	570000.00	0.00	\N	completed	2025-07-30 00:54:56.468	2025-07-30 00:54:56.468	percentage	0.00	0.00	0.00	normal	\N	\N
+92	HD005261	2025-07-25 07:35:12.746	\N	846	ANH KHÔI	1	880000.00	0.00	\N	completed	2025-07-30 00:54:56.468	2025-07-30 00:54:56.468	percentage	0.00	0.00	0.00	normal	\N	\N
+93	HD005260	2025-07-25 07:27:23.893	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	900000.00	0.00	\N	completed	2025-07-30 00:54:56.468	2025-07-30 00:54:56.468	percentage	0.00	0.00	0.00	normal	\N	\N
+94	HD005259	2025-07-25 07:23:56.82	\N	840	ANH TÂM (CÔNG) LÔ MỚI	1	350000.00	0.00	\N	completed	2025-07-30 00:54:56.468	2025-07-30 00:54:56.468	percentage	0.00	0.00	0.00	normal	\N	\N
+95	HD005258	2025-07-25 07:22:36.812	\N	992	XUÂN ( THUÊ NGÁT)	1	4200000.00	0.00	\N	completed	2025-07-30 00:54:56.468	2025-07-30 00:54:56.468	percentage	0.00	0.00	0.00	normal	\N	\N
+96	HD005257	2025-07-25 07:21:38.853	\N	1209	XUÂN - VỊT ( NHÀ)	1	1550000.00	0.00	\N	completed	2025-07-30 00:54:56.469	2025-07-30 00:54:56.469	percentage	0.00	0.00	0.00	normal	\N	\N
+97	HD005256.01	2025-07-25 06:59:28.452	\N	1188	ANH HIỂN - BÀU SẬY	1	5350000.00	0.00	\N	completed	2025-07-30 00:54:56.469	2025-07-30 00:54:56.469	percentage	0.00	0.00	0.00	normal	\N	\N
+98	HD005255	2025-07-25 06:51:49.476	\N	899	KHẢI GIA KIỆM	1	4590000.00	0.00	\N	completed	2025-07-30 00:54:56.469	2025-07-30 00:54:56.469	percentage	0.00	0.00	0.00	normal	\N	\N
+99	HD005254.01	2025-07-25 06:36:11.502	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	2380000.00	0.00	\N	completed	2025-07-30 00:54:56.469	2025-07-30 00:54:56.469	percentage	0.00	0.00	0.00	normal	\N	\N
+100	HD005253	2025-07-25 06:32:24.422	\N	1179	CÔ LAN ( TUẤN) - TAM HOÀNG	1	0.00	0.00	\N	completed	2025-07-30 00:54:56.469	2025-07-30 00:54:56.469	percentage	0.00	0.00	0.00	normal	\N	\N
+101	HD005252	2025-07-25 06:31:55.926	\N	1179	CÔ LAN ( TUẤN) - TAM HOÀNG	1	12700000.00	0.00	\N	completed	2025-07-30 00:54:56.717	2025-07-30 00:54:56.717	percentage	0.00	0.00	0.00	normal	\N	\N
+102	HD005251	2025-07-24 17:49:41.56	\N	850	ANH QUỐC - DẦU GIÂY	1	950000.00	0.00	\N	completed	2025-07-30 00:54:56.718	2025-07-30 00:54:56.718	percentage	0.00	0.00	0.00	normal	\N	\N
+104	HD005249	2025-07-24 17:27:56.5	\N	861	CHÚ PHÁT - DỐC MƠ	1	440000.00	0.00	\N	completed	2025-07-30 00:54:56.718	2025-07-30 00:54:56.718	percentage	0.00	0.00	0.00	normal	\N	\N
+105	HD005248	2025-07-24 17:25:52.922	\N	1080	CÔNG ARIVIET	1	32000000.00	0.00	\N	completed	2025-07-30 00:54:56.719	2025-07-30 00:54:56.719	percentage	0.00	0.00	0.00	normal	\N	\N
+106	HD005247	2025-07-24 16:44:45.577	\N	1057	KHÁCH LẺ	1	100000.00	100000.00	\N	completed	2025-07-30 00:54:56.719	2025-07-30 00:54:56.719	percentage	0.00	0.00	0.00	normal	\N	\N
+107	HD005246	2025-07-24 16:38:07.523	\N	862	HOÀ MEGA	1	8850000.00	0.00	\N	completed	2025-07-30 00:54:56.719	2025-07-30 00:54:56.719	percentage	0.00	0.00	0.00	normal	\N	\N
+108	HD005245	2025-07-24 15:46:57.596	\N	906	ANH CHÍNH - VÔ NHIỄM	1	350000.00	0.00	\N	completed	2025-07-30 00:54:56.719	2025-07-30 00:54:56.719	percentage	0.00	0.00	0.00	normal	\N	\N
+109	HD005244	2025-07-24 15:09:18.55	\N	930	TUẤN NGÔ - SOKLU	1	1300000.00	1235000.00	\N	completed	2025-07-30 00:54:56.719	2025-07-30 00:54:56.719	percentage	0.00	0.00	0.00	normal	\N	\N
+110	HD005243	2025-07-24 14:53:24.533	\N	1034	CHỊ DUNG - SOKLU	1	10700000.00	0.00	\N	completed	2025-07-30 00:54:56.719	2025-07-30 00:54:56.719	percentage	0.00	0.00	0.00	normal	\N	\N
+111	HD005241.01	2025-07-24 14:32:34.683	\N	990	ANH HIẾU - DÊ	1	140000.00	140000.00	\N	completed	2025-07-30 00:54:56.72	2025-07-30 00:54:56.72	percentage	0.00	0.00	0.00	normal	\N	\N
+112	HD005240	2025-07-24 11:21:36.672	\N	1032	ANH LÂM (5K) - TRẠI 2	1	660000.00	0.00	\N	completed	2025-07-30 00:54:56.72	2025-07-30 00:54:56.72	percentage	0.00	0.00	0.00	normal	\N	\N
+113	HD005239	2025-07-24 11:20:44.13	\N	1226	ANH LÂM (5k) - TRẠI 1	1	1320000.00	0.00	\N	completed	2025-07-30 00:54:56.72	2025-07-30 00:54:56.72	percentage	0.00	0.00	0.00	normal	\N	\N
+114	HD005238	2025-07-24 11:16:02.83	\N	1080	CÔNG ARIVIET	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:56.72	2025-07-30 00:54:56.72	percentage	0.00	0.00	0.00	normal	\N	\N
+115	HD005237	2025-07-24 10:31:37.97	\N	836	ANH KHÁNH - TAM HOÀNG - SOKLU 2	1	0.00	0.00	\N	completed	2025-07-30 00:54:56.72	2025-07-30 00:54:56.72	percentage	0.00	0.00	0.00	normal	\N	\N
+116	HD005236	2025-07-24 10:30:31.117	\N	836	ANH KHÁNH - TAM HOÀNG - SOKLU 2	1	9540000.00	0.00	\N	completed	2025-07-30 00:54:56.72	2025-07-30 00:54:56.72	percentage	0.00	0.00	0.00	normal	\N	\N
+117	HD005235.01	2025-07-24 09:49:56.087	\N	835	CHỊ TRINH - VĨNH AN	1	8270000.00	0.00	\N	completed	2025-07-30 00:54:56.721	2025-07-30 00:54:56.721	percentage	0.00	0.00	0.00	normal	\N	\N
+118	HD005234	2025-07-24 09:22:35.647	\N	885	ANH THỨC - TAM HOÀNG	1	1800000.00	0.00	\N	completed	2025-07-30 00:54:56.721	2025-07-30 00:54:56.721	percentage	0.00	0.00	0.00	normal	\N	\N
+119	HD005233	2025-07-24 08:06:58.56	\N	1092	CHỊ THÚY - BƯU ĐIỆN	1	11640000.00	0.00	\N	completed	2025-07-30 00:54:56.721	2025-07-30 00:54:56.721	percentage	0.00	0.00	0.00	normal	\N	\N
+120	HD005232	2025-07-24 07:27:41.463	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	650000.00	0.00	\N	completed	2025-07-30 00:54:56.721	2025-07-30 00:54:56.721	percentage	0.00	0.00	0.00	normal	\N	\N
+121	HD005231.02	2025-07-24 07:17:59.847	\N	1204	ANH HỌC	1	2100000.00	2100000.00	\N	completed	2025-07-30 00:54:56.721	2025-07-30 00:54:56.721	percentage	0.00	0.00	0.00	normal	\N	\N
+123	HD005229	2025-07-24 07:00:56.773	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:56.722	2025-07-30 00:54:56.722	percentage	0.00	0.00	0.00	normal	\N	\N
+124	HD005228	2025-07-24 06:59:09.75	\N	878	ANH TÈO - VÔ NHIỄM	1	200000.00	0.00	\N	completed	2025-07-30 00:54:56.722	2025-07-30 00:54:56.722	percentage	0.00	0.00	0.00	normal	\N	\N
+125	HD005227	2025-07-24 06:56:56.573	\N	1080	CÔNG ARIVIET	1	260000.00	0.00	\N	completed	2025-07-30 00:54:56.722	2025-07-30 00:54:56.722	percentage	0.00	0.00	0.00	normal	\N	\N
+126	HD005226	2025-07-24 06:42:44.057	\N	1183	ANH CU - TAM HOÀNG HƯNG LỘC	1	3370000.00	0.00	\N	completed	2025-07-30 00:54:56.722	2025-07-30 00:54:56.722	percentage	0.00	0.00	0.00	normal	\N	\N
+127	HD005225	2025-07-24 06:40:59.257	\N	1209	XUÂN - VỊT ( NHÀ)	1	520000.00	0.00	\N	completed	2025-07-30 00:54:56.722	2025-07-30 00:54:56.722	percentage	0.00	0.00	0.00	normal	\N	\N
+601	HD004743	2025-07-06 08:03:55.64	\N	1215	ANH TÂM ( ANH CÔNG)	1	7650000.00	0.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00	normal	\N	\N
+128	HD005224	2025-07-24 06:33:29.193	\N	1159	EM SƠN - ECOVET	1	5220000.00	0.00	\N	completed	2025-07-30 00:54:56.723	2025-07-30 00:54:56.723	percentage	0.00	0.00	0.00	normal	\N	\N
+130	HD005222	2025-07-24 06:29:43.7	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	2820000.00	0.00	\N	completed	2025-07-30 00:54:56.723	2025-07-30 00:54:56.723	percentage	0.00	0.00	0.00	normal	\N	\N
+131	HD005221	2025-07-24 06:26:58.257	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:56.723	2025-07-30 00:54:56.723	percentage	0.00	0.00	0.00	normal	\N	\N
+132	HD005220	2025-07-23 17:01:48.517	\N	1057	KHÁCH LẺ	1	800000.00	800000.00	\N	completed	2025-07-30 00:54:56.723	2025-07-30 00:54:56.723	percentage	0.00	0.00	0.00	normal	\N	\N
+133	HD005218	2025-07-23 16:24:40.657	\N	840	ANH TÂM (CÔNG) LÔ MỚI	1	590000.00	0.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00	normal	\N	\N
+134	HD005217	2025-07-23 15:02:45.929	\N	1199	ANH HÙNG - CẦU CƯỜNG	1	140000.00	0.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00	normal	\N	\N
+135	HD005216	2025-07-23 14:41:50.377	\N	1136	ANH GIA CHÍCH	1	630000.00	0.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00	normal	\N	\N
+136	HD005215.01	2025-07-23 14:30:19.167	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	2010000.00	0.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00	normal	\N	\N
+137	HD005214	2025-07-23 14:28:27.653	\N	1203	CHỊ LOAN ( ĐỊNH)	1	5800000.00	0.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00	normal	\N	\N
+138	HD005213	2025-07-23 14:24:11.697	\N	1057	KHÁCH LẺ	1	230000.00	230000.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00	normal	\N	\N
+139	HD005212	2025-07-23 14:23:17.179	\N	1155	ANH PHONG - VỊT (NHÀ)	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:56.724	2025-07-30 00:54:56.724	percentage	0.00	0.00	0.00	normal	\N	\N
+140	HD005211.02	2025-07-23 14:21:49.852	\N	861	CHÚ PHÁT - DỐC MƠ	1	1260000.00	0.00	\N	completed	2025-07-30 00:54:56.725	2025-07-30 00:54:56.725	percentage	0.00	0.00	0.00	normal	\N	\N
+141	HD005210	2025-07-23 11:16:53.639	\N	962	CÔ TUYẾT THU (5K) - LÔ SONG HÀNH	1	1230000.00	0.00	\N	completed	2025-07-30 00:54:56.725	2025-07-30 00:54:56.725	percentage	0.00	0.00	0.00	normal	\N	\N
+143	HD005208	2025-07-23 11:13:41.583	\N	1115	CÔ TUYẾT THU - PHÚ CƯỜNG 11K	1	1920000.00	0.00	\N	completed	2025-07-30 00:54:56.725	2025-07-30 00:54:56.725	percentage	0.00	0.00	0.00	normal	\N	\N
+144	HD005207	2025-07-23 11:04:05.717	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	450000.00	0.00	\N	completed	2025-07-30 00:54:56.725	2025-07-30 00:54:56.725	percentage	0.00	0.00	0.00	normal	\N	\N
+145	HD005206	2025-07-23 10:32:12.03	\N	1057	KHÁCH LẺ	1	100000.00	100000.00	\N	completed	2025-07-30 00:54:56.725	2025-07-30 00:54:56.725	percentage	0.00	0.00	0.00	normal	\N	\N
+146	HD005205	2025-07-23 10:26:19.953	\N	1006	THUỲ TRANG	1	665000.00	0.00	\N	completed	2025-07-30 00:54:56.726	2025-07-30 00:54:56.726	percentage	0.00	0.00	0.00	normal	\N	\N
+147	HD005204.01	2025-07-23 09:45:09.747	\N	864	ANH TÀI - MARTINO (BÀ NGOẠI)	1	3120000.00	0.00	\N	completed	2025-07-30 00:54:56.726	2025-07-30 00:54:56.726	percentage	0.00	0.00	0.00	normal	\N	\N
+148	HD005203.01	2025-07-23 09:43:32.943	\N	1113	ANH TÀI - GÀ TA - MARTINO	1	3120000.00	0.00	\N	completed	2025-07-30 00:54:56.726	2025-07-30 00:54:56.726	percentage	0.00	0.00	0.00	normal	\N	\N
+149	HD005202	2025-07-23 09:10:37.532	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	4710000.00	0.00	\N	completed	2025-07-30 00:54:56.726	2025-07-30 00:54:56.726	percentage	0.00	0.00	0.00	normal	\N	\N
+150	HD005201	2025-07-23 09:01:54.21	\N	1092	CHỊ THÚY - BƯU ĐIỆN	1	3395000.00	0.00	\N	completed	2025-07-30 00:54:56.726	2025-07-30 00:54:56.726	percentage	0.00	0.00	0.00	normal	\N	\N
+151	HD005200	2025-07-23 09:00:07.503	\N	1092	CHỊ THÚY - BƯU ĐIỆN	1	15705000.00	0.00	\N	completed	2025-07-30 00:54:56.96	2025-07-30 00:54:56.96	percentage	0.00	0.00	0.00	normal	\N	\N
+152	HD005199	2025-07-23 08:42:39.96	\N	894	ANH DANH - GÀ TRE - VÔ NHIỄM 9K	1	2500000.00	0.00	\N	completed	2025-07-30 00:54:56.961	2025-07-30 00:54:56.961	percentage	0.00	0.00	0.00	normal	\N	\N
+153	HD005198	2025-07-23 08:37:26.753	\N	877	ANH DANH - GÀ TRE - VÔ NHIỄM 4K	1	640000.00	0.00	\N	completed	2025-07-30 00:54:56.961	2025-07-30 00:54:56.961	percentage	0.00	0.00	0.00	normal	\N	\N
+154	HD005197.02	2025-07-23 08:27:14.506	\N	859	ANH QUẢNG - LONG THÀNH	1	3950000.00	0.00	\N	completed	2025-07-30 00:54:56.961	2025-07-30 00:54:56.961	percentage	0.00	0.00	0.00	normal	\N	\N
+155	HD005196	2025-07-23 08:24:41.69	\N	898	ANH ĐEN - GÀ - VÔ NHIỄM 2K	1	260000.00	0.00	\N	completed	2025-07-30 00:54:56.961	2025-07-30 00:54:56.961	percentage	0.00	0.00	0.00	normal	\N	\N
+156	HD005195.02	2025-07-23 07:47:29.642	\N	836	ANH KHÁNH - TAM HOÀNG - SOKLU 2	1	950000.00	0.00	\N	completed	2025-07-30 00:54:56.961	2025-07-30 00:54:56.961	percentage	0.00	0.00	0.00	normal	\N	\N
+157	HD005194	2025-07-23 07:13:20.14	\N	889	TRUNG - BƯU ĐIỆN - LÔ MỚI	1	2800000.00	0.00	\N	completed	2025-07-30 00:54:56.961	2025-07-30 00:54:56.961	percentage	0.00	0.00	0.00	normal	\N	\N
+158	HD005193	2025-07-23 07:12:33.72	\N	1217	TRUNG - BƯU ĐIỆN - VỊT	1	280000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00	normal	\N	\N
+159	HD005192	2025-07-23 07:11:36.123	\N	1211	ANH PHONG - BÀU SẬY	1	950000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00	normal	\N	\N
+160	HD005191	2025-07-23 07:09:38.029	\N	1176	ANH SỸ -TAM HOÀNG	1	2200000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00	normal	\N	\N
+161	HD005190	2025-07-23 07:02:38.91	\N	909	CHỊ TRÂM - VÔ NHIỄM 3K	1	220000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00	normal	\N	\N
+162	HD005189.01	2025-07-23 06:32:51.636	\N	1025	CÔ NGA VỊT - SUỐI NHO	1	4100000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00	normal	\N	\N
+163	HD005188	2025-07-23 06:31:13.96	\N	917	ANH VŨ CÁM ODON	1	1350000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00	normal	\N	\N
+164	HD005187	2025-07-23 06:30:07.573	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	3500000.00	0.00	\N	completed	2025-07-30 00:54:56.962	2025-07-30 00:54:56.962	percentage	0.00	0.00	0.00	normal	\N	\N
+165	HD005186	2025-07-23 06:28:22.653	\N	1062	CHỊ HƯƠNG-THÀNH AN	1	115000.00	0.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00	normal	\N	\N
+166	HD005185	2025-07-23 06:21:16.517	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	6330000.00	0.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00	normal	\N	\N
+167	HD005184	2025-07-22 17:27:20	\N	1057	KHÁCH LẺ	1	200000.00	200000.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00	normal	\N	\N
+168	HD005183	2025-07-22 17:21:11.407	\N	1050	EM HOÀNG AGRIVIET	1	15294000.00	0.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00	normal	\N	\N
+170	HD005181	2025-07-22 15:40:53.023	\N	837	EM HẢI - TÂN PHÚ	1	5392000.00	0.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00	normal	\N	\N
+171	HD005180	2025-07-22 15:27:34.37	\N	1204	ANH HỌC	1	3400000.00	3400000.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00	normal	\N	\N
+172	HD005179	2025-07-22 14:57:50.806	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	3520000.00	0.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00	normal	\N	\N
+173	HD005178.02	2025-07-22 14:44:37.227	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	3300000.00	0.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00	normal	\N	\N
+174	HD005177	2025-07-22 14:41:02.013	\N	934	CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K	1	4200000.00	0.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00	normal	\N	\N
+175	HD005176	2025-07-22 14:32:41.547	\N	950	ANH LÂM  FIVEVET	1	2920000.00	2920000.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00	normal	\N	\N
+176	HD005175	2025-07-22 14:24:41.91	\N	1135	TÂM UNITEK	1	6610000.00	2100000.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00	normal	\N	\N
+177	HD005174	2025-07-22 10:57:18.727	\N	1023	CHỊ QUY - BÌNH DƯƠNG	1	4800000.00	0.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00	normal	\N	\N
+178	HD005173	2025-07-22 10:29:37.373	\N	945	ANH TÂM ( NHÀ) - LÔ 2	1	6230000.00	0.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00	normal	\N	\N
+179	HD005172.01	2025-07-22 10:17:26.403	TH000189	1080	CÔNG ARIVIET	1	11900000.00	0.00	\N	completed	2025-07-30 00:54:56.964	2025-07-30 00:54:56.964	percentage	0.00	0.00	0.00	normal	\N	\N
+180	HD005171	2025-07-22 10:15:32.14	\N	1080	CÔNG ARIVIET	1	3220000.00	0.00	\N	completed	2025-07-30 00:54:56.965	2025-07-30 00:54:56.965	percentage	0.00	0.00	0.00	normal	\N	\N
+181	HD005170	2025-07-22 09:22:26.923	\N	1168	CÔ THỌ - GÀ TA - SUỐI NHO	1	1100000.00	0.00	\N	completed	2025-07-30 00:54:56.965	2025-07-30 00:54:56.965	percentage	0.00	0.00	0.00	normal	\N	\N
+182	HD005169.01	2025-07-22 09:20:43.113	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	3880000.00	0.00	\N	completed	2025-07-30 00:54:56.965	2025-07-30 00:54:56.965	percentage	0.00	0.00	0.00	normal	\N	\N
+183	HD005168	2025-07-22 09:15:36.207	\N	1203	CHỊ LOAN ( ĐỊNH)	1	0.00	0.00	\N	completed	2025-07-30 00:54:56.966	2025-07-30 00:54:56.966	percentage	0.00	0.00	0.00	normal	\N	\N
+184	HD005167.01	2025-07-22 09:03:26.199	\N	1203	CHỊ LOAN ( ĐỊNH)	1	11800000.00	0.00	\N	completed	2025-07-30 00:54:56.966	2025-07-30 00:54:56.966	percentage	0.00	0.00	0.00	normal	\N	\N
+186	HD005164	2025-07-22 08:56:34.09	\N	1176	ANH SỸ -TAM HOÀNG	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:56.966	2025-07-30 00:54:56.966	percentage	0.00	0.00	0.00	normal	\N	\N
+187	HD005163.01	2025-07-22 08:45:02.702	\N	838	ANH LÂM - TRẠI 5	1	3340000.00	0.00	\N	completed	2025-07-30 00:54:56.967	2025-07-30 00:54:56.967	percentage	0.00	0.00	0.00	normal	\N	\N
+188	HD005162	2025-07-22 08:36:19.67	\N	1032	ANH LÂM (5K) - TRẠI 2	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:56.967	2025-07-30 00:54:56.967	percentage	0.00	0.00	0.00	normal	\N	\N
+189	HD005161	2025-07-22 08:10:36.437	\N	1092	CHỊ THÚY - BƯU ĐIỆN	1	5145000.00	0.00	\N	completed	2025-07-30 00:54:56.967	2025-07-30 00:54:56.967	percentage	0.00	0.00	0.00	normal	\N	\N
+616	HD004728	2025-07-05 10:53:16.502	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	1190000.00	1190000.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00	normal	\N	\N
+192	HD005158	2025-07-22 07:05:41.703	\N	1006	THUỲ TRANG	1	745000.00	494000.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00	normal	\N	\N
+193	HD005157	2025-07-22 07:04:25.546	\N	1122	TÚ GÀ TA	1	640000.00	0.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00	normal	\N	\N
+194	HD005156	2025-07-22 06:49:35.889	\N	1057	KHÁCH LẺ	1	10000.00	10000.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00	normal	\N	\N
+195	HD005155.01	2025-07-22 06:36:59.952	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	1120000.00	0.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00	normal	\N	\N
+196	HD005154	2025-07-22 06:34:54.559	\N	1203	CHỊ LOAN ( ĐỊNH)	1	4400000.00	0.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00	normal	\N	\N
+197	HD005153	2025-07-22 06:31:49.303	\N	943	THÚ Y ĐÌNH HIỀN	1	4900000.00	0.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00	normal	\N	\N
+198	HD005152	2025-07-22 06:28:04.207	\N	1194	ANH DŨNG - VỊT	1	2940000.00	0.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00	normal	\N	\N
+199	HD005151	2025-07-22 06:23:22.74	\N	905	ANH DUY - PHƯƠNG LÂM	1	2600000.00	0.00	\N	completed	2025-07-30 00:54:56.968	2025-07-30 00:54:56.968	percentage	0.00	0.00	0.00	normal	\N	\N
+200	HD005150	2025-07-22 06:20:56.179	\N	1134	CHÚ CẦN - GÀ ĐẺ - NINH PHÁT	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:56.969	2025-07-30 00:54:56.969	percentage	0.00	0.00	0.00	normal	\N	\N
+201	HD005149	2025-07-21 17:25:43.077	\N	840	ANH TÂM (CÔNG) LÔ MỚI	1	500000.00	0.00	\N	completed	2025-07-30 00:54:57.296	2025-07-30 00:54:57.296	percentage	0.00	0.00	0.00	normal	\N	\N
+202	HD005148	2025-07-21 17:04:30.986	\N	882	ANH PHONG - CTY GREENTECH	1	2520000.00	0.00	\N	completed	2025-07-30 00:54:57.296	2025-07-30 00:54:57.296	percentage	0.00	0.00	0.00	normal	\N	\N
+203	HD005147	2025-07-21 16:25:03.857	TH000190	862	HOÀ MEGA	1	3300000.00	0.00	\N	completed	2025-07-30 00:54:57.297	2025-07-30 00:54:57.297	percentage	0.00	0.00	0.00	normal	\N	\N
+204	HD005146.01	2025-07-21 16:14:49.737	\N	846	ANH KHÔI	1	3050000.00	0.00	\N	completed	2025-07-30 00:54:57.297	2025-07-30 00:54:57.297	percentage	0.00	0.00	0.00	normal	\N	\N
+205	HD005145	2025-07-21 15:57:12.299	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	800000.00	0.00	\N	completed	2025-07-30 00:54:57.297	2025-07-30 00:54:57.297	percentage	0.00	0.00	0.00	normal	\N	\N
+207	HD005143	2025-07-21 15:26:40.07	\N	1057	KHÁCH LẺ	1	820000.00	820000.00	\N	completed	2025-07-30 00:54:57.298	2025-07-30 00:54:57.298	percentage	0.00	0.00	0.00	normal	\N	\N
+208	HD005142	2025-07-21 15:22:17.04	\N	909	CHỊ TRÂM - VÔ NHIỄM 3K	1	110000.00	0.00	\N	completed	2025-07-30 00:54:57.298	2025-07-30 00:54:57.298	percentage	0.00	0.00	0.00	normal	\N	\N
+209	HD005141	2025-07-21 15:19:55.099	\N	1135	TÂM UNITEK	1	5400000.00	5400000.00	\N	completed	2025-07-30 00:54:57.302	2025-07-30 00:54:57.302	percentage	0.00	0.00	0.00	normal	\N	\N
+210	HD005140.01	2025-07-21 14:59:00.419	\N	839	CHÚ PHƯỚC VỊNH - NINH PHÁT	1	2800000.00	2800000.00	\N	completed	2025-07-30 00:54:57.302	2025-07-30 00:54:57.302	percentage	0.00	0.00	0.00	normal	\N	\N
+211	HD005139	2025-07-21 14:47:23.896	\N	1209	XUÂN - VỊT ( NHÀ)	1	1260000.00	0.00	\N	completed	2025-07-30 00:54:57.303	2025-07-30 00:54:57.303	percentage	0.00	0.00	0.00	normal	\N	\N
+212	HD005138	2025-07-21 14:17:06.963	\N	1048	ANH TRIỆU - GIA KIỆM	1	3910000.00	0.00	\N	completed	2025-07-30 00:54:57.303	2025-07-30 00:54:57.303	percentage	0.00	0.00	0.00	normal	\N	\N
+213	HD005137	2025-07-21 09:17:37.952	\N	1057	KHÁCH LẺ	1	60000.00	60000.00	\N	completed	2025-07-30 00:54:57.303	2025-07-30 00:54:57.303	percentage	0.00	0.00	0.00	normal	\N	\N
+214	HD005136	2025-07-21 09:15:10.427	\N	1224	KHẢI HAIDER - BÀU CẠN	1	9200000.00	0.00	\N	completed	2025-07-30 00:54:57.303	2025-07-30 00:54:57.303	percentage	0.00	0.00	0.00	normal	\N	\N
+215	HD005135	2025-07-21 09:02:00.703	\N	1212	KHẢI 8.500 CON - XUYÊN MỘC	1	4150000.00	0.00	\N	completed	2025-07-30 00:54:57.303	2025-07-30 00:54:57.303	percentage	0.00	0.00	0.00	normal	\N	\N
+216	HD005134	2025-07-21 08:59:24.43	\N	1195	ANH PHONG - SUỐI ĐÁ 2	1	7720000.00	0.00	\N	completed	2025-07-30 00:54:57.304	2025-07-30 00:54:57.304	percentage	0.00	0.00	0.00	normal	\N	\N
+217	HD005133	2025-07-21 08:57:25.757	\N	1080	CÔNG ARIVIET	1	14680000.00	0.00	\N	completed	2025-07-30 00:54:57.304	2025-07-30 00:54:57.304	percentage	0.00	0.00	0.00	normal	\N	\N
+218	HD005132	2025-07-21 08:42:59.253	\N	1080	CÔNG ARIVIET	1	1740000.00	0.00	\N	completed	2025-07-30 00:54:57.304	2025-07-30 00:54:57.304	percentage	0.00	0.00	0.00	normal	\N	\N
+219	HD005131	2025-07-21 08:33:56.412	\N	905	ANH DUY - PHƯƠNG LÂM	1	4030000.00	0.00	\N	completed	2025-07-30 00:54:57.304	2025-07-30 00:54:57.304	percentage	0.00	0.00	0.00	normal	\N	\N
+220	HD005130	2025-07-21 08:13:47.289	\N	996	ANH PHONG - SUỐI ĐÁ 3	1	1350000.00	0.00	\N	completed	2025-07-30 00:54:57.304	2025-07-30 00:54:57.304	percentage	0.00	0.00	0.00	normal	\N	\N
+221	HD005129	2025-07-21 08:06:44.917	\N	1058	ANH PHONG - SUỐI ĐÁ 1	1	3470000.00	0.00	\N	completed	2025-07-30 00:54:57.304	2025-07-30 00:54:57.304	percentage	0.00	0.00	0.00	normal	\N	\N
+222	HD005128	2025-07-21 07:55:31.453	\N	906	ANH CHÍNH - VÔ NHIỄM	1	5800000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00	normal	\N	\N
+223	HD005127.01	2025-07-21 07:50:21.45	\N	1183	ANH CU - TAM HOÀNG HƯNG LỘC	1	13950000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00	normal	\N	\N
+224	HD005126	2025-07-21 07:43:41.866	\N	1182	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	3150000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00	normal	\N	\N
+225	HD005125	2025-07-21 07:28:48.84	\N	1172	CHỊ TRANG-TAM HOÀNG-NAGOA	1	1400000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00	normal	\N	\N
+226	HD005124	2025-07-21 06:39:14.08	\N	1122	TÚ GÀ TA	1	280000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00	normal	\N	\N
+227	HD005123.01	2025-07-21 06:36:34.562	\N	1117	ANH HƯNG - GÀ - SUỐI ĐÁ	1	19100000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00	normal	\N	\N
+228	HD005122	2025-07-21 06:32:17.777	\N	992	XUÂN ( THUÊ NGÁT)	1	2500000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00	normal	\N	\N
+230	HD005120.01	2025-07-20 14:42:31.447	\N	1057	KHÁCH LẺ	1	240000.00	240000.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00	normal	\N	\N
+231	HD005119	2025-07-20 14:21:06.336	\N	1026	HUYỀN TIGERVET	1	10024000.00	0.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00	normal	\N	\N
+232	HD005118	2025-07-20 11:46:53.957	\N	1057	KHÁCH LẺ	1	120000.00	120000.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00	normal	\N	\N
+233	HD005117	2025-07-20 11:09:58.272	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	2560000.00	1100000.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00	normal	\N	\N
+234	HD005116	2025-07-20 11:07:50.797	\N	1057	KHÁCH LẺ	1	50000.00	50000.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00	normal	\N	\N
+235	HD005115	2025-07-20 11:05:16.273	\N	909	CHỊ TRÂM - VÔ NHIỄM 3K	1	1900000.00	0.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00	normal	\N	\N
+236	HD005114	2025-07-20 10:52:24.396	\N	1032	ANH LÂM (5K) - TRẠI 2	1	1400000.00	0.00	\N	completed	2025-07-30 00:54:57.306	2025-07-30 00:54:57.306	percentage	0.00	0.00	0.00	normal	\N	\N
+237	HD005113	2025-07-20 10:51:05.497	\N	1226	ANH LÂM (5k) - TRẠI 1	1	4800000.00	0.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00	normal	\N	\N
+238	HD005111	2025-07-20 07:36:30.73	\N	1180	ANH HÙNG - BỘ - TAM HOÀNG	1	2010000.00	0.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00	normal	\N	\N
+239	HD005110	2025-07-20 06:59:06.267	\N	923	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	4520000.00	0.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00	normal	\N	\N
+240	HD005109	2025-07-20 06:55:04.093	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	5240000.00	0.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00	normal	\N	\N
+241	HD005108	2025-07-19 16:35:53.453	TH000186	1026	HUYỀN TIGERVET	1	15600000.00	0.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00	normal	\N	\N
+242	HD005107	2025-07-19 16:31:54.643	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	960000.00	960000.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00	normal	\N	\N
+243	HD005106	2025-07-19 14:34:54.817	\N	842	ANH THẾ - VÕ DÕNG	1	670000.00	670000.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00	normal	\N	\N
+244	HD005105	2025-07-19 14:32:06.626	\N	840	ANH TÂM (CÔNG) LÔ MỚI	1	4760000.00	0.00	\N	completed	2025-07-30 00:54:57.307	2025-07-30 00:54:57.307	percentage	0.00	0.00	0.00	normal	\N	\N
+245	HD005104	2025-07-19 10:53:01.887	\N	1057	KHÁCH LẺ	1	50000.00	50000.00	\N	completed	2025-07-30 00:54:57.308	2025-07-30 00:54:57.308	percentage	0.00	0.00	0.00	normal	\N	\N
+246	HD005103	2025-07-19 10:46:25.207	\N	1034	CHỊ DUNG - SOKLU	1	2900000.00	0.00	\N	completed	2025-07-30 00:54:57.308	2025-07-30 00:54:57.308	percentage	0.00	0.00	0.00	normal	\N	\N
+247	HD005102	2025-07-19 10:33:18.379	\N	920	KHÁNH EMIVET	1	660000.00	0.00	\N	completed	2025-07-30 00:54:57.308	2025-07-30 00:54:57.308	percentage	0.00	0.00	0.00	normal	\N	\N
+249	HD005100	2025-07-19 10:12:07.289	\N	1176	ANH SỸ -TAM HOÀNG	1	2200000.00	0.00	\N	completed	2025-07-30 00:54:57.308	2025-07-30 00:54:57.308	percentage	0.00	0.00	0.00	normal	\N	\N
+250	HD005099	2025-07-19 10:08:26.267	\N	1006	THUỲ TRANG	1	385000.00	385000.00	\N	completed	2025-07-30 00:54:57.308	2025-07-30 00:54:57.308	percentage	0.00	0.00	0.00	normal	\N	\N
+251	HD005098.01	2025-07-19 09:45:29.939	\N	1159	EM SƠN - ECOVET	1	3170000.00	0.00	\N	completed	2025-07-30 00:54:57.531	2025-07-30 00:54:57.531	percentage	0.00	0.00	0.00	normal	\N	\N
+252	HD005097	2025-07-19 09:04:06.757	\N	898	ANH ĐEN - GÀ - VÔ NHIỄM 2K	1	1100000.00	0.00	\N	completed	2025-07-30 00:54:57.531	2025-07-30 00:54:57.531	percentage	0.00	0.00	0.00	normal	\N	\N
+253	HD005096	2025-07-19 08:58:39.177	\N	895	CƯỜNG UNITEX	1	1080000.00	1080000.00	\N	completed	2025-07-30 00:54:57.531	2025-07-30 00:54:57.531	percentage	0.00	0.00	0.00	normal	\N	\N
+633	HD004711.01	2025-07-05 07:11:46.04	\N	1113	ANH TÀI - GÀ TA - MARTINO	1	930000.00	0.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00	normal	\N	\N
+255	HD005094.01	2025-07-19 08:24:46.326	\N	1050	EM HOÀNG AGRIVIET	1	6660000.00	0.00	\N	completed	2025-07-30 00:54:57.532	2025-07-30 00:54:57.532	percentage	0.00	0.00	0.00	normal	\N	\N
+256	HD005093	2025-07-19 07:55:08.65	\N	1057	KHÁCH LẺ	1	10000.00	10000.00	\N	completed	2025-07-30 00:54:57.532	2025-07-30 00:54:57.532	percentage	0.00	0.00	0.00	normal	\N	\N
+257	HD005092	2025-07-19 07:49:28.627	\N	1190	CHỊ QUYÊN - VỊT	1	6850000.00	0.00	\N	completed	2025-07-30 00:54:57.532	2025-07-30 00:54:57.532	percentage	0.00	0.00	0.00	normal	\N	\N
+258	HD005091	2025-07-19 07:07:12.077	\N	1092	CHỊ THÚY - BƯU ĐIỆN	1	0.00	0.00	\N	completed	2025-07-30 00:54:57.533	2025-07-30 00:54:57.533	percentage	0.00	0.00	0.00	normal	\N	\N
+259	HD005090.01	2025-07-19 07:06:31.483	\N	1092	CHỊ THÚY - BƯU ĐIỆN	1	8500000.00	0.00	\N	completed	2025-07-30 00:54:57.533	2025-07-30 00:54:57.533	percentage	0.00	0.00	0.00	normal	\N	\N
+260	HD005089	2025-07-19 06:57:39.877	\N	917	ANH VŨ CÁM ODON	1	500000.00	0.00	\N	completed	2025-07-30 00:54:57.533	2025-07-30 00:54:57.533	percentage	0.00	0.00	0.00	normal	\N	\N
+261	HD005088	2025-07-19 06:51:39.143	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	2680000.00	0.00	\N	completed	2025-07-30 00:54:57.533	2025-07-30 00:54:57.533	percentage	0.00	0.00	0.00	normal	\N	\N
+262	HD005087	2025-07-19 06:39:27.163	\N	1023	CHỊ QUY - BÌNH DƯƠNG	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:57.533	2025-07-30 00:54:57.533	percentage	0.00	0.00	0.00	normal	\N	\N
+264	HD005085.01	2025-07-19 06:31:42.9	\N	861	CHÚ PHÁT - DỐC MƠ	1	440000.00	0.00	\N	completed	2025-07-30 00:54:57.534	2025-07-30 00:54:57.534	percentage	0.00	0.00	0.00	normal	\N	\N
+265	HD005084	2025-07-19 06:15:45.887	\N	1179	CÔ LAN ( TUẤN) - TAM HOÀNG	1	3640000.00	3640000.00	\N	completed	2025-07-30 00:54:57.534	2025-07-30 00:54:57.534	percentage	0.00	0.00	0.00	normal	\N	\N
+266	HD005083	2025-07-18 17:42:34.56	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	960000.00	960000.00	\N	completed	2025-07-30 00:54:57.534	2025-07-30 00:54:57.534	percentage	0.00	0.00	0.00	normal	\N	\N
+267	HD005082	2025-07-18 17:07:38.906	\N	844	ANH PHONG - VĨNH TÂN	1	0.00	0.00	\N	completed	2025-07-30 00:54:57.534	2025-07-30 00:54:57.534	percentage	0.00	0.00	0.00	normal	\N	\N
+268	HD005081	2025-07-18 16:46:29.169	\N	881	CHÚ HUỲNH - XÃ LỘ 25	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:57.534	2025-07-30 00:54:57.534	percentage	0.00	0.00	0.00	normal	\N	\N
+269	HD005080	2025-07-18 16:35:18.656	\N	967	ANH ĐỨC - VÔ NHIỄM	1	450000.00	450000.00	\N	completed	2025-07-30 00:54:57.535	2025-07-30 00:54:57.535	percentage	0.00	0.00	0.00	normal	\N	\N
+270	HD005079	2025-07-18 16:29:53.213	\N	846	ANH KHÔI	1	1160000.00	0.00	\N	completed	2025-07-30 00:54:57.535	2025-07-30 00:54:57.535	percentage	0.00	0.00	0.00	normal	\N	\N
+271	HD005078	2025-07-18 16:24:00.679	\N	892	ANH HOAN - XUÂN BẮC	1	950000.00	0.00	\N	completed	2025-07-30 00:54:57.535	2025-07-30 00:54:57.535	percentage	0.00	0.00	0.00	normal	\N	\N
+272	HD005077	2025-07-18 16:21:43.306	\N	1026	HUYỀN TIGERVET	1	18180000.00	0.00	\N	completed	2025-07-30 00:54:57.535	2025-07-30 00:54:57.535	percentage	0.00	0.00	0.00	normal	\N	\N
+273	HD005076	2025-07-18 15:37:58.879	\N	1011	HẢI - TRẢNG BOM	1	3150000.00	3150000.00	\N	completed	2025-07-30 00:54:57.535	2025-07-30 00:54:57.535	percentage	0.00	0.00	0.00	normal	\N	\N
+274	HD005075	2025-07-18 15:10:52.14	\N	849	ANH HẢI HÀO LÔ MỚI	1	900000.00	900000.00	\N	completed	2025-07-30 00:54:57.535	2025-07-30 00:54:57.535	percentage	0.00	0.00	0.00	normal	\N	\N
+275	HD005074	2025-07-18 15:01:19.353	\N	1102	ANH HƯNG - SƠN MAI	1	3000000.00	0.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00	normal	\N	\N
+276	HD005072	2025-07-18 14:56:57.137	\N	841	ANH VƯƠNG NHẤT - TÍN NGHĨA	1	1890000.00	0.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00	normal	\N	\N
+277	HD005071	2025-07-18 14:46:46.053	\N	840	ANH TÂM (CÔNG) LÔ MỚI	1	2160000.00	0.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00	normal	\N	\N
+278	HD005070	2025-07-18 14:31:05.09	\N	1194	ANH DŨNG - VỊT	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00	normal	\N	\N
+279	HD005069	2025-07-18 11:27:11.1	\N	1199	ANH HÙNG - CẦU CƯỜNG	1	1260000.00	0.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00	normal	\N	\N
+280	HD005068	2025-07-18 11:24:27.577	\N	1203	CHỊ LOAN ( ĐỊNH)	1	7800000.00	0.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00	normal	\N	\N
+281	HD005067.01	2025-07-18 11:23:09.207	\N	844	ANH PHONG - VĨNH TÂN	1	13670000.00	13670000.00	\N	completed	2025-07-30 00:54:57.536	2025-07-30 00:54:57.536	percentage	0.00	0.00	0.00	normal	\N	\N
+283	HD005065	2025-07-18 09:33:37.462	\N	885	ANH THỨC - TAM HOÀNG	1	1900000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00	normal	\N	\N
+284	HD005064	2025-07-18 09:22:34.316	\N	1040	Đ.LÝ  DUNG TÙNG - TÂN PHÚ	1	2500000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00	normal	\N	\N
+285	HD005063	2025-07-18 09:14:06.803	\N	1114	CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI	1	7600000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00	normal	\N	\N
+286	HD005062	2025-07-18 09:07:57.07	\N	906	ANH CHÍNH - VÔ NHIỄM	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00	normal	\N	\N
+287	HD005061	2025-07-18 09:04:10.993	\N	1057	KHÁCH LẺ	1	120000.00	120000.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00	normal	\N	\N
+288	HD005060	2025-07-18 08:57:35.393	\N	859	ANH QUẢNG - LONG THÀNH	1	5200000.00	5200000.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00	normal	\N	\N
+289	HD005059	2025-07-18 08:49:12.856	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	630000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00	normal	\N	\N
+290	HD005058	2025-07-18 08:47:21.517	\N	1057	KHÁCH LẺ	1	380000.00	380000.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00	normal	\N	\N
+291	HD005057	2025-07-18 08:40:32.386	\N	909	CHỊ TRÂM - VÔ NHIỄM 3K	1	1220000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00	normal	\N	\N
+292	HD005056	2025-07-18 08:35:02.399	\N	878	ANH TÈO - VÔ NHIỄM	1	2800000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00	normal	\N	\N
+293	HD005055	2025-07-18 07:59:27.399	\N	875	NHUNG VIETVET	1	3480000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00	normal	\N	\N
+294	HD005054	2025-07-18 07:55:52.327	\N	1048	ANH TRIỆU - GIA KIỆM	1	3230000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00	normal	\N	\N
+295	HD005053	2025-07-18 06:53:27.113	\N	1080	CÔNG ARIVIET	1	1335000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00	normal	\N	\N
+297	HD005052	2025-07-18 06:29:14.943	\N	892	ANH HOAN - XUÂN BẮC	1	1350000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00	normal	\N	\N
+298	HD005051	2025-07-18 06:24:28.053	\N	920	KHÁNH EMIVET	1	2240000.00	0.00	\N	completed	2025-07-30 00:54:57.539	2025-07-30 00:54:57.539	percentage	0.00	0.00	0.00	normal	\N	\N
+299	HD005049	2025-07-18 06:22:26.136	\N	1176	ANH SỸ -TAM HOÀNG	1	4610000.00	0.00	\N	completed	2025-07-30 00:54:57.539	2025-07-30 00:54:57.539	percentage	0.00	0.00	0.00	normal	\N	\N
+300	HD005048.01	2025-07-17 17:36:19.976	\N	1117	ANH HƯNG - GÀ - SUỐI ĐÁ	1	6340000.00	0.00	\N	completed	2025-07-30 00:54:57.539	2025-07-30 00:54:57.539	percentage	0.00	0.00	0.00	normal	\N	\N
+301	HD005047	2025-07-17 16:40:13.497	\N	1138	ĐẠI LÝ VĂN THANH	1	1540000.00	0.00	\N	completed	2025-07-30 00:54:57.842	2025-07-30 00:54:57.842	percentage	0.00	0.00	0.00	normal	\N	\N
+302	HD005046.01	2025-07-17 16:37:29.706	\N	917	ANH VŨ CÁM ODON	1	1950000.00	0.00	\N	completed	2025-07-30 00:54:57.842	2025-07-30 00:54:57.842	percentage	0.00	0.00	0.00	normal	\N	\N
+303	HD005045	2025-07-17 16:32:16.607	\N	1180	ANH HÙNG - BỘ - TAM HOÀNG	1	1980000.00	0.00	\N	completed	2025-07-30 00:54:57.842	2025-07-30 00:54:57.842	percentage	0.00	0.00	0.00	normal	\N	\N
+304	HD005044	2025-07-17 16:26:49.613	\N	1080	CÔNG ARIVIET	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:57.843	2025-07-30 00:54:57.843	percentage	0.00	0.00	0.00	normal	\N	\N
+305	HD005043	2025-07-17 16:08:59.91	\N	1185	ANH LÂM (8K) - TRẠI 4	1	1190000.00	0.00	\N	completed	2025-07-30 00:54:57.843	2025-07-30 00:54:57.843	percentage	0.00	0.00	0.00	normal	\N	\N
+306	HD005042.01	2025-07-17 14:25:10.13	\N	964	ANH HÀNH - XUÂN BẮC	1	6500000.00	0.00	\N	completed	2025-07-30 00:54:57.843	2025-07-30 00:54:57.843	percentage	0.00	0.00	0.00	normal	\N	\N
+307	HD005041	2025-07-17 14:23:54.583	\N	1135	TÂM UNITEK	1	15400000.00	15400000.00	\N	completed	2025-07-30 00:54:57.843	2025-07-30 00:54:57.843	percentage	0.00	0.00	0.00	normal	\N	\N
+308	HD005040.01	2025-07-17 14:22:25.967	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	1600000.00	1600000.00	\N	completed	2025-07-30 00:54:57.843	2025-07-30 00:54:57.843	percentage	0.00	0.00	0.00	normal	\N	\N
+309	HD005039	2025-07-17 14:21:12.52	\N	875	NHUNG VIETVET	1	6570000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00	normal	\N	\N
+311	HD005037	2025-07-17 10:53:48.687	\N	1212	KHẢI 8.500 CON - XUYÊN MỘC	1	2880000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00	normal	\N	\N
+312	HD005036	2025-07-17 10:22:23.663	\N	842	ANH THẾ - VÕ DÕNG	1	1850000.00	1850000.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00	normal	\N	\N
+313	HD005035.02	2025-07-17 10:18:14.622	\N	877	ANH DANH - GÀ TRE - VÔ NHIỄM 4K	1	1850000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00	normal	\N	\N
+314	HD005034	2025-07-17 08:38:11.61	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	840000.00	840000.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00	normal	\N	\N
+315	HD005033	2025-07-17 08:33:50.513	\N	1159	EM SƠN - ECOVET	1	2550000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00	normal	\N	\N
+316	HD005032	2025-07-17 08:28:33.643	\N	1026	HUYỀN TIGERVET	1	0.00	0.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00	normal	\N	\N
+317	HD005031	2025-07-17 08:28:04.74	\N	1026	HUYỀN TIGERVET	1	1400000.00	0.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00	normal	\N	\N
+639	HD004705	2025-07-05 06:16:49.2	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	1000000.00	1000000.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00	normal	\N	\N
+318	HD005030	2025-07-17 08:07:19.162	\N	1057	KHÁCH LẺ	1	250000.00	250000.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00	normal	\N	\N
+320	HD005028	2025-07-17 07:20:14.959	\N	1178	CHÚ CHƯƠNG - TAM HOÀNG	1	1920000.00	0.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00	normal	\N	\N
+321	HD005027	2025-07-17 06:25:39.677	\N	1115	CÔ TUYẾT THU - PHÚ CƯỜNG 11K	1	5630000.00	0.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00	normal	\N	\N
+322	HD005025.03	2025-07-17 06:18:50.143	\N	878	ANH TÈO - VÔ NHIỄM	1	4900000.00	0.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00	normal	\N	\N
+323	HD005024	2025-07-16 16:48:32.159	\N	863	NGUYỆT SƠN LÂM	1	350000.00	350000.00	\N	completed	2025-07-30 00:54:57.846	2025-07-30 00:54:57.846	percentage	0.00	0.00	0.00	normal	\N	\N
+324	HD005023	2025-07-16 16:45:45.103	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	900000.00	0.00	\N	completed	2025-07-30 00:54:57.846	2025-07-30 00:54:57.846	percentage	0.00	0.00	0.00	normal	\N	\N
+325	HD005022	2025-07-16 16:42:33.982	\N	963	CHỊ QUÝ - TÂN PHÚ	1	12840000.00	0.00	\N	completed	2025-07-30 00:54:57.846	2025-07-30 00:54:57.846	percentage	0.00	0.00	0.00	normal	\N	\N
+326	HD005021	2025-07-16 16:33:29.023	\N	1133	TRINH - HIPPRA	1	7350000.00	7350000.00	\N	completed	2025-07-30 00:54:57.846	2025-07-30 00:54:57.846	percentage	0.00	0.00	0.00	normal	\N	\N
+327	HD005020	2025-07-16 16:13:41.942	\N	1057	KHÁCH LẺ	1	440000.00	440000.00	\N	completed	2025-07-30 00:54:57.846	2025-07-30 00:54:57.846	percentage	0.00	0.00	0.00	normal	\N	\N
+328	HD005019	2025-07-16 15:22:37.62	TH000184	844	ANH PHONG - VĨNH TÂN	1	16685000.00	14595000.00	\N	completed	2025-07-30 00:54:57.846	2025-07-30 00:54:57.846	percentage	0.00	0.00	0.00	normal	\N	\N
+329	HD005017	2025-07-16 15:12:32.239	\N	880	ANH HẢI (KẾ)	1	1400000.00	1400000.00	\N	completed	2025-07-30 00:54:57.847	2025-07-30 00:54:57.847	percentage	0.00	0.00	0.00	normal	\N	\N
+330	HD005016	2025-07-16 09:47:13.379	\N	865	ANH HỌC (LONG)	1	11550000.00	0.00	\N	completed	2025-07-30 00:54:57.847	2025-07-30 00:54:57.847	percentage	0.00	0.00	0.00	normal	\N	\N
+331	HD005015	2025-07-16 09:32:00.53	\N	920	KHÁNH EMIVET	1	940000.00	0.00	\N	completed	2025-07-30 00:54:57.847	2025-07-30 00:54:57.847	percentage	0.00	0.00	0.00	normal	\N	\N
+332	HD005014	2025-07-16 09:28:56.227	\N	923	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	12920000.00	0.00	\N	completed	2025-07-30 00:54:57.847	2025-07-30 00:54:57.847	percentage	0.00	0.00	0.00	normal	\N	\N
+333	HD005013	2025-07-16 09:17:19.416	\N	962	CÔ TUYẾT THU (5K) - LÔ SONG HÀNH	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00	normal	\N	\N
+334	HD005012	2025-07-16 09:05:30.183	\N	1048	ANH TRIỆU - GIA KIỆM	1	3405000.00	0.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00	normal	\N	\N
+336	HD005010	2025-07-16 08:54:09.206	\N	1134	CHÚ CẦN - GÀ ĐẺ - NINH PHÁT	1	2050000.00	0.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00	normal	\N	\N
+337	HD005009	2025-07-16 08:48:59.46	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	820000.00	820000.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00	normal	\N	\N
+338	HD005008	2025-07-16 07:42:03.106	\N	1057	KHÁCH LẺ	1	120000.00	120000.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00	normal	\N	\N
+339	HD005007	2025-07-16 07:13:03.26	\N	1182	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	1960000.00	0.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00	normal	\N	\N
+340	HD005006	2025-07-16 07:10:11.45	\N	1203	CHỊ LOAN ( ĐỊNH)	1	0.00	0.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00	normal	\N	\N
+341	HD005005	2025-07-16 06:50:33.48	\N	1209	XUÂN - VỊT ( NHÀ)	1	750000.00	0.00	\N	completed	2025-07-30 00:54:57.849	2025-07-30 00:54:57.849	percentage	0.00	0.00	0.00	normal	\N	\N
+342	HD005004	2025-07-16 06:49:18.529	\N	1057	KHÁCH LẺ	1	50000.00	50000.00	\N	completed	2025-07-30 00:54:57.849	2025-07-30 00:54:57.849	percentage	0.00	0.00	0.00	normal	\N	\N
+343	HD005003	2025-07-16 06:41:39.686	\N	1023	CHỊ QUY - BÌNH DƯƠNG	1	1400000.00	0.00	\N	completed	2025-07-30 00:54:57.849	2025-07-30 00:54:57.849	percentage	0.00	0.00	0.00	normal	\N	\N
+344	HD005002	2025-07-16 06:40:00.797	\N	1122	TÚ GÀ TA	1	440000.00	0.00	\N	completed	2025-07-30 00:54:57.849	2025-07-30 00:54:57.849	percentage	0.00	0.00	0.00	normal	\N	\N
+345	HD005001	2025-07-16 06:35:27.47	\N	900	ANH TÂN - TÍN NGHĨA	1	2565000.00	0.00	\N	completed	2025-07-30 00:54:57.849	2025-07-30 00:54:57.849	percentage	0.00	0.00	0.00	normal	\N	\N
+346	HD005000	2025-07-16 06:30:56.813	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	15720000.00	0.00	\N	completed	2025-07-30 00:54:57.849	2025-07-30 00:54:57.849	percentage	0.00	0.00	0.00	normal	\N	\N
+347	HD004999.01	2025-07-16 06:27:42.627	\N	856	TRUNG - BƯU ĐIỆN - LÔ 2	1	3200000.00	0.00	\N	completed	2025-07-30 00:54:57.85	2025-07-30 00:54:57.85	percentage	0.00	0.00	0.00	normal	\N	\N
+348	HD004998	2025-07-16 06:26:17.827	\N	1226	ANH LÂM (5k) - TRẠI 1	1	2340000.00	0.00	\N	completed	2025-07-30 00:54:57.85	2025-07-30 00:54:57.85	percentage	0.00	0.00	0.00	normal	\N	\N
+349	HD004997	2025-07-15 16:10:33.613	\N	1080	CÔNG ARIVIET	1	14928000.00	5629800.00	\N	completed	2025-07-30 00:54:57.85	2025-07-30 00:54:57.85	percentage	0.00	0.00	0.00	normal	\N	\N
+350	HD004996	2025-07-15 15:59:59.992	\N	881	CHÚ HUỲNH - XÃ LỘ 25	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:57.85	2025-07-30 00:54:57.85	percentage	0.00	0.00	0.00	normal	\N	\N
+351	HD004995.01	2025-07-15 15:24:15.38	\N	845	CHỊ VY - LÂM ĐỒNG	1	8515000.00	8515000.00	\N	completed	2025-07-30 00:54:58.097	2025-07-30 00:54:58.097	percentage	0.00	0.00	0.00	normal	\N	\N
+352	HD004994	2025-07-15 15:19:53.05	\N	1178	CHÚ CHƯƠNG - TAM HOÀNG	1	1650000.00	0.00	\N	completed	2025-07-30 00:54:58.098	2025-07-30 00:54:58.098	percentage	0.00	0.00	0.00	normal	\N	\N
+353	HD004993	2025-07-15 15:04:08.9	\N	1034	CHỊ DUNG - SOKLU	1	1450000.00	0.00	\N	completed	2025-07-30 00:54:58.098	2025-07-30 00:54:58.098	percentage	0.00	0.00	0.00	normal	\N	\N
+354	HD004992.01	2025-07-15 15:02:48.3	\N	1176	ANH SỸ -TAM HOÀNG	1	0.00	0.00	\N	completed	2025-07-30 00:54:58.098	2025-07-30 00:54:58.098	percentage	0.00	0.00	0.00	normal	\N	\N
+355	HD004991.01	2025-07-15 15:01:52.102	\N	1176	ANH SỸ -TAM HOÀNG	1	5200000.00	0.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00	normal	\N	\N
+356	HD004990	2025-07-15 14:24:01.962	\N	1011	HẢI - TRẢNG BOM	1	2040000.00	2040000.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00	normal	\N	\N
+358	HD004988	2025-07-15 11:42:05.406	\N	1052	TRẠI GÀ ĐẺ - LONG THÀNH	1	1900000.00	1900000.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00	normal	\N	\N
+359	HD004987	2025-07-15 11:32:07.643	\N	1080	CÔNG ARIVIET	1	1360000.00	1360000.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00	normal	\N	\N
+360	HD004986	2025-07-15 10:53:23.879	\N	1057	KHÁCH LẺ	1	120000.00	120000.00	\N	completed	2025-07-30 00:54:58.1	2025-07-30 00:54:58.1	percentage	0.00	0.00	0.00	normal	\N	\N
+361	HD004985	2025-07-15 10:37:30.922	\N	1135	TÂM UNITEK	1	3300000.00	3300000.00	\N	completed	2025-07-30 00:54:58.1	2025-07-30 00:54:58.1	percentage	0.00	0.00	0.00	normal	\N	\N
+362	HD004984	2025-07-15 10:19:31.067	\N	992	XUÂN ( THUÊ NGÁT)	1	3800000.00	0.00	\N	completed	2025-07-30 00:54:58.101	2025-07-30 00:54:58.101	percentage	0.00	0.00	0.00	normal	\N	\N
+363	HD004983.01	2025-07-15 09:55:51.219	\N	869	ANH HỌC - CTY TIẾN THẠNH	1	890000.00	0.00	\N	completed	2025-07-30 00:54:58.101	2025-07-30 00:54:58.101	percentage	0.00	0.00	0.00	normal	\N	\N
+364	HD004982	2025-07-15 09:03:55.962	\N	1080	CÔNG ARIVIET	1	6980000.00	6980000.00	\N	completed	2025-07-30 00:54:58.101	2025-07-30 00:54:58.101	percentage	0.00	0.00	0.00	normal	\N	\N
+365	HDD_TH000179	2025-07-15 08:55:13.427	\N	990	ANH HIẾU - DÊ	1	30000.00	0.00	\N	completed	2025-07-30 00:54:58.101	2025-07-30 00:54:58.101	percentage	0.00	0.00	0.00	normal	\N	\N
+366	HD004981	2025-07-15 08:48:55.916	\N	1161	CHÚ THÀNH - GÀ TRE	1	610000.00	610000.00	\N	completed	2025-07-30 00:54:58.101	2025-07-30 00:54:58.101	percentage	0.00	0.00	0.00	normal	\N	\N
+367	HD004980	2025-07-15 08:48:12.032	\N	990	ANH HIẾU - DÊ	1	1600000.00	1600000.00	\N	completed	2025-07-30 00:54:58.102	2025-07-30 00:54:58.102	percentage	0.00	0.00	0.00	normal	\N	\N
+368	HD004979	2025-07-15 07:43:03.837	\N	846	ANH KHÔI	1	7620000.00	0.00	\N	completed	2025-07-30 00:54:58.102	2025-07-30 00:54:58.102	percentage	0.00	0.00	0.00	normal	\N	\N
+369	HD004978	2025-07-15 07:35:50.012	\N	1043	HÀ HOÀNG	1	420000.00	0.00	\N	completed	2025-07-30 00:54:58.102	2025-07-30 00:54:58.102	percentage	0.00	0.00	0.00	normal	\N	\N
+370	HD004977.01	2025-07-15 07:33:24.977	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	3460000.00	0.00	\N	completed	2025-07-30 00:54:58.102	2025-07-30 00:54:58.102	percentage	0.00	0.00	0.00	normal	\N	\N
+371	HD004976	2025-07-15 07:31:24.913	\N	1190	CHỊ QUYÊN - VỊT	1	5000000.00	0.00	\N	completed	2025-07-30 00:54:58.102	2025-07-30 00:54:58.102	percentage	0.00	0.00	0.00	normal	\N	\N
+372	HD004975	2025-07-15 06:41:14.163	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	3600000.00	2220000.00	\N	completed	2025-07-30 00:54:58.102	2025-07-30 00:54:58.102	percentage	0.00	0.00	0.00	normal	\N	\N
+373	HD004974	2025-07-15 06:34:24.717	\N	957	CHỊ LOAN -BỐT ĐỎ	1	6180000.00	0.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00	normal	\N	\N
+375	HD004972.01	2025-07-15 06:22:00.807	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	2200000.00	0.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00	normal	\N	\N
+376	HD004971	2025-07-15 06:17:59.096	\N	1182	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	2600000.00	0.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00	normal	\N	\N
+377	HD004970	2025-07-14 17:05:16.193	\N	1057	KHÁCH LẺ	1	80000.00	80000.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00	normal	\N	\N
+378	HD004969	2025-07-14 16:56:53.466	\N	1192	CÔ PHƯỢNG - BÌNH LỘC	1	2250000.00	0.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00	normal	\N	\N
+379	HD004968	2025-07-14 16:36:22.123	\N	947	ANH LÂM (6K) - TRẠI 3	1	660000.00	0.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00	normal	\N	\N
+380	HD004967	2025-07-14 16:35:28.189	\N	1226	ANH LÂM (5k) - TRẠI 1	1	4020000.00	0.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00	normal	\N	\N
+382	HD004965	2025-07-14 16:11:38.583	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	500000.00	500000.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00	normal	\N	\N
+383	HD004964	2025-07-14 16:01:36.262	\N	847	ANH NAM - CẦU QUÂN Y	1	5800000.00	5800000.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00	normal	\N	\N
+384	HD004963	2025-07-14 15:58:13.403	\N	999	ANH HƯNG LÔ MỚI - MARTINO	1	500000.00	500000.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00	normal	\N	\N
+385	HD004962	2025-07-14 15:56:34.012	TH000180	848	CHÚ HOÀ	1	1100000.00	0.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00	normal	\N	\N
+386	HD004961	2025-07-14 15:54:42.71	\N	1080	CÔNG ARIVIET	1	2140000.00	2140000.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00	normal	\N	\N
+387	HD004960	2025-07-14 15:10:03.663	\N	1057	KHÁCH LẺ	1	120000.00	120000.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00	normal	\N	\N
+388	HD004959	2025-07-14 14:58:40.033	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	720000.00	720000.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00	normal	\N	\N
+389	HD004957	2025-07-14 11:31:00.25	\N	849	ANH HẢI HÀO LÔ MỚI	1	2210000.00	2210000.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00	normal	\N	\N
+390	HD004956	2025-07-14 11:29:15.54	\N	889	TRUNG - BƯU ĐIỆN - LÔ MỚI	1	800000.00	800000.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00	normal	\N	\N
+391	HD004955.02	2025-07-14 10:56:11.387	\N	850	ANH QUỐC - DẦU GIÂY	1	5600000.00	5600000.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00	normal	\N	\N
+392	HD004954	2025-07-14 08:49:15.563	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	4105000.00	0.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00	normal	\N	\N
+393	HD004953.01	2025-07-14 08:46:37.129	\N	1139	ĐẠI LÝ TIÊN PHÚC	1	4690000.00	4690000.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00	normal	\N	\N
+395	HD004951	2025-07-14 07:37:25.687	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	720000.00	720000.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00	normal	\N	\N
+396	HD004950	2025-07-14 07:28:47.05	\N	1057	KHÁCH LẺ	1	60000.00	60000.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00	normal	\N	\N
+397	HD004949.01	2025-07-14 07:20:17.737	\N	878	ANH TÈO - VÔ NHIỄM	1	2250000.00	0.00	\N	completed	2025-07-30 00:54:58.106	2025-07-30 00:54:58.106	percentage	0.00	0.00	0.00	normal	\N	\N
+398	HD004948.01	2025-07-14 07:17:50.477	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	3250000.00	0.00	\N	completed	2025-07-30 00:54:58.106	2025-07-30 00:54:58.106	percentage	0.00	0.00	0.00	normal	\N	\N
+399	HD004947	2025-07-14 07:04:37.12	\N	1155	ANH PHONG - VỊT (NHÀ)	1	950000.00	0.00	\N	completed	2025-07-30 00:54:58.106	2025-07-30 00:54:58.106	percentage	0.00	0.00	0.00	normal	\N	\N
+400	HD004946	2025-07-14 06:47:39.122	TH000178	999	ANH HƯNG LÔ MỚI - MARTINO	1	1830000.00	930000.00	\N	completed	2025-07-30 00:54:58.106	2025-07-30 00:54:58.106	percentage	0.00	0.00	0.00	normal	\N	\N
+401	HD004945	2025-07-14 06:36:07.87	\N	1180	ANH HÙNG - BỘ - TAM HOÀNG	1	2010000.00	0.00	\N	completed	2025-07-30 00:54:58.423	2025-07-30 00:54:58.423	percentage	0.00	0.00	0.00	normal	\N	\N
+402	HD004944	2025-07-14 06:34:32.409	\N	1185	ANH LÂM (8K) - TRẠI 4	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:58.424	2025-07-30 00:54:58.424	percentage	0.00	0.00	0.00	normal	\N	\N
+403	HD004943	2025-07-14 06:30:19.656	\N	905	ANH DUY - PHƯƠNG LÂM	1	2970000.00	0.00	\N	completed	2025-07-30 00:54:58.427	2025-07-30 00:54:58.427	percentage	0.00	0.00	0.00	normal	\N	\N
+404	HD004942.01	2025-07-14 06:22:51.687	\N	1046	ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2	1	520000.00	0.00	\N	completed	2025-07-30 00:54:58.428	2025-07-30 00:54:58.428	percentage	0.00	0.00	0.00	normal	\N	\N
+405	HD004941	2025-07-14 06:21:53.749	\N	918	TIẾN CHÍCH	1	840000.00	840000.00	\N	completed	2025-07-30 00:54:58.428	2025-07-30 00:54:58.428	percentage	0.00	0.00	0.00	normal	\N	\N
+406	HD004940	2025-07-14 06:19:16.867	\N	900	ANH TÂN - TÍN NGHĨA	1	2735000.00	0.00	\N	completed	2025-07-30 00:54:58.428	2025-07-30 00:54:58.428	percentage	0.00	0.00	0.00	normal	\N	\N
+407	HD004939	2025-07-13 16:44:23.857	\N	917	ANH VŨ CÁM ODON	1	2340000.00	2340000.00	\N	completed	2025-07-30 00:54:58.428	2025-07-30 00:54:58.428	percentage	0.00	0.00	0.00	normal	\N	\N
+409	HD004937	2025-07-13 16:42:19.157	\N	1057	KHÁCH LẺ	1	80000.00	80000.00	\N	completed	2025-07-30 00:54:58.429	2025-07-30 00:54:58.429	percentage	0.00	0.00	0.00	normal	\N	\N
+410	HD004936	2025-07-13 11:13:16.973	\N	992	XUÂN ( THUÊ NGÁT)	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.429	2025-07-30 00:54:58.429	percentage	0.00	0.00	0.00	normal	\N	\N
+411	HD004935	2025-07-13 09:23:14.66	TH000176	1043	HÀ HOÀNG	1	840000.00	0.00	\N	completed	2025-07-30 00:54:58.429	2025-07-30 00:54:58.429	percentage	0.00	0.00	0.00	normal	\N	\N
+412	HD004934	2025-07-13 09:22:09.873	\N	1182	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	900000.00	0.00	\N	completed	2025-07-30 00:54:58.429	2025-07-30 00:54:58.429	percentage	0.00	0.00	0.00	normal	\N	\N
+413	HD004933	2025-07-13 09:04:34.282	\N	1048	ANH TRIỆU - GIA KIỆM	1	160000.00	0.00	\N	completed	2025-07-30 00:54:58.429	2025-07-30 00:54:58.429	percentage	0.00	0.00	0.00	normal	\N	\N
+414	HD004932	2025-07-13 08:15:06.933	\N	1178	CHÚ CHƯƠNG - TAM HOÀNG	1	500000.00	0.00	\N	completed	2025-07-30 00:54:58.43	2025-07-30 00:54:58.43	percentage	0.00	0.00	0.00	normal	\N	\N
+415	HD004931	2025-07-13 07:15:51.829	\N	957	CHỊ LOAN -BỐT ĐỎ	1	2250000.00	0.00	\N	completed	2025-07-30 00:54:58.43	2025-07-30 00:54:58.43	percentage	0.00	0.00	0.00	normal	\N	\N
+416	HD004930	2025-07-13 07:14:26.833	\N	996	ANH PHONG - SUỐI ĐÁ 3	1	450000.00	0.00	\N	completed	2025-07-30 00:54:58.43	2025-07-30 00:54:58.43	percentage	0.00	0.00	0.00	normal	\N	\N
+417	HD004929	2025-07-13 07:13:07.85	\N	1058	ANH PHONG - SUỐI ĐÁ 1	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.43	2025-07-30 00:54:58.43	percentage	0.00	0.00	0.00	normal	\N	\N
+418	HD004928	2025-07-13 07:11:50.643	\N	1211	ANH PHONG - BÀU SẬY	1	2550000.00	2550000.00	\N	completed	2025-07-30 00:54:58.43	2025-07-30 00:54:58.43	percentage	0.00	0.00	0.00	normal	\N	\N
+419	HD004927	2025-07-13 07:10:15.346	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	5550000.00	0.00	\N	completed	2025-07-30 00:54:58.431	2025-07-30 00:54:58.431	percentage	0.00	0.00	0.00	normal	\N	\N
+420	HD004926	2025-07-13 07:07:08.687	\N	865	ANH HỌC (LONG)	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.431	2025-07-30 00:54:58.431	percentage	0.00	0.00	0.00	normal	\N	\N
+421	HD004924	2025-07-13 06:22:10.223	\N	1131	ĐẠI LÝ TUẤN PHÁT	1	6480000.00	6480000.00	\N	completed	2025-07-30 00:54:58.431	2025-07-30 00:54:58.431	percentage	0.00	0.00	0.00	normal	\N	\N
+422	HD004923	2025-07-12 16:19:48.107	\N	1122	TÚ GÀ TA	1	630000.00	0.00	\N	completed	2025-07-30 00:54:58.431	2025-07-30 00:54:58.431	percentage	0.00	0.00	0.00	normal	\N	\N
+424	HD004921	2025-07-12 15:43:38.747	\N	1135	TÂM UNITEK	1	1080000.00	1080000.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00	normal	\N	\N
+425	HD004920	2025-07-12 15:30:40.57	\N	879	MI TIGERVET	1	4500000.00	4500000.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00	normal	\N	\N
+426	HD004919	2025-07-12 15:29:03.462	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	2550000.00	0.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00	normal	\N	\N
+427	HD004918	2025-07-12 15:08:37.406	\N	1026	HUYỀN TIGERVET	1	450000.00	0.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00	normal	\N	\N
+428	HD004917	2025-07-12 14:51:46.652	\N	1203	CHỊ LOAN ( ĐỊNH)	1	5800000.00	1600000.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00	normal	\N	\N
+429	HD004916	2025-07-12 14:15:16.569	\N	906	ANH CHÍNH - VÔ NHIỄM	1	3200000.00	0.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00	normal	\N	\N
+430	HD004915	2025-07-12 11:03:39.067	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	2970000.00	0.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00	normal	\N	\N
+431	HD004914	2025-07-12 10:54:27.962	\N	934	CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K	1	19000000.00	0.00	\N	completed	2025-07-30 00:54:58.433	2025-07-30 00:54:58.433	percentage	0.00	0.00	0.00	normal	\N	\N
+432	HD004913	2025-07-12 10:48:20.056	TH000177	1026	HUYỀN TIGERVET	1	11000000.00	0.00	\N	completed	2025-07-30 00:54:58.433	2025-07-30 00:54:58.433	percentage	0.00	0.00	0.00	normal	\N	\N
+433	HD004912	2025-07-12 09:21:14.59	\N	1057	KHÁCH LẺ	1	20000.00	20000.00	\N	completed	2025-07-30 00:54:58.433	2025-07-30 00:54:58.433	percentage	0.00	0.00	0.00	normal	\N	\N
+434	HD004911.01	2025-07-12 09:01:38.02	\N	1211	ANH PHONG - BÀU SẬY	1	6980000.00	6980000.00	\N	completed	2025-07-30 00:54:58.433	2025-07-30 00:54:58.433	percentage	0.00	0.00	0.00	normal	\N	\N
+435	HD004910.01	2025-07-12 08:57:10.75	\N	1136	ANH GIA CHÍCH	1	200000.00	200000.00	\N	completed	2025-07-30 00:54:58.433	2025-07-30 00:54:58.433	percentage	0.00	0.00	0.00	normal	\N	\N
+436	HD004909	2025-07-12 08:52:40.707	\N	967	ANH ĐỨC - VÔ NHIỄM	1	450000.00	450000.00	\N	completed	2025-07-30 00:54:58.433	2025-07-30 00:54:58.433	percentage	0.00	0.00	0.00	normal	\N	\N
+437	HD004908	2025-07-12 08:15:38.959	\N	883	ANH HẢI CJ	1	600000.00	600000.00	\N	completed	2025-07-30 00:54:58.434	2025-07-30 00:54:58.434	percentage	0.00	0.00	0.00	normal	\N	\N
+438	HD004907	2025-07-12 08:06:13.037	\N	894	ANH DANH - GÀ TRE - VÔ NHIỄM 9K	1	1470000.00	0.00	\N	completed	2025-07-30 00:54:58.434	2025-07-30 00:54:58.434	percentage	0.00	0.00	0.00	normal	\N	\N
+439	HD004906	2025-07-12 07:46:07.297	\N	853	ANH ÂN - PHÚ TÚC	1	220000.00	0.00	\N	completed	2025-07-30 00:54:58.434	2025-07-30 00:54:58.434	percentage	0.00	0.00	0.00	normal	\N	\N
+440	HD004905	2025-07-12 07:44:39.603	\N	861	CHÚ PHÁT - DỐC MƠ	1	1050000.00	0.00	\N	completed	2025-07-30 00:54:58.435	2025-07-30 00:54:58.435	percentage	0.00	0.00	0.00	normal	\N	\N
+441	HD004904	2025-07-12 07:24:22.262	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	500000.00	500000.00	\N	completed	2025-07-30 00:54:58.435	2025-07-30 00:54:58.435	percentage	0.00	0.00	0.00	normal	\N	\N
+442	HD004903	2025-07-12 07:16:45.353	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	1350000.00	0.00	\N	completed	2025-07-30 00:54:58.435	2025-07-30 00:54:58.435	percentage	0.00	0.00	0.00	normal	\N	\N
+443	HD004902	2025-07-12 07:05:19.133	\N	854	ANH TỨ	1	470000.00	470000.00	\N	completed	2025-07-30 00:54:58.435	2025-07-30 00:54:58.435	percentage	0.00	0.00	0.00	normal	\N	\N
+657	HD004686	2025-07-03 17:21:08.197	\N	1174	CÔ TUYẾN - TAM HOÀNG - CẦU CƯỜNG	1	1920000.00	0.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00	normal	\N	\N
+445	HD004900	2025-07-12 06:26:07.356	\N	1115	CÔ TUYẾT THU - PHÚ CƯỜNG 11K	1	7150000.00	0.00	\N	completed	2025-07-30 00:54:58.435	2025-07-30 00:54:58.435	percentage	0.00	0.00	0.00	normal	\N	\N
+447	HD004897	2025-07-11 17:05:49.686	\N	1057	KHÁCH LẺ	1	90000.00	90000.00	\N	completed	2025-07-30 00:54:58.436	2025-07-30 00:54:58.436	percentage	0.00	0.00	0.00	normal	\N	\N
+448	HD004896	2025-07-11 16:13:07.417	\N	856	TRUNG - BƯU ĐIỆN - LÔ 2	1	950000.00	0.00	\N	completed	2025-07-30 00:54:58.436	2025-07-30 00:54:58.436	percentage	0.00	0.00	0.00	normal	\N	\N
+449	HD004895.01	2025-07-11 15:35:04.61	\N	1117	ANH HƯNG - GÀ - SUỐI ĐÁ	1	3060000.00	0.00	\N	completed	2025-07-30 00:54:58.436	2025-07-30 00:54:58.436	percentage	0.00	0.00	0.00	normal	\N	\N
+450	HD004894	2025-07-11 15:33:16.833	\N	885	ANH THỨC - TAM HOÀNG	1	4200000.00	0.00	\N	completed	2025-07-30 00:54:58.436	2025-07-30 00:54:58.436	percentage	0.00	0.00	0.00	normal	\N	\N
+451	HD004893	2025-07-11 15:05:37.217	\N	1026	HUYỀN TIGERVET	1	0.00	0.00	\N	completed	2025-07-30 00:54:58.673	2025-07-30 00:54:58.673	percentage	0.00	0.00	0.00	normal	\N	\N
+452	HD004892	2025-07-11 15:05:12.186	\N	1026	HUYỀN TIGERVET	1	6400000.00	0.00	\N	completed	2025-07-30 00:54:58.673	2025-07-30 00:54:58.673	percentage	0.00	0.00	0.00	normal	\N	\N
+453	HD004891	2025-07-11 14:36:11.843	\N	1026	HUYỀN TIGERVET	1	8915000.00	0.00	\N	completed	2025-07-30 00:54:58.674	2025-07-30 00:54:58.674	percentage	0.00	0.00	0.00	normal	\N	\N
+454	HD004890	2025-07-11 14:18:01.92	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	2740000.00	2740000.00	\N	completed	2025-07-30 00:54:58.674	2025-07-30 00:54:58.674	percentage	0.00	0.00	0.00	normal	\N	\N
+455	HD004889	2025-07-11 11:07:02.217	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	1400000.00	30000.00	\N	completed	2025-07-30 00:54:58.674	2025-07-30 00:54:58.674	percentage	0.00	0.00	0.00	normal	\N	\N
+456	HD004888	2025-07-11 11:01:11.162	\N	954	KHẢI HAIDER - BÀU CẠN LÔ 20k	1	10600000.00	0.00	\N	completed	2025-07-30 00:54:58.674	2025-07-30 00:54:58.674	percentage	0.00	0.00	0.00	normal	\N	\N
+457	HD004887	2025-07-11 10:56:35.83	\N	1212	KHẢI 8.500 CON - XUYÊN MỘC	1	3680000.00	0.00	\N	completed	2025-07-30 00:54:58.674	2025-07-30 00:54:58.674	percentage	0.00	0.00	0.00	normal	\N	\N
+458	HD004886	2025-07-11 09:20:11.763	\N	1159	EM SƠN - ECOVET	1	7650000.00	0.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00	normal	\N	\N
+459	HD004885	2025-07-11 08:55:26.019	\N	1057	KHÁCH LẺ	1	70000.00	70000.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00	normal	\N	\N
+460	HD004884	2025-07-11 08:36:31.889	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	7100000.00	7100000.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00	normal	\N	\N
+461	HD004883	2025-07-11 07:49:10.272	\N	885	ANH THỨC - TAM HOÀNG	1	4300000.00	0.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00	normal	\N	\N
+462	HD004882	2025-07-11 06:47:02.413	\N	1176	ANH SỸ -TAM HOÀNG	1	2360000.00	0.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00	normal	\N	\N
+463	HD004881	2025-07-11 06:33:04.05	\N	885	ANH THỨC - TAM HOÀNG	1	1560000.00	0.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00	normal	\N	\N
+464	HD004880	2025-07-11 06:28:21.497	\N	1178	CHÚ CHƯƠNG - TAM HOÀNG	1	220000.00	0.00	\N	completed	2025-07-30 00:54:58.675	2025-07-30 00:54:58.675	percentage	0.00	0.00	0.00	normal	\N	\N
+465	HD004879	2025-07-11 06:26:28.53	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	910000.00	910000.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00	normal	\N	\N
+466	HD004878	2025-07-11 06:24:21.983	\N	1134	CHÚ CẦN - GÀ ĐẺ - NINH PHÁT	1	3900000.00	0.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00	normal	\N	\N
+468	HD004876	2025-07-11 06:20:52.363	\N	1023	CHỊ QUY - BÌNH DƯƠNG	1	5900000.00	0.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00	normal	\N	\N
+469	HD004875	2025-07-10 17:50:07.573	\N	1215	ANH TÂM ( ANH CÔNG)	1	6300000.00	0.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00	normal	\N	\N
+470	HD004874	2025-07-10 17:49:04.44	\N	1135	TÂM UNITEK	1	12300000.00	12300000.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00	normal	\N	\N
+471	HD004873	2025-07-10 17:26:44.489	\N	1062	CHỊ HƯƠNG-THÀNH AN	1	1740000.00	1225000.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00	normal	\N	\N
+472	HD004872	2025-07-10 16:58:49.219	\N	1057	KHÁCH LẺ	1	30000.00	30000.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00	normal	\N	\N
+473	HD004871	2025-07-10 16:51:32.23	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	500000.00	500000.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00	normal	\N	\N
+474	HD004870.02	2025-07-10 16:50:30.107	\N	889	TRUNG - BƯU ĐIỆN - LÔ MỚI	1	580000.00	580000.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00	normal	\N	\N
+475	HD004869	2025-07-10 16:29:23.31	\N	864	ANH TÀI - MARTINO (BÀ NGOẠI)	1	690000.00	0.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00	normal	\N	\N
+476	HD004868.02	2025-07-10 16:19:08.357	\N	1113	ANH TÀI - GÀ TA - MARTINO	1	690000.00	0.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00	normal	\N	\N
+477	HD004867	2025-07-10 16:10:48.239	\N	1215	ANH TÂM ( ANH CÔNG)	1	1650000.00	0.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00	normal	\N	\N
+478	HD004866	2025-07-10 15:40:13.07	\N	1171	CHÚ ĐÔNG - TAM HOÀNG	1	4400000.00	0.00	\N	completed	2025-07-30 00:54:58.677	2025-07-30 00:54:58.677	percentage	0.00	0.00	0.00	normal	\N	\N
+479	HD004865	2025-07-10 15:32:41.649	\N	1176	ANH SỸ -TAM HOÀNG	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.678	2025-07-30 00:54:58.678	percentage	0.00	0.00	0.00	normal	\N	\N
+480	HD004864	2025-07-10 15:31:10.24	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	740000.00	740000.00	\N	completed	2025-07-30 00:54:58.678	2025-07-30 00:54:58.678	percentage	0.00	0.00	0.00	normal	\N	\N
+481	HD004863	2025-07-10 14:49:00.01	\N	1057	KHÁCH LẺ	1	100000.00	100000.00	\N	completed	2025-07-30 00:54:58.678	2025-07-30 00:54:58.678	percentage	0.00	0.00	0.00	normal	\N	\N
+482	HD004862	2025-07-10 14:41:55.54	\N	1192	CÔ PHƯỢNG - BÌNH LỘC	1	2100000.00	0.00	\N	completed	2025-07-30 00:54:58.678	2025-07-30 00:54:58.678	percentage	0.00	0.00	0.00	normal	\N	\N
+483	HD004861	2025-07-10 14:39:56.156	\N	1080	CÔNG ARIVIET	1	2100000.00	2100000.00	\N	completed	2025-07-30 00:54:58.679	2025-07-30 00:54:58.679	percentage	0.00	0.00	0.00	normal	\N	\N
+484	HD004860	2025-07-10 14:26:40.53	\N	1209	XUÂN - VỊT ( NHÀ)	1	1140000.00	0.00	\N	completed	2025-07-30 00:54:58.679	2025-07-30 00:54:58.679	percentage	0.00	0.00	0.00	normal	\N	\N
+485	HD004859	2025-07-10 14:25:03.247	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	4500000.00	0.00	\N	completed	2025-07-30 00:54:58.679	2025-07-30 00:54:58.679	percentage	0.00	0.00	0.00	normal	\N	\N
+486	HD004858	2025-07-10 14:22:24.63	\N	1177	ANH SƠN ( BỘ) - TAM HOÀNG	1	3674000.00	0.00	\N	completed	2025-07-30 00:54:58.679	2025-07-30 00:54:58.679	percentage	0.00	0.00	0.00	normal	\N	\N
+487	HD004857	2025-07-10 14:19:57.126	TH000174	1139	ĐẠI LÝ TIÊN PHÚC	1	3400000.00	0.00	\N	completed	2025-07-30 00:54:58.683	2025-07-30 00:54:58.683	percentage	0.00	0.00	0.00	normal	\N	\N
+489	HD004855	2025-07-10 11:01:23.612	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	30000.00	0.00	\N	completed	2025-07-30 00:54:58.684	2025-07-30 00:54:58.684	percentage	0.00	0.00	0.00	normal	\N	\N
+490	HD004854	2025-07-10 10:09:48.557	\N	1205	TUYẾN DONAVET	1	230000.00	230000.00	\N	completed	2025-07-30 00:54:58.684	2025-07-30 00:54:58.684	percentage	0.00	0.00	0.00	normal	\N	\N
+491	HD004853	2025-07-10 08:02:04.847	\N	875	NHUNG VIETVET	1	1586000.00	0.00	\N	completed	2025-07-30 00:54:58.684	2025-07-30 00:54:58.684	percentage	0.00	0.00	0.00	normal	\N	\N
+492	HD004852	2025-07-10 07:12:06.106	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	7160000.00	0.00	\N	completed	2025-07-30 00:54:58.685	2025-07-30 00:54:58.685	percentage	0.00	0.00	0.00	normal	\N	\N
+493	HD004851	2025-07-10 06:43:32.18	\N	1057	KHÁCH LẺ	1	10000.00	10000.00	\N	completed	2025-07-30 00:54:58.685	2025-07-30 00:54:58.685	percentage	0.00	0.00	0.00	normal	\N	\N
+494	HD004850.01	2025-07-10 06:41:00.529	TH000173	1180	ANH HÙNG - BỘ - TAM HOÀNG	1	6925000.00	0.00	\N	completed	2025-07-30 00:54:58.685	2025-07-30 00:54:58.685	percentage	0.00	0.00	0.00	normal	\N	\N
+495	HD004849.01	2025-07-10 06:38:44.396	\N	856	TRUNG - BƯU ĐIỆN - LÔ 2	1	2520000.00	0.00	\N	completed	2025-07-30 00:54:58.685	2025-07-30 00:54:58.685	percentage	0.00	0.00	0.00	normal	\N	\N
+496	HD004848.01	2025-07-10 06:33:18.116	TH000182	1080	CÔNG ARIVIET	1	5380000.00	3960000.00	\N	completed	2025-07-30 00:54:58.685	2025-07-30 00:54:58.685	percentage	0.00	0.00	0.00	normal	\N	\N
+497	HD004847	2025-07-10 06:29:59.62	\N	1032	ANH LÂM (5K) - TRẠI 2	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.686	2025-07-30 00:54:58.686	percentage	0.00	0.00	0.00	normal	\N	\N
+498	HD004846.01	2025-07-10 06:26:40.1	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	4800000.00	0.00	\N	completed	2025-07-30 00:54:58.686	2025-07-30 00:54:58.686	percentage	0.00	0.00	0.00	normal	\N	\N
+499	HD004845	2025-07-09 17:22:00.32	\N	1226	ANH LÂM (5k) - TRẠI 1	1	7100000.00	0.00	\N	completed	2025-07-30 00:54:58.686	2025-07-30 00:54:58.686	percentage	0.00	0.00	0.00	normal	\N	\N
+500	HD004844	2025-07-09 17:17:57.17	\N	1032	ANH LÂM (5K) - TRẠI 2	1	1450000.00	0.00	\N	completed	2025-07-30 00:54:58.686	2025-07-30 00:54:58.686	percentage	0.00	0.00	0.00	normal	\N	\N
+501	HD004843.01	2025-07-09 16:35:06.456	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	1250000.00	1250000.00	\N	completed	2025-07-30 00:54:58.991	2025-07-30 00:54:58.991	percentage	0.00	0.00	0.00	normal	\N	\N
+502	HD004842.01	2025-07-09 16:27:39.887	\N	1026	HUYỀN TIGERVET	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:58.991	2025-07-30 00:54:58.991	percentage	0.00	0.00	0.00	normal	\N	\N
+504	HD004840	2025-07-09 15:31:48.497	\N	869	ANH HỌC - CTY TIẾN THẠNH	1	2580000.00	0.00	\N	completed	2025-07-30 00:54:58.991	2025-07-30 00:54:58.991	percentage	0.00	0.00	0.00	normal	\N	\N
+505	HD004839	2025-07-09 15:29:54.926	\N	1009	ANH TRƯỜNG - CẦU CƯỜNG	1	490000.00	490000.00	\N	completed	2025-07-30 00:54:58.992	2025-07-30 00:54:58.992	percentage	0.00	0.00	0.00	normal	\N	\N
+506	HD004838	2025-07-09 15:28:30.809	\N	1190	CHỊ QUYÊN - VỊT	1	5550000.00	0.00	\N	completed	2025-07-30 00:54:58.992	2025-07-30 00:54:58.992	percentage	0.00	0.00	0.00	normal	\N	\N
+557	HD004787	2025-07-08 07:29:22.12	\N	860	ANH TUÝ (KIM PHÁT)	1	1560000.00	0.00	\N	completed	2025-07-30 00:54:59.231	2025-07-30 00:54:59.231	percentage	0.00	0.00	0.00	normal	\N	\N
+558	HD004786	2025-07-08 07:03:03.127	\N	1057	KHÁCH LẺ	1	440000.00	440000.00	\N	completed	2025-07-30 00:54:59.231	2025-07-30 00:54:59.231	percentage	0.00	0.00	0.00	normal	\N	\N
+559	HD004785	2025-07-08 06:47:07.363	\N	1203	CHỊ LOAN ( ĐỊNH)	1	2200000.00	2200000.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00	normal	\N	\N
+560	HD004784	2025-07-08 06:44:39.33	\N	861	CHÚ PHÁT - DỐC MƠ	1	570000.00	0.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00	normal	\N	\N
+561	HD004783	2025-07-08 06:38:11.207	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	1160000.00	1160000.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00	normal	\N	\N
+562	HD004782.01	2025-07-08 06:29:25.86	\N	1220	ANH LÂM - TAM HOÀNG - NINH PHÁT	1	2850000.00	2707500.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00	normal	\N	\N
+563	HD004781	2025-07-08 06:25:17.173	\N	1131	ĐẠI LÝ TUẤN PHÁT	1	2750000.00	2750000.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00	normal	\N	\N
+564	HD004780	2025-07-08 06:22:48.577	\N	1046	ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2	1	2200000.00	0.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00	normal	\N	\N
+565	HD004779.01	2025-07-07 18:58:33.49	\N	862	HOÀ MEGA	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00	normal	\N	\N
+566	HD004778	2025-07-07 16:48:13.197	TH000171, TH000181, TH000183	862	HOÀ MEGA	1	17600000.00	1000000.00	\N	completed	2025-07-30 00:54:59.232	2025-07-30 00:54:59.232	percentage	0.00	0.00	0.00	normal	\N	\N
+567	HD004777	2025-07-07 16:46:48.097	\N	1135	TÂM UNITEK	1	1530000.00	1530000.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00	normal	\N	\N
+568	HD004776	2025-07-07 14:41:04.81	TH000168	1174	CÔ TUYẾN - TAM HOÀNG - CẦU CƯỜNG	1	7390000.00	0.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00	normal	\N	\N
+569	HD004775	2025-07-07 14:38:34.606	\N	880	ANH HẢI (KẾ)	1	1350000.00	1350000.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00	normal	\N	\N
+516	HD004828	2025-07-09 09:41:34.719	\N	1228	Khách lẻ	1	1000000.00	1000000.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00	normal	\N	\N
+508	HD004836	2025-07-09 15:24:00.929	\N	910	ANH HÀO	1	540000.00	540000.00	\N	completed	2025-07-30 00:54:58.992	2025-07-30 00:54:58.992	percentage	0.00	0.00	0.00	normal	\N	\N
+509	HD004835.01	2025-07-09 15:21:55.16	\N	1135	TÂM UNITEK	1	32900000.00	32900000.00	\N	completed	2025-07-30 00:54:58.992	2025-07-30 00:54:58.992	percentage	0.00	0.00	0.00	normal	\N	\N
+510	HD004834.01	2025-07-09 14:34:54.8	\N	988	LONG - BIÊN HOÀ 2	1	28200000.00	28200000.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00	normal	\N	\N
+511	HD004833	2025-07-09 11:26:21.822	\N	1200	CÔ BÌNH - AN LỘC	1	6450000.00	0.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00	normal	\N	\N
+512	HD004832	2025-07-09 10:36:02.81	\N	875	NHUNG VIETVET	1	16200000.00	0.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00	normal	\N	\N
+513	HD004831	2025-07-09 10:07:54.96	\N	947	ANH LÂM (6K) - TRẠI 3	1	1300000.00	0.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00	normal	\N	\N
+514	HD004830	2025-07-09 10:06:35.09	\N	1185	ANH LÂM (8K) - TRẠI 4	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00	normal	\N	\N
+515	HD004829	2025-07-09 09:43:44.037	\N	1195	ANH PHONG - SUỐI ĐÁ 2	1	4820000.00	0.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00	normal	\N	\N
+517	HD004827	2025-07-09 09:02:13.74	\N	1080	CÔNG ARIVIET	1	2780000.00	2780000.00	\N	completed	2025-07-30 00:54:58.993	2025-07-30 00:54:58.993	percentage	0.00	0.00	0.00	normal	\N	\N
+518	HD004826	2025-07-09 08:58:21.959	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	5750000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00	normal	\N	\N
+519	HD004825	2025-07-09 08:52:53.217	\N	1190	CHỊ QUYÊN - VỊT	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00	normal	\N	\N
+520	HD004824	2025-07-09 08:42:33.762	\N	1135	TÂM UNITEK	1	4150000.00	4150000.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00	normal	\N	\N
+522	HD004822	2025-07-09 08:16:41.983	\N	906	ANH CHÍNH - VÔ NHIỄM	1	2620000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00	normal	\N	\N
+523	HD004821	2025-07-09 07:36:33.13	\N	1215	ANH TÂM ( ANH CÔNG)	1	1650000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00	normal	\N	\N
+524	HD004820	2025-07-09 07:35:00.243	\N	996	ANH PHONG - SUỐI ĐÁ 3	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00	normal	\N	\N
+525	HD004819	2025-07-09 07:33:46.687	\N	1058	ANH PHONG - SUỐI ĐÁ 1	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00	normal	\N	\N
+526	HD004818	2025-07-09 07:28:26.84	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	880000.00	880000.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00	normal	\N	\N
+527	HD004817	2025-07-09 06:46:30.467	\N	1032	ANH LÂM (5K) - TRẠI 2	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00	normal	\N	\N
+528	HD004816	2025-07-09 06:40:35.96	\N	1136	ANH GIA CHÍCH	1	220000.00	220000.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00	normal	\N	\N
+529	HD004815	2025-07-09 06:35:06.639	\N	1215	ANH TÂM ( ANH CÔNG)	1	5510000.00	0.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00	normal	\N	\N
+530	HD004814	2025-07-09 06:33:31.657	\N	1182	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	560000.00	0.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00	normal	\N	\N
+531	HD004813	2025-07-09 06:31:58.883	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	18660000.00	0.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00	normal	\N	\N
+532	HD004812	2025-07-09 06:26:31.559	\N	1184	CÔ CHƯNG - TAM HOÀNG - NAGOA	1	6000000.00	0.00	\N	completed	2025-07-30 00:54:58.995	2025-07-30 00:54:58.995	percentage	0.00	0.00	0.00	normal	\N	\N
+533	HD004811.01	2025-07-09 06:24:52.8	\N	858	ANH RÒN - DỐC MƠ	1	1560000.00	0.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00	normal	\N	\N
+534	HD004810.01	2025-07-09 06:19:41.336	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	2300000.00	0.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00	normal	\N	\N
+536	HD004808	2025-07-08 15:21:30.202	\N	878	ANH TÈO - VÔ NHIỄM	1	7210000.00	0.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00	normal	\N	\N
+537	HD004807	2025-07-08 15:10:49.853	\N	1057	KHÁCH LẺ	1	500000.00	500000.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00	normal	\N	\N
+538	HD004806	2025-07-08 15:00:46.266	\N	934	CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K	1	2640000.00	0.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00	normal	\N	\N
+539	HD004805	2025-07-08 14:36:17.692	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	5250000.00	0.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00	normal	\N	\N
+540	HD004804	2025-07-08 14:31:09.877	\N	859	ANH QUẢNG - LONG THÀNH	1	1260000.00	1260000.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00	normal	\N	\N
+541	HD004803	2025-07-08 11:26:05.207	\N	1211	ANH PHONG - BÀU SẬY	1	7800000.00	7800000.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00	normal	\N	\N
+542	HD004802	2025-07-08 11:02:54.403	\N	875	NHUNG VIETVET	1	3720000.00	0.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00	normal	\N	\N
+543	HD004801.01	2025-07-08 10:37:28.26	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	550000.00	550000.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00	normal	\N	\N
+544	HD004800.01	2025-07-08 10:36:07.269	\N	1215	ANH TÂM ( ANH CÔNG)	1	550000.00	0.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00	normal	\N	\N
+545	HD004799	2025-07-08 10:32:36.037	\N	1139	ĐẠI LÝ TIÊN PHÚC	1	3000000.00	3000000.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00	normal	\N	\N
+546	HD004798	2025-07-08 10:21:46.162	\N	1185	ANH LÂM (8K) - TRẠI 4	1	1840000.00	0.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00	normal	\N	\N
+547	HD004797.01	2025-07-08 09:53:41.403	\N	1048	ANH TRIỆU - GIA KIỆM	1	2776000.00	0.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00	normal	\N	\N
+548	HD004796	2025-07-08 09:37:24.556	\N	883	ANH HẢI CJ	1	480000.00	480000.00	\N	completed	2025-07-30 00:54:58.997	2025-07-30 00:54:58.997	percentage	0.00	0.00	0.00	normal	\N	\N
+549	HD004795	2025-07-08 08:28:59.296	\N	885	ANH THỨC - TAM HOÀNG	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:58.998	2025-07-30 00:54:58.998	percentage	0.00	0.00	0.00	normal	\N	\N
+550	HD004794	2025-07-08 08:25:05.803	\N	962	CÔ TUYẾT THU (5K) - LÔ SONG HÀNH	1	6000000.00	0.00	\N	completed	2025-07-30 00:54:58.998	2025-07-30 00:54:58.998	percentage	0.00	0.00	0.00	normal	\N	\N
+551	HD004793	2025-07-08 08:23:38.939	\N	878	ANH TÈO - VÔ NHIỄM	1	960000.00	0.00	\N	completed	2025-07-30 00:54:59.23	2025-07-30 00:54:59.23	percentage	0.00	0.00	0.00	normal	\N	\N
+553	HD004791.01	2025-07-08 07:53:46.007	\N	1135	TÂM UNITEK	1	8100000.00	8100000.00	\N	completed	2025-07-30 00:54:59.23	2025-07-30 00:54:59.23	percentage	0.00	0.00	0.00	normal	\N	\N
+554	HD004790	2025-07-08 07:40:24.883	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	490000.00	490000.00	\N	completed	2025-07-30 00:54:59.231	2025-07-30 00:54:59.231	percentage	0.00	0.00	0.00	normal	\N	\N
+555	HD004789	2025-07-08 07:36:26.486	\N	1043	HÀ HOÀNG	1	1050000.00	270000.00	\N	completed	2025-07-30 00:54:59.231	2025-07-30 00:54:59.231	percentage	0.00	0.00	0.00	normal	\N	\N
+556	HD004788	2025-07-08 07:31:36.487	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	6690000.00	6690000.00	\N	completed	2025-07-30 00:54:59.231	2025-07-30 00:54:59.231	percentage	0.00	0.00	0.00	normal	\N	\N
+571	HD004773	2025-07-07 14:16:28.797	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	2000000.00	0.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00	normal	\N	\N
+572	HD004772	2025-07-07 14:14:48.18	\N	1026	HUYỀN TIGERVET	1	2190000.00	0.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00	normal	\N	\N
+573	HD004771.01	2025-07-07 10:25:50.712	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	4210000.00	3310000.00	\N	completed	2025-07-30 00:54:59.233	2025-07-30 00:54:59.233	percentage	0.00	0.00	0.00	normal	\N	\N
+574	HD004770	2025-07-07 09:59:35.153	\N	1178	CHÚ CHƯƠNG - TAM HOÀNG	1	2600000.00	0.00	\N	completed	2025-07-30 00:54:59.234	2025-07-30 00:54:59.234	percentage	0.00	0.00	0.00	normal	\N	\N
+575	HD004769	2025-07-07 09:53:33.522	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	300000.00	300000.00	\N	completed	2025-07-30 00:54:59.234	2025-07-30 00:54:59.234	percentage	0.00	0.00	0.00	normal	\N	\N
+576	HD004768.01	2025-07-07 09:52:01.677	\N	1026	HUYỀN TIGERVET	1	4400000.00	0.00	\N	completed	2025-07-30 00:54:59.234	2025-07-30 00:54:59.234	percentage	0.00	0.00	0.00	normal	\N	\N
+578	HD004766	2025-07-07 09:07:47.146	\N	874	QUÂN BIOFRAM	1	480000.00	480000.00	\N	completed	2025-07-30 00:54:59.234	2025-07-30 00:54:59.234	percentage	0.00	0.00	0.00	normal	\N	\N
+580	HD004764	2025-07-07 08:25:06.047	\N	887	ANH HUY - GÀ - ĐỨC HUY	1	3810000.00	0.00	\N	completed	2025-07-30 00:54:59.235	2025-07-30 00:54:59.235	percentage	0.00	0.00	0.00	normal	\N	\N
+581	HD004763	2025-07-07 08:11:05.987	\N	881	CHÚ HUỲNH - XÃ LỘ 25	1	13000000.00	3000000.00	\N	completed	2025-07-30 00:54:59.235	2025-07-30 00:54:59.235	percentage	0.00	0.00	0.00	normal	\N	\N
+582	HD004762	2025-07-07 07:55:43.51	\N	1057	KHÁCH LẺ	1	450000.00	450000.00	\N	completed	2025-07-30 00:54:59.235	2025-07-30 00:54:59.235	percentage	0.00	0.00	0.00	normal	\N	\N
+583	HD004761	2025-07-07 07:51:29.403	\N	1215	ANH TÂM ( ANH CÔNG)	1	2340000.00	0.00	\N	completed	2025-07-30 00:54:59.235	2025-07-30 00:54:59.235	percentage	0.00	0.00	0.00	normal	\N	\N
+584	HD004760	2025-07-07 07:50:33.962	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	2340000.00	2340000.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00	normal	\N	\N
+585	HD004759	2025-07-07 06:58:01.556	\N	878	ANH TÈO - VÔ NHIỄM	1	920000.00	0.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00	normal	\N	\N
+586	HD004758	2025-07-07 06:44:02.003	\N	1204	ANH HỌC	1	800000.00	0.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00	normal	\N	\N
+587	HD004757.01	2025-07-07 06:26:40.083	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	180000.00	0.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00	normal	\N	\N
+588	HD004756	2025-07-07 06:25:00.172	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	8770000.00	8770000.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00	normal	\N	\N
+589	HD004755	2025-07-07 06:22:44.97	\N	957	CHỊ LOAN -BỐT ĐỎ	1	1320000.00	0.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00	normal	\N	\N
+590	HD004754	2025-07-07 06:20:22.803	\N	1192	CÔ PHƯỢNG - BÌNH LỘC	1	1080000.00	0.00	\N	completed	2025-07-30 00:54:59.236	2025-07-30 00:54:59.236	percentage	0.00	0.00	0.00	normal	\N	\N
+591	HD004753.02	2025-07-07 06:18:37.313	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	1000000.00	1000000.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00	normal	\N	\N
+592	HD004752.01	2025-07-06 18:25:29.489	\N	1057	KHÁCH LẺ	1	450000.00	450000.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00	normal	\N	\N
+593	HD004751.01	2025-07-06 16:36:57.6	\N	1057	KHÁCH LẺ	1	30000.00	30000.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00	normal	\N	\N
+594	HD004750	2025-07-06 16:11:34.343	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	650000.00	0.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00	normal	\N	\N
+595	HD004749.01	2025-07-06 16:00:25.049	\N	1122	TÚ GÀ TA	1	400000.00	0.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00	normal	\N	\N
+596	HD004748	2025-07-06 15:57:45.57	\N	864	ANH TÀI - MARTINO (BÀ NGOẠI)	1	520000.00	0.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00	normal	\N	\N
+597	HD004747	2025-07-06 15:55:41.84	\N	1113	ANH TÀI - GÀ TA - MARTINO	1	520000.00	0.00	\N	completed	2025-07-30 00:54:59.237	2025-07-30 00:54:59.237	percentage	0.00	0.00	0.00	normal	\N	\N
+598	HD004746	2025-07-06 09:36:39.452	\N	1062	CHỊ HƯƠNG-THÀNH AN	1	465000.00	465000.00	\N	completed	2025-07-30 00:54:59.238	2025-07-30 00:54:59.238	percentage	0.00	0.00	0.00	normal	\N	\N
+599	HD004745	2025-07-06 08:17:44.786	\N	863	NGUYỆT SƠN LÂM	1	600000.00	600000.00	\N	completed	2025-07-30 00:54:59.238	2025-07-30 00:54:59.238	percentage	0.00	0.00	0.00	normal	\N	\N
+600	HD004744	2025-07-06 08:09:40.576	\N	1030	CHÚ HÙNG - VÕ DÕNG	1	820000.00	0.00	\N	completed	2025-07-30 00:54:59.238	2025-07-30 00:54:59.238	percentage	0.00	0.00	0.00	normal	\N	\N
+602	HD004742	2025-07-06 07:33:36.196	\N	1176	ANH SỸ -TAM HOÀNG	1	700000.00	0.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00	normal	\N	\N
+603	HD004741.01	2025-07-06 07:11:26.083	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00	normal	\N	\N
+604	HD004740	2025-07-06 06:51:36.287	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	2500000.00	0.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00	normal	\N	\N
+605	HD004739	2025-07-06 06:49:02.053	\N	1175	ANH PHÙNG - TAM HOÀNG-NINH PHÁT	1	1900000.00	1805000.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00	normal	\N	\N
+606	HD004738	2025-07-06 06:34:20.723	\N	1114	CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI	1	3250000.00	0.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00	normal	\N	\N
+607	HD004737.01	2025-07-06 06:33:13.252	\N	1025	CÔ NGA VỊT - SUỐI NHO	1	4100000.00	0.00	\N	completed	2025-07-30 00:54:59.459	2025-07-30 00:54:59.459	percentage	0.00	0.00	0.00	normal	\N	\N
+608	HD004736	2025-07-06 06:26:59.653	\N	1057	KHÁCH LẺ	1	20000.00	20000.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00	normal	\N	\N
+609	HD004735	2025-07-05 17:22:54.98	\N	1057	KHÁCH LẺ	1	50000.00	50000.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00	normal	\N	\N
+610	HD004734.01	2025-07-05 16:21:56.907	\N	942	ANH TRUYỀN  - TAM HOÀNG - GIA PHÁT 1	1	2250000.00	0.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00	normal	\N	\N
+611	HD004733	2025-07-05 15:24:17.673	\N	1009	ANH TRƯỜNG - CẦU CƯỜNG	1	680000.00	680000.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00	normal	\N	\N
+612	HD004732	2025-07-05 14:32:04.303	\N	1129	SÁNG TẰNG HAID	1	1750000.00	1750000.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00	normal	\N	\N
+613	HD004731	2025-07-05 14:30:17.587	\N	1208	ANH SỸ - VỊT	1	4500000.00	0.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00	normal	\N	\N
+614	HD004730	2025-07-05 14:29:00.623	\N	1190	CHỊ QUYÊN - VỊT	1	6700000.00	0.00	\N	completed	2025-07-30 00:54:59.46	2025-07-30 00:54:59.46	percentage	0.00	0.00	0.00	normal	\N	\N
+615	HD004729	2025-07-05 11:23:35.08	\N	875	NHUNG VIETVET	1	2238000.00	0.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00	normal	\N	\N
+617	HD004727.01	2025-07-05 10:26:38.383	\N	1215	ANH TÂM ( ANH CÔNG)	1	1440000.00	0.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00	normal	\N	\N
+618	HD004726	2025-07-05 09:52:23.522	\N	943	THÚ Y ĐÌNH HIỀN	1	2910000.00	2910000.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00	normal	\N	\N
+619	HD004725	2025-07-05 09:43:24.527	\N	1185	ANH LÂM (8K) - TRẠI 4	1	600000.00	0.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00	normal	\N	\N
+620	HD004724	2025-07-05 09:42:36.53	\N	1032	ANH LÂM (5K) - TRẠI 2	1	660000.00	0.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00	normal	\N	\N
+621	HD004723	2025-07-05 09:41:58.95	\N	1226	ANH LÂM (5k) - TRẠI 1	1	1320000.00	0.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00	normal	\N	\N
+622	HD004722	2025-07-05 09:41:11.953	\N	1041	KHẢI ( CÔ CHUNG)	1	1800000.00	0.00	\N	completed	2025-07-30 00:54:59.461	2025-07-30 00:54:59.461	percentage	0.00	0.00	0.00	normal	\N	\N
+623	HD004721	2025-07-05 09:40:08.792	TH000179	990	ANH HIẾU - DÊ	1	550000.00	550000.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00	normal	\N	\N
+624	HD004720	2025-07-05 09:31:23.182	\N	1048	ANH TRIỆU - GIA KIỆM	1	3500000.00	0.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00	normal	\N	\N
+625	HD004719	2025-07-05 08:57:20.729	\N	1195	ANH PHONG - SUỐI ĐÁ 2	1	4800000.00	0.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00	normal	\N	\N
+626	HD004718	2025-07-05 08:41:31.15	\N	864	ANH TÀI - MARTINO (BÀ NGOẠI)	1	930000.00	0.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00	normal	\N	\N
+627	HD004717	2025-07-05 08:39:00.98	\N	936	ANH VŨ - GÀ ĐẺ	1	350000.00	90000.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00	normal	\N	\N
+628	HD004716.01	2025-07-05 08:15:31.512	\N	1122	TÚ GÀ TA	1	360000.00	0.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00	normal	\N	\N
+629	HD004715.01	2025-07-05 08:11:37.237	\N	996	ANH PHONG - SUỐI ĐÁ 3	1	1100000.00	0.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00	normal	\N	\N
+630	HD004714	2025-07-05 08:10:25.477	\N	1058	ANH PHONG - SUỐI ĐÁ 1	1	3300000.00	0.00	\N	completed	2025-07-30 00:54:59.462	2025-07-30 00:54:59.462	percentage	0.00	0.00	0.00	normal	\N	\N
+631	HD004713.01	2025-07-05 07:30:01.853	\N	1215	ANH TÂM ( ANH CÔNG)	1	8610000.00	0.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00	normal	\N	\N
+632	HD004712	2025-07-05 07:12:53.893	\N	1176	ANH SỸ -TAM HOÀNG	1	1200000.00	0.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00	normal	\N	\N
+577	HD004767	2025-07-07 09:46:55.303	\N	1228	Khách lẻ	1	130000.00	130000.00	\N	completed	2025-07-30 00:54:59.234	2025-07-30 00:54:59.234	percentage	0.00	0.00	0.00	normal	\N	\N
+634	HD004710.03	2025-07-05 06:29:57.73	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	600000.00	600000.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00	normal	\N	\N
+635	HD004709	2025-07-05 06:27:16.777	\N	883	ANH HẢI CJ	1	1110000.00	1110000.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00	normal	\N	\N
+636	HD004708	2025-07-05 06:21:12.987	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	2360000.00	2360000.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00	normal	\N	\N
+637	HD004707.01	2025-07-05 06:19:27.293	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	1380000.00	0.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00	normal	\N	\N
+638	HD004706	2025-07-05 06:18:12.219	\N	1134	CHÚ CẦN - GÀ ĐẺ - NINH PHÁT	1	1380000.00	0.00	\N	completed	2025-07-30 00:54:59.463	2025-07-30 00:54:59.463	percentage	0.00	0.00	0.00	normal	\N	\N
+640	HD004704	2025-07-04 17:42:26.12	\N	1062	CHỊ HƯƠNG-THÀNH AN	1	1190000.00	1190000.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00	normal	\N	\N
+641	HD004703	2025-07-04 17:21:00.4	\N	1051	ANH HUYẾN - CÚT	1	800000.00	760000.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00	normal	\N	\N
+642	HD004702	2025-07-04 15:41:08.846	\N	1135	TÂM UNITEK	1	5900000.00	5900000.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00	normal	\N	\N
+643	HD004701	2025-07-04 15:25:19.492	\N	1032	ANH LÂM (5K) - TRẠI 2	1	3600000.00	0.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00	normal	\N	\N
+644	HD004700	2025-07-04 15:00:35.897	\N	990	ANH HIẾU - DÊ	1	2950000.00	840000.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00	normal	\N	\N
+645	HD004699.01	2025-07-04 14:42:09.846	\N	1190	CHỊ QUYÊN - VỊT	1	1400000.00	0.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00	normal	\N	\N
+646	HD004698	2025-07-04 14:37:01.387	\N	875	NHUNG VIETVET	1	10800000.00	0.00	\N	completed	2025-07-30 00:54:59.464	2025-07-30 00:54:59.464	percentage	0.00	0.00	0.00	normal	\N	\N
+647	HD004697	2025-07-04 14:30:33.863	\N	1043	HÀ HOÀNG	1	840000.00	840000.00	\N	completed	2025-07-30 00:54:59.465	2025-07-30 00:54:59.465	percentage	0.00	0.00	0.00	normal	\N	\N
+648	HD004696	2025-07-04 14:29:12.307	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	7990000.00	7990000.00	\N	completed	2025-07-30 00:54:59.465	2025-07-30 00:54:59.465	percentage	0.00	0.00	0.00	normal	\N	\N
+649	HD004695	2025-07-04 10:59:28.653	\N	992	XUÂN ( THUÊ NGÁT)	1	3150000.00	150000.00	\N	completed	2025-07-30 00:54:59.465	2025-07-30 00:54:59.465	percentage	0.00	0.00	0.00	normal	\N	\N
+650	HD004694	2025-07-04 09:04:57.276	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	3000000.00	3000000.00	\N	completed	2025-07-30 00:54:59.465	2025-07-30 00:54:59.465	percentage	0.00	0.00	0.00	normal	\N	\N
+651	HD004693	2025-07-04 09:03:39.073	\N	1154	ANH THÁI - VỊT - PHÚC NHẠC	1	3000000.00	3000000.00	\N	completed	2025-07-30 00:54:59.714	2025-07-30 00:54:59.714	percentage	0.00	0.00	0.00	normal	\N	\N
+652	HD004692	2025-07-04 07:39:12.047	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	8480000.00	8480000.00	\N	completed	2025-07-30 00:54:59.715	2025-07-30 00:54:59.715	percentage	0.00	0.00	0.00	normal	\N	\N
+653	HD004691	2025-07-04 06:38:51.43	\N	1046	ANH TRUYỀN - TAM HOÀNG - GIA PHÁT 2	1	7750000.00	0.00	\N	completed	2025-07-30 00:54:59.715	2025-07-30 00:54:59.715	percentage	0.00	0.00	0.00	normal	\N	\N
+654	HD004690	2025-07-04 06:27:45.413	\N	1025	CÔ NGA VỊT - SUỐI NHO	1	5500000.00	0.00	\N	completed	2025-07-30 00:54:59.715	2025-07-30 00:54:59.715	percentage	0.00	0.00	0.00	normal	\N	\N
+655	HD004689	2025-07-04 06:25:28.043	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	1230000.00	0.00	\N	completed	2025-07-30 00:54:59.715	2025-07-30 00:54:59.715	percentage	0.00	0.00	0.00	normal	\N	\N
+656	HD004687	2025-07-03 17:45:56.57	\N	912	CÔ VỠI - XUÂN BẮC	1	5350000.00	0.00	\N	completed	2025-07-30 00:54:59.715	2025-07-30 00:54:59.715	percentage	0.00	0.00	0.00	normal	\N	\N
+658	HD004685	2025-07-03 17:00:18.41	\N	876	CHÚ DŨNG - ĐỐNG ĐA - LỨA MỚI	1	3450000.00	0.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00	normal	\N	\N
+659	HD004684	2025-07-03 16:46:54.623	\N	1198	CÔ QUYỀN - ĐỨC LONG	1	15920000.00	0.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00	normal	\N	\N
+660	HD004683	2025-07-03 15:40:30.613	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	1950000.00	1950000.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00	normal	\N	\N
+661	HD004682	2025-07-03 15:07:56.277	\N	1057	KHÁCH LẺ	1	230000.00	230000.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00	normal	\N	\N
+662	HD004681	2025-07-03 15:03:09.973	\N	1185	ANH LÂM (8K) - TRẠI 4	1	900000.00	0.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00	normal	\N	\N
+663	HD004680	2025-07-03 15:00:56.62	\N	947	ANH LÂM (6K) - TRẠI 3	1	2250000.00	0.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00	normal	\N	\N
+664	HD004679	2025-07-03 14:59:42.883	\N	1032	ANH LÂM (5K) - TRẠI 2	1	450000.00	0.00	\N	completed	2025-07-30 00:54:59.716	2025-07-30 00:54:59.716	percentage	0.00	0.00	0.00	normal	\N	\N
+665	HD004678	2025-07-03 14:58:20.72	\N	1226	ANH LÂM (5k) - TRẠI 1	1	450000.00	0.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00	normal	\N	\N
+666	HD004677	2025-07-03 14:23:47.44	\N	1122	TÚ GÀ TA	1	1950000.00	0.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00	normal	\N	\N
+667	HD004676	2025-07-03 14:17:17.116	\N	1057	KHÁCH LẺ	1	210000.00	210000.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00	normal	\N	\N
+668	HD004675	2025-07-03 11:25:07.647	\N	1155	ANH PHONG - VỊT (NHÀ)	1	7020000.00	1570000.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00	normal	\N	\N
+669	HD004674	2025-07-03 10:21:24.48	\N	990	ANH HIẾU - DÊ	1	1320000.00	1320000.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00	normal	\N	\N
+670	HD004673	2025-07-03 10:10:00.393	\N	1176	ANH SỸ -TAM HOÀNG	1	3640000.00	0.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00	normal	\N	\N
+671	HD004672	2025-07-03 10:05:30.57	\N	1135	TÂM UNITEK	1	3900000.00	3900000.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00	normal	\N	\N
+672	HD004671.01	2025-07-03 09:02:12.567	\N	1062	CHỊ HƯƠNG-THÀNH AN	1	5070000.00	5070000.00	\N	completed	2025-07-30 00:54:59.717	2025-07-30 00:54:59.717	percentage	0.00	0.00	0.00	normal	\N	\N
+673	HD004670	2025-07-03 08:45:59.01	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	7150000.00	7150000.00	\N	completed	2025-07-30 00:54:59.718	2025-07-30 00:54:59.718	percentage	0.00	0.00	0.00	normal	\N	\N
+674	HD004669	2025-07-03 08:44:15.437	\N	922	HUY - NINH PHÁT	1	310000.00	0.00	\N	completed	2025-07-30 00:54:59.718	2025-07-30 00:54:59.718	percentage	0.00	0.00	0.00	normal	\N	\N
+675	HD004668	2025-07-03 08:27:03.813	\N	1080	CÔNG ARIVIET	1	9170000.00	9170000.00	\N	completed	2025-07-30 00:54:59.718	2025-07-30 00:54:59.718	percentage	0.00	0.00	0.00	normal	\N	\N
+676	HD004667	2025-07-03 07:04:22.753	\N	1080	CÔNG ARIVIET	1	4520000.00	4520000.00	\N	completed	2025-07-30 00:54:59.718	2025-07-30 00:54:59.718	percentage	0.00	0.00	0.00	normal	\N	\N
+677	HD004666	2025-07-03 06:44:12.992	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	4500000.00	0.00	\N	completed	2025-07-30 00:54:59.718	2025-07-30 00:54:59.718	percentage	0.00	0.00	0.00	normal	\N	\N
+678	HD004665	2025-07-03 06:32:42.773	\N	1080	CÔNG ARIVIET	1	1100000.00	1100000.00	\N	completed	2025-07-30 00:54:59.719	2025-07-30 00:54:59.719	percentage	0.00	0.00	0.00	normal	\N	\N
+680	HD004663.01	2025-07-03 06:28:22.647	\N	1048	ANH TRIỆU - GIA KIỆM	1	2500000.00	0.00	\N	completed	2025-07-30 00:54:59.719	2025-07-30 00:54:59.719	percentage	0.00	0.00	0.00	normal	\N	\N
+681	HD004662	2025-07-03 06:20:38.712	\N	1180	ANH HÙNG - BỘ - TAM HOÀNG	1	1130000.00	0.00	\N	completed	2025-07-30 00:54:59.719	2025-07-30 00:54:59.719	percentage	0.00	0.00	0.00	normal	\N	\N
+682	HD004661	2025-07-03 06:18:02.26	\N	992	XUÂN ( THUÊ NGÁT)	1	0.00	0.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00	normal	\N	\N
+683	HD004660	2025-07-03 06:17:03.013	\N	992	XUÂN ( THUÊ NGÁT)	1	8000000.00	8000000.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00	normal	\N	\N
+684	HD004659	2025-07-03 06:14:08.56	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	900000.00	900000.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00	normal	\N	\N
+685	HD004658	2025-07-02 16:51:47.13	\N	1057	KHÁCH LẺ	1	200000.00	200000.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00	normal	\N	\N
+686	HD004657.01	2025-07-02 15:01:49.23	\N	1192	CÔ PHƯỢNG - BÌNH LỘC	1	1110000.00	0.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00	normal	\N	\N
+687	HD004656	2025-07-02 15:00:21.75	\N	1165	ANH QUANG- GÀ TA- LẠC SƠN	1	2600000.00	2600000.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00	normal	\N	\N
+688	HD004655	2025-07-02 14:46:32.543	\N	990	ANH HIẾU - DÊ	1	1100000.00	1100000.00	\N	completed	2025-07-30 00:54:59.72	2025-07-30 00:54:59.72	percentage	0.00	0.00	0.00	normal	\N	\N
+689	HD004654	2025-07-02 14:43:20.087	\N	892	ANH HOAN - XUÂN BẮC	1	5200000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00	normal	\N	\N
+690	HD004653	2025-07-02 11:10:03.79	\N	1215	ANH TÂM ( ANH CÔNG)	1	6760000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00	normal	\N	\N
+691	HD004652	2025-07-02 10:26:01.62	\N	1062	CHỊ HƯƠNG-THÀNH AN	1	520000.00	520000.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00	normal	\N	\N
+692	HD004651	2025-07-02 10:04:07.187	\N	1048	ANH TRIỆU - GIA KIỆM	1	800000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00	normal	\N	\N
+693	HD004650	2025-07-02 09:11:54.223	\N	1182	ANH VŨ (CÔ HUỆ) - TAM HOÀNG	1	5800000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00	normal	\N	\N
+694	HD004649	2025-07-02 08:54:49.752	\N	1185	ANH LÂM (8K) - TRẠI 4	1	2980000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00	normal	\N	\N
+695	HD004648	2025-07-02 08:51:38.883	\N	1226	ANH LÂM (5k) - TRẠI 1	1	2640000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00	normal	\N	\N
+1	HD005354	2025-07-28 10:36:38.429	\N	1208	ANH SỸ - VỊT	1	7365000.00	0.00	\N	completed	2025-07-30 00:54:56.163	2025-07-30 00:54:56.163	percentage	0.00	0.00	0.00	normal	\N	\N
+11	HD005344	2025-07-28 08:16:52.967	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	2760000.00	0.00	\N	completed	2025-07-30 00:54:56.166	2025-07-30 00:54:56.166	percentage	0.00	0.00	0.00	normal	\N	\N
+30	HD005325	2025-07-27 07:52:23.696	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	350000.00	0.00	\N	completed	2025-07-30 00:54:56.17	2025-07-30 00:54:56.17	percentage	0.00	0.00	0.00	normal	\N	\N
+49	HD005306	2025-07-26 09:10:06.159	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	1635000.00	0.00	\N	completed	2025-07-30 00:54:56.173	2025-07-30 00:54:56.173	percentage	0.00	0.00	0.00	normal	\N	\N
+64	HD005291.02	2025-07-26 06:43:11.927	\N	1220	ANH LÂM - TAM HOÀNG - NINH PHÁT	1	2160000.00	400000.00	\N	completed	2025-07-30 00:54:56.462	2025-07-30 00:54:56.462	percentage	0.00	0.00	0.00	normal	\N	\N
+67	HD005287	2025-07-26 06:34:31.203	\N	987	THƯƠNG CHÍCH - TRẢNG BOM	1	1030000.00	0.00	\N	completed	2025-07-30 00:54:56.463	2025-07-30 00:54:56.463	percentage	0.00	0.00	0.00	normal	\N	\N
+87	HD005266	2025-07-25 07:54:19.44	\N	905	ANH DUY - PHƯƠNG LÂM	1	3420000.00	0.00	\N	completed	2025-07-30 00:54:56.467	2025-07-30 00:54:56.467	percentage	0.00	0.00	0.00	normal	\N	\N
+103	HD005250	2025-07-24 17:46:57.219	\N	887	ANH HUY - GÀ - ĐỨC HUY	1	1750000.00	0.00	\N	completed	2025-07-30 00:54:56.718	2025-07-30 00:54:56.718	percentage	0.00	0.00	0.00	normal	\N	\N
+122	HD005230.01	2025-07-24 07:02:30.622	\N	841	ANH VƯƠNG NHẤT - TÍN NGHĨA	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:56.721	2025-07-30 00:54:56.721	percentage	0.00	0.00	0.00	normal	\N	\N
+129	HD005223	2025-07-24 06:31:11.267	\N	1180	ANH HÙNG - BỘ - TAM HOÀNG	1	1130000.00	0.00	\N	completed	2025-07-30 00:54:56.723	2025-07-30 00:54:56.723	percentage	0.00	0.00	0.00	normal	\N	\N
+142	HD005209	2025-07-23 11:15:11.17	\N	1114	CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI	1	5250000.00	0.00	\N	completed	2025-07-30 00:54:56.725	2025-07-30 00:54:56.725	percentage	0.00	0.00	0.00	normal	\N	\N
+169	HD005182	2025-07-22 15:44:54.319	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	1000000.00	0.00	\N	completed	2025-07-30 00:54:56.963	2025-07-30 00:54:56.963	percentage	0.00	0.00	0.00	normal	\N	\N
+185	HD005165	2025-07-22 08:59:28.177	\N	898	ANH ĐEN - GÀ - VÔ NHIỄM 2K	1	260000.00	0.00	\N	completed	2025-07-30 00:54:56.966	2025-07-30 00:54:56.966	percentage	0.00	0.00	0.00	normal	\N	\N
+190	HD005160	2025-07-22 07:56:15.109	\N	1183	ANH CU - TAM HOÀNG HƯNG LỘC	1	13950000.00	0.00	\N	completed	2025-07-30 00:54:56.967	2025-07-30 00:54:56.967	percentage	0.00	0.00	0.00	normal	\N	\N
+191	HD005159.01	2025-07-22 07:18:18.882	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	400000.00	0.00	\N	completed	2025-07-30 00:54:56.967	2025-07-30 00:54:56.967	percentage	0.00	0.00	0.00	normal	\N	\N
+206	HD005144	2025-07-21 15:54:55.656	\N	923	ANH BIỂN - TAM HOÀNG - CÂY GÁO LÔ MỚI	1	12600000.00	0.00	\N	completed	2025-07-30 00:54:57.298	2025-07-30 00:54:57.298	percentage	0.00	0.00	0.00	normal	\N	\N
+229	HD005121	2025-07-20 15:44:13.797	\N	859	ANH QUẢNG - LONG THÀNH	1	2600000.00	0.00	\N	completed	2025-07-30 00:54:57.305	2025-07-30 00:54:57.305	percentage	0.00	0.00	0.00	normal	\N	\N
+248	HD005101.01	2025-07-19 10:26:30.713	\N	852	ANH VƯƠNG  KÍNH - TÍN NGHĨA	1	700000.00	0.00	\N	completed	2025-07-30 00:54:57.308	2025-07-30 00:54:57.308	percentage	0.00	0.00	0.00	normal	\N	\N
+697	HD004646.02	2025-07-02 08:23:16.333	\N	881	CHÚ HUỲNH - XÃ LỘ 25	1	3100000.00	3100000.00	\N	completed	2025-07-30 00:54:59.722	2025-07-30 00:54:59.722	percentage	0.00	0.00	0.00	normal	\N	\N
+698	HD004645	2025-07-02 08:08:08.757	\N	865	ANH HỌC (LONG)	1	2400000.00	0.00	\N	completed	2025-07-30 00:54:59.722	2025-07-30 00:54:59.722	percentage	0.00	0.00	0.00	normal	\N	\N
+699	HD004644	2025-07-02 08:06:44.962	\N	1135	TÂM UNITEK	1	5800000.00	5800000.00	\N	completed	2025-07-30 00:54:59.722	2025-07-30 00:54:59.722	percentage	0.00	0.00	0.00	normal	\N	\N
+700	HD004643	2025-07-02 08:04:48.132	\N	912	CÔ VỠI - XUÂN BẮC	1	3000000.00	0.00	\N	completed	2025-07-30 00:54:59.722	2025-07-30 00:54:59.722	percentage	0.00	0.00	0.00	normal	\N	\N
+701	HD004642	2025-07-02 07:54:12.702	\N	957	CHỊ LOAN -BỐT ĐỎ	1	2250000.00	0.00	\N	completed	2025-07-30 00:54:59.936	2025-07-30 00:54:59.936	percentage	0.00	0.00	0.00	normal	\N	\N
+702	HD004641	2025-07-02 07:47:15.697	\N	1212	KHẢI 8.500 CON - XUYÊN MỘC	1	4320000.00	0.00	\N	completed	2025-07-30 00:54:59.937	2025-07-30 00:54:59.937	percentage	0.00	0.00	0.00	normal	\N	\N
+704	HD004639	2025-07-02 07:43:36.947	\N	1195	ANH PHONG - SUỐI ĐÁ 2	1	1800000.00	0.00	\N	completed	2025-07-30 00:54:59.937	2025-07-30 00:54:59.937	percentage	0.00	0.00	0.00	normal	\N	\N
+705	HD004638	2025-07-02 07:41:29.62	\N	874	QUÂN BIOFRAM	1	600000.00	600000.00	\N	completed	2025-07-30 00:54:59.937	2025-07-30 00:54:59.937	percentage	0.00	0.00	0.00	normal	\N	\N
+706	HD004637.01	2025-07-02 07:38:47.693	\N	1080	CÔNG ARIVIET	1	1395000.00	1395000.00	\N	completed	2025-07-30 00:54:59.938	2025-07-30 00:54:59.938	percentage	0.00	0.00	0.00	normal	\N	\N
+707	HD004636.01	2025-07-02 07:35:28.597	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	2940000.00	0.00	\N	completed	2025-07-30 00:54:59.938	2025-07-30 00:54:59.938	percentage	0.00	0.00	0.00	normal	\N	\N
+708	HD004635	2025-07-02 07:31:01.216	\N	885	ANH THỨC - TAM HOÀNG	1	3050000.00	0.00	\N	completed	2025-07-30 00:54:59.938	2025-07-30 00:54:59.938	percentage	0.00	0.00	0.00	normal	\N	\N
+709	HD004634	2025-07-02 06:52:07.286	\N	1057	KHÁCH LẺ	1	350000.00	350000.00	\N	completed	2025-07-30 00:54:59.938	2025-07-30 00:54:59.938	percentage	0.00	0.00	0.00	normal	\N	\N
+710	HD004633	2025-07-02 06:49:41.43	\N	1135	TÂM UNITEK	1	1100000.00	1100000.00	\N	completed	2025-07-30 00:54:59.938	2025-07-30 00:54:59.938	percentage	0.00	0.00	0.00	normal	\N	\N
+711	HD004632	2025-07-02 06:45:22.847	\N	1135	TÂM UNITEK	1	7350000.00	7350000.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00	normal	\N	\N
+712	HD004631.01	2025-07-02 06:43:39.499	\N	906	ANH CHÍNH - VÔ NHIỄM	1	11020000.00	0.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00	normal	\N	\N
+713	HD004630.01	2025-07-02 06:39:02.967	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	1820000.00	0.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00	normal	\N	\N
+714	HD004629	2025-07-02 06:35:40.006	\N	1208	ANH SỸ - VỊT	1	3400000.00	0.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00	normal	\N	\N
+715	HD004628	2025-07-01 17:34:34.316	\N	1221	CHÚ PHƯỚC - TAM HOÀNG	1	3500000.00	0.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00	normal	\N	\N
+716	HD004627.01	2025-07-01 17:10:43.47	\N	1122	TÚ GÀ TA	1	720000.00	0.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00	normal	\N	\N
+717	HD004626	2025-07-01 17:02:40.492	\N	1028	A VŨ - GÀ ĐẺ	1	1210000.00	1210000.00	\N	completed	2025-07-30 00:54:59.939	2025-07-30 00:54:59.939	percentage	0.00	0.00	0.00	normal	\N	\N
+718	HD004625	2025-07-01 16:38:14.563	\N	1011	HẢI - TRẢNG BOM	1	860000.00	860000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00	normal	\N	\N
+719	HD004624	2025-07-01 16:33:09.047	\N	866	ANH TÂN - LỘC HOÀ	1	12000000.00	0.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00	normal	\N	\N
+720	HD004623	2025-07-01 14:54:08.782	\N	894	ANH DANH - GÀ TRE - VÔ NHIỄM 9K	1	5490000.00	0.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00	normal	\N	\N
+721	HD004622	2025-07-01 14:49:04.003	\N	1057	KHÁCH LẺ	1	160000.00	160000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00	normal	\N	\N
+723	HD004620	2025-07-01 14:44:46.823	\N	1188	ANH HIỂN - BÀU SẬY	1	5850000.00	5850000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00	normal	\N	\N
+724	HD004619	2025-07-01 14:41:19.043	\N	993	ANH CƯỜNG - PHÚC NHẠC ĐƯỜNG SỐ 8	1	3850000.00	3850000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00	normal	\N	\N
+725	HD004618	2025-07-01 14:38:47.957	\N	1158	ANH TÂM - MARTINO - VỊT (NHÀ)	1	5030000.00	5030000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00	normal	\N	\N
+726	HD004617	2025-07-01 14:23:37.266	\N	926	ĐẠI LÝ GẤU - BÀU CÁ	1	440000.00	440000.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00	normal	\N	\N
+727	HD004616	2025-07-01 14:20:45.08	\N	1041	KHẢI ( CÔ CHUNG)	1	2300000.00	0.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00	normal	\N	\N
+728	HD004615.01	2025-07-01 09:46:47.347	\N	1057	KHÁCH LẺ	1	280000.00	280000.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00	normal	\N	\N
+729	HD004614	2025-07-01 09:42:55.99	\N	887	ANH HUY - GÀ - ĐỨC HUY	1	3400000.00	0.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00	normal	\N	\N
+730	HD004613	2025-07-01 09:40:13.432	\N	958	ANH THUỲ - XUÂN BẮC	1	4200000.00	0.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00	normal	\N	\N
+731	HD004612	2025-07-01 09:38:35.097	\N	1026	HUYỀN TIGERVET	1	4950000.00	0.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00	normal	\N	\N
+732	HD004611	2025-07-01 09:37:21.973	\N	1215	ANH TÂM ( ANH CÔNG)	1	2020000.00	0.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00	normal	\N	\N
+733	HD004610.01	2025-07-01 08:09:20.069	\N	996	ANH PHONG - SUỐI ĐÁ 3	1	980000.00	0.00	\N	completed	2025-07-30 00:54:59.941	2025-07-30 00:54:59.941	percentage	0.00	0.00	0.00	normal	\N	\N
+734	HD004609.01	2025-07-01 08:07:02.859	\N	1058	ANH PHONG - SUỐI ĐÁ 1	1	2030000.00	0.00	\N	completed	2025-07-30 00:54:59.942	2025-07-30 00:54:59.942	percentage	0.00	0.00	0.00	normal	\N	\N
+735	HD004608	2025-07-01 07:05:36.113	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	4900000.00	0.00	\N	completed	2025-07-30 00:54:59.942	2025-07-30 00:54:59.942	percentage	0.00	0.00	0.00	normal	\N	\N
+736	HD004607	2025-07-01 06:26:22.236	\N	1192	CÔ PHƯỢNG - BÌNH LỘC	1	740000.00	0.00	\N	completed	2025-07-30 00:54:59.942	2025-07-30 00:54:59.942	percentage	0.00	0.00	0.00	normal	\N	\N
+737	HD004606	2025-07-01 06:22:20.213	\N	1208	ANH SỸ - VỊT	1	500000.00	0.00	\N	completed	2025-07-30 00:54:59.942	2025-07-30 00:54:59.942	percentage	0.00	0.00	0.00	normal	\N	\N
+738	HD004605.01	2025-07-01 06:20:14.472	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	13080000.00	0.00	\N	completed	2025-07-30 00:54:59.942	2025-07-30 00:54:59.942	percentage	0.00	0.00	0.00	normal	\N	\N
+739	HD004604	2025-07-01 06:18:56.463	\N	881	CHÚ HUỲNH - XÃ LỘ 25	1	1120000.00	1120000.00	\N	completed	2025-07-30 00:54:59.942	2025-07-30 00:54:59.942	percentage	0.00	0.00	0.00	normal	\N	\N
+254	HD005095	2025-07-19 08:44:30.122	\N	1205	TUYẾN DONAVET	1	100000.00	100000.00	\N	completed	2025-07-30 00:54:57.531	2025-07-30 00:54:57.531	percentage	0.00	0.00	0.00	normal	\N	\N
+263	HD005086	2025-07-19 06:34:59.61	\N	1139	ĐẠI LÝ TIÊN PHÚC	1	11840000.00	0.00	\N	completed	2025-07-30 00:54:57.534	2025-07-30 00:54:57.534	percentage	0.00	0.00	0.00	normal	\N	\N
+296	HD004919.01	2025-07-18 06:45:59.777	\N	841	ANH VƯƠNG NHẤT - TÍN NGHĨA	1	3050000.00	0.00	\N	completed	2025-07-30 00:54:57.538	2025-07-30 00:54:57.538	percentage	0.00	0.00	0.00	normal	\N	\N
+335	HD005011	2025-07-16 08:57:05.252	\N	889	TRUNG - BƯU ĐIỆN - LÔ MỚI	1	2520000.00	0.00	\N	completed	2025-07-30 00:54:57.848	2025-07-30 00:54:57.848	percentage	0.00	0.00	0.00	normal	\N	\N
+374	HD004973	2025-07-15 06:25:47.579	\N	1052	TRẠI GÀ ĐẺ - LONG THÀNH	1	1250000.00	1250000.00	\N	completed	2025-07-30 00:54:58.103	2025-07-30 00:54:58.103	percentage	0.00	0.00	0.00	normal	\N	\N
+446	HD004898	2025-07-12 06:21:23.81	\N	1174	CÔ TUYẾN - TAM HOÀNG - CẦU CƯỜNG	1	1120000.00	0.00	\N	completed	2025-07-30 00:54:58.436	2025-07-30 00:54:58.436	percentage	0.00	0.00	0.00	normal	\N	\N
+467	HD004877.01	2025-07-11 06:23:04.09	\N	855	ANH THIÊN - TÍN NGHĨA - LÔ MỚI	1	1260000.00	1260000.00	\N	completed	2025-07-30 00:54:58.676	2025-07-30 00:54:58.676	percentage	0.00	0.00	0.00	normal	\N	\N
+488	HD004856	2025-07-10 14:17:08.379	\N	1210	CHỊ HUYỀN - VÕ DÕNG	1	2720000.00	2720000.00	\N	completed	2025-07-30 00:54:58.683	2025-07-30 00:54:58.683	percentage	0.00	0.00	0.00	normal	\N	\N
+503	HD004841	2025-07-09 16:09:13.87	\N	934	CÔ THẢO - GÀ ĐẺ  - ĐỨC HUY 12K	1	7560000.00	0.00	\N	completed	2025-07-30 00:54:58.991	2025-07-30 00:54:58.991	percentage	0.00	0.00	0.00	normal	\N	\N
+552	HD004792.02	2025-07-08 08:11:50.21	\N	1114	CÔ TUYẾT THU - GÀ TA - PHÚ CƯỜNG (5K) LÔ MỚI	1	4220000.00	0.00	\N	completed	2025-07-30 00:54:59.23	2025-07-30 00:54:59.23	percentage	0.00	0.00	0.00	normal	\N	\N
+679	HD004664	2025-07-03 06:31:58.917	TH000167	1080	CÔNG ARIVIET	1	3640000.00	0.00	\N	completed	2025-07-30 00:54:59.719	2025-07-30 00:54:59.719	percentage	0.00	0.00	0.00	normal	\N	\N
+703	HD004640	2025-07-02 07:45:41.16	\N	992	XUÂN ( THUÊ NGÁT)	1	7360000.00	7360000.00	\N	completed	2025-07-30 00:54:59.937	2025-07-30 00:54:59.937	percentage	0.00	0.00	0.00	normal	\N	\N
+740	HD1754246827011	2025-08-03 18:47:07.011	\N	874	QUÂN BIOFRAM	1	3080000.00	3080000.00	Thanh toán bằng tiền mặt	completed	2025-08-03 18:47:06.080625	2025-08-03 18:47:06.080625	percentage	0.00	0.00	0.00	normal	\N	\N
+743	HD1754312829160	2025-08-04 13:07:09.16	\N	932	ANH KHÁNH - VỊT - SOKLU	1	693000.00	693000.00	Thanh toán bằng chuyển khoản	completed	2025-08-04 13:07:07.43665	2025-08-04 13:07:07.43665	percentage	0.00	0.00	0.00	normal	\N	\N
+746	HD1754380819	2025-08-05 08:00:19.181657	\N	1170	CHÚ CHIỂU - GÀ TA - ĐỨC LONG	1	600000.00	600000.00	Thanh toán tiền mặt | 2 items | Tạo bởi: POS System | Đã thu: 600000 | Thối lại: 0.0000000000000000000000000000000000000000	completed	2025-08-05 08:00:19.181657	2025-08-05 08:00:19.181657	percentage	0.00	0.00	0.00	normal	\N	\N
+749	HD1754382197	2025-08-05 08:23:16.964938	\N	832	ANH HẢI (THUÝ)	1	598500.00	598500.00	POS | Tiền mặt | 2 items | Giảm 50k | VAT 5%	completed	2025-08-05 08:23:16.964938	2025-08-05 08:23:16.964938	amount	50000.00	5.00	28500.00	normal	\N	\N
+752	PAY1754408362	2025-08-05 15:39:21.892108	\N	833	Thắng bida (test)	1	30000000.00	30000000.00	Thu tiền nợ - trả nợ, con thiêu s  20tr	debt_payment	2025-08-05 15:39:21.892108	2025-08-05 15:39:21.892108	percentage	0.00	0.00	0.00	normal	\N	\N
+755	INV2508060003	2025-08-06 06:35:34.302495	\N	833	Thắng bida (test)	1	1301500.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 801500 VND, Phương thức: cash	partial	2025-08-06 06:35:34.302495	2025-08-06 06:35:34.302495	percentage	5.00	0.00	0.00	normal	\N	\N
+758	INV2508060005	2025-08-06 10:55:32.415395	\N	833	Thắng bida (test)	1	2540000.00	0.00	Thanh toán debt: 0 VND, Ghi nợ: 2540000 VND, Phương thức: cash	partial	2025-08-06 10:55:32.415395	2025-08-06 10:55:32.415395	percentage	0.00	0.00	0.00	normal	\N	\N
+761	INV2508060008	2025-08-06 12:52:47.639838	\N	833	Thắng bida (test)	1	891000.00	400000.00	Thanh toán partial: 400000 VND, Ghi nợ: 491000 VND, Phương thức: cash	partial	2025-08-06 12:52:47.639838	2025-08-06 12:52:47.639838	amount	90000.00	10.00	81000.00	normal	\N	\N
+764	INV2508110011	2025-08-11 11:21:02.467332	\N	833	Thắng bida (test)	1	820000.00	120000.00	Thanh toán partial: 120000 VND, Ghi nợ: 700000 VND, Phương thức: cash	partial	2025-08-11 11:21:02.467332	2025-08-11 11:21:02.467332	percentage	0.00	0.00	0.00	normal	\N	\N
+767	PAY1755245220	2025-08-15 08:07:00.450693	\N	873	THÚ Y KHANH THUỶ - VĨNH CỬU	1	2000000.00	2000000.00	Thu tiền nợ - Text thử	debt_payment	2025-08-15 08:07:00.450693	2025-08-15 08:07:00.450693	percentage	0.00	0.00	0.00	normal	\N	\N
+770	PAY1755322734	2025-08-16 05:38:54.49221	\N	833	Thắng bida (test)	1	4000000.00	4000000.00	Thu tiền nợ - tran tien mat	debt_payment	2025-08-16 05:38:54.49221	2025-08-16 05:38:54.49221	percentage	0.00	0.00	0.00	normal	\N	\N
+773	INV2509030015	2025-09-03 05:10:37.025034	\N	839	CHÚ PHƯỚC VỊNH - NINH PHÁT	1	50000.00	20000.00	Thanh toán partial: 20000 VND, Ghi nợ: 27500 VND, Phương thức: cash	partial	2025-09-03 05:10:37.025034	2025-09-03 05:10:37.025034	percentage	0.00	0.00	0.00	normal	\N	\N
+776	INV2509030018	2025-09-03 11:31:16.284355	\N	937	ANH TUẤN - VỊT - TÍN NGHĨA	1	190000.00	100000.00	Thanh toán partial: 100000 VND, Ghi nợ: 90000 VND, Phương thức: cash	partial	2025-09-03 11:31:16.284355	2025-09-03 11:31:16.284355	percentage	0.00	0.00	0.00	normal	\N	\N
+282	HD005066	2025-07-18 09:56:36.503	\N	1203	CHỊ LOAN ( ĐỊNH)	1	5800000.00	0.00	\N	completed	2025-07-30 00:54:57.537	2025-07-30 00:54:57.537	percentage	0.00	0.00	0.00	normal	\N	\N
+357	HD004989	2025-07-15 11:54:47.662	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	5280000.00	0.00	\N	completed	2025-07-30 00:54:58.099	2025-07-30 00:54:58.099	percentage	0.00	0.00	0.00	normal	\N	\N
+381	HD004966.01	2025-07-14 16:25:29.287	\N	1048	ANH TRIỆU - GIA KIỆM	1	200000.00	0.00	\N	completed	2025-07-30 00:54:58.104	2025-07-30 00:54:58.104	percentage	0.00	0.00	0.00	normal	\N	\N
+408	HD004938	2025-07-13 16:43:26.82	\N	1009	ANH TRƯỜNG - CẦU CƯỜNG	1	400000.00	0.00	\N	completed	2025-07-30 00:54:58.429	2025-07-30 00:54:58.429	percentage	0.00	0.00	0.00	normal	\N	\N
+423	HD004922	2025-07-12 15:46:33.11	\N	1123	CHỊ THÚY - GÀ ĐẺ - NINH PHÁT	1	1600000.00	0.00	\N	completed	2025-07-30 00:54:58.432	2025-07-30 00:54:58.432	percentage	0.00	0.00	0.00	normal	\N	\N
+444	HD004901	2025-07-12 06:54:05.963	\N	1189	ANH MINH VƯƠNG - TÍN NGHĨA	1	6560000.00	0.00	\N	completed	2025-07-30 00:54:58.435	2025-07-30 00:54:58.435	percentage	0.00	0.00	0.00	normal	\N	\N
+507	HD004837	2025-07-09 15:25:51.916	\N	1057	KHÁCH LẺ	1	40000.00	40000.00	\N	completed	2025-07-30 00:54:58.992	2025-07-30 00:54:58.992	percentage	0.00	0.00	0.00	normal	\N	\N
+535	HD004809	2025-07-08 16:35:04.012	\N	889	TRUNG - BƯU ĐIỆN - LÔ MỚI	1	1040000.00	1040000.00	\N	completed	2025-07-30 00:54:58.996	2025-07-30 00:54:58.996	percentage	0.00	0.00	0.00	normal	\N	\N
+696	HD004647	2025-07-02 08:49:16.029	\N	1032	ANH LÂM (5K) - TRẠI 2	1	5680000.00	0.00	\N	completed	2025-07-30 00:54:59.721	2025-07-30 00:54:59.721	percentage	0.00	0.00	0.00	normal	\N	\N
+741	HD1754268864323	2025-08-04 00:54:24.324	\N	932	ANH KHÁNH - VỊT - SOKLU	1	836000.00	836000.00	Thanh toán bằng chuyển khoản	completed	2025-08-04 00:54:23.328636	2025-08-04 00:54:23.328636	percentage	0.00	0.00	0.00	normal	\N	\N
+744	HD1754328295337	2025-08-04 17:24:55.337	\N	932	ANH KHÁNH - VỊT - SOKLU	1	660000.00	660000.00	Thanh toán bằng thẻ	completed	2025-08-04 17:24:53.98314	2025-08-04 17:24:53.98314	percentage	0.00	0.00	0.00	normal	\N	\N
+747	HD1754381052	2025-08-05 08:04:12.175956	\N	830	CHỊ TRINH - VĨNH CỬU 4K	1	1018500.00	1018500.00	Thanh toán tiền mặt | 2 items | Tạo bởi: POS System | Đã thu: 1018500 | Thối lại: 0.00000000000000000000	completed	2025-08-05 08:04:12.175956	2025-08-05 08:04:12.175956	amount	50000.00	5.00	48500.00	normal	\N	\N
+750	HD1754382269	2025-08-05 08:24:29.140906	\N	873	THÚ Y KHANH THUỶ - VĨNH CỬU	1	2430648.00	2430648.00	POS | Tiền mặt | 4 items | Giảm 7% | VAT 8%	completed	2025-08-05 08:24:29.140906	2025-08-05 08:24:29.140906	percentage	7.00	8.00	180048.00	normal	\N	\N
+756	PAY1754462404	2025-08-06 06:40:04.187086	\N	833	Thắng bida (test)	1	3500000.00	3500000.00	Thu tiền nợ - trả tiền mặt	debt_payment	2025-08-06 06:40:04.187086	2025-08-06 06:40:04.187086	percentage	0.00	0.00	0.00	normal	\N	\N
+759	INV2508060006	2025-08-06 12:45:58.938618	\N	831	ANH HẢI (TUẤN)	1	691200.00	300000.00	Thanh toán partial: 300000 VND, Ghi nợ: 391200 VND, Phương thức: cash	partial	2025-08-06 12:45:58.938618	2025-08-06 12:45:58.938618	amount	50000.00	8.00	51200.00	normal	\N	\N
+762	INV2508060009	2025-08-06 12:57:39.945966	\N	833	Thắng bida (test)	1	1870000.00	100000.00	Thanh toán partial: 100000 VND, Ghi nợ: 1770000 VND, Phương thức: cash	partial	2025-08-06 12:57:39.945966	2025-08-06 12:57:39.945966	amount	70000.00	10.00	170000.00	normal	\N	\N
+765	PAY1754911338	2025-08-11 11:22:17.770479	\N	833	Thắng bida (test)	1	5000000.00	5000000.00	Thu tiền nợ - Gì nợ	debt_payment	2025-08-11 11:22:17.770479	2025-08-11 11:22:17.770479	percentage	0.00	0.00	0.00	normal	\N	\N
+768	INV2508150012	2025-08-15 08:11:51.434329	\N	834	CHỊ LIỄU - LONG THÀNH	1	1050000.00	0.00	Thanh toán debt: 0 VND, Ghi nợ: 1050000 VND, Phương thức: cash	partial	2025-08-15 08:11:51.434329	2025-08-15 08:11:51.434329	percentage	0.00	0.00	0.00	normal	\N	\N
+771	INV2508180014	2025-08-18 16:01:41.222297	\N	937	ANH TUẤN - VỊT - TÍN NGHĨA	1	5520000.00	1000000.00	Thanh toán partial: 1000000 VND, Ghi nợ: 4520000 VND, Phương thức: cash	partial	2025-08-18 16:01:41.222297	2025-08-18 16:01:41.222297	amount	500000.00	0.00	0.00	normal	\N	\N
+774	INV2509030016	2025-09-03 06:07:03.497387	\N	837	EM HẢI - TÂN PHÚ	1	47500.00	0.00	Thanh toán debt: 0 VND, Ghi nợ: 47500 VND, Phương thức: cash	partial	2025-09-03 06:07:03.497387	2025-09-03 06:07:03.497387	percentage	0.00	0.00	0.00	normal	\N	\N
+310	HD005038	2025-07-17 11:07:21.637	\N	868	QUYỀN - TAM HOÀNG LÔ MỚI	1	700000.00	0.00	\N	completed	2025-07-30 00:54:57.844	2025-07-30 00:54:57.844	percentage	0.00	0.00	0.00	normal	\N	\N
+319	HD005029	2025-07-17 08:01:31.273	\N	843	CHÚ MẪN - CÚT - VÕ DÕNG	1	650000.00	650000.00	\N	completed	2025-07-30 00:54:57.845	2025-07-30 00:54:57.845	percentage	0.00	0.00	0.00	normal	\N	\N
+394	HD004952	2025-07-14 08:15:38.13	\N	1215	ANH TÂM ( ANH CÔNG)	1	2150000.00	0.00	\N	completed	2025-07-30 00:54:58.105	2025-07-30 00:54:58.105	percentage	0.00	0.00	0.00	normal	\N	\N
+521	HD004823.01	2025-07-09 08:18:13.403	\N	857	ANH ĐEN - GÀ - VÔ NHIỄM 3K	1	830000.00	0.00	\N	completed	2025-07-30 00:54:58.994	2025-07-30 00:54:58.994	percentage	0.00	0.00	0.00	normal	\N	\N
+722	HD004621	2025-07-01 14:47:20.637	\N	1220	ANH LÂM - TAM HOÀNG - NINH PHÁT	1	4400000.00	4180000.00	\N	completed	2025-07-30 00:54:59.94	2025-07-30 00:54:59.94	percentage	0.00	0.00	0.00	normal	\N	\N
+742	HD1754307855017	2025-08-04 11:44:15.017	\N	925	ANH THUỶ - VỊT - ĐỨC HUY	1	2684000.00	2684000.00	Thanh toán bằng chuyển khoản	completed	2025-08-04 11:44:13.407038	2025-08-04 11:44:13.407038	percentage	0.00	0.00	0.00	normal	\N	\N
+745	HD1754361111	2025-08-05 02:31:51.073582	\N	1076	ANH CHIẾN-KHÁNH	1	1890000.00	1890000.00	{"summary": "Thanh toán thẻ | VAT 5% (90000.00000000000000000000000000000000 VND) | Giảm giá 10% = 200000.000000000000 VND | Tạm tính: 2000000 VND | Thành tiền: 1890000.00000000000000000000000000000000 VND", "vat_rate": 5, "warnings": [], "created_by": "POS System", "item_count": 2, "vat_amount": 90000.00000000000000000000000000000000, "change_amount": 0.00000000000000000000000000000000, "discount_type": "percentage", "discount_value": 10, "payment_method": "card", "total_quantity": 3, "discount_amount": 200000.000000000000, "subtotal_amount": 2000000}	completed	2025-08-05 02:31:51.073582	2025-08-05 02:31:51.073582	percentage	0.00	0.00	0.00	normal	\N	\N
+748	HD1754381745	2025-08-05 08:15:45.23856	\N	875	NHUNG VIETVET	1	570000.00	570000.00	POS | Tiền mặt | 2 items | Giảm 50000%	completed	2025-08-05 08:15:45.23856	2025-08-05 08:15:45.23856	amount	50000.00	0.00	0.00	normal	\N	\N
+751	HD1754384038	2025-08-05 08:53:57.727982	\N	925	ANH THUỶ - VỊT - ĐỨC HUY	1	783000.00	783000.00	Tiền mặt | 2 items | Giảm 75k | VAT 8%	completed	2025-08-05 08:53:57.727982	2025-08-05 08:53:57.727982	amount	75000.00	8.00	58000.00	normal	\N	\N
+757	INV2508060004	2025-08-06 09:39:19.718783	\N	873	THÚ Y KHANH THUỶ - VĨNH CỬU	1	2950000.00	0.00	Thanh toán debt: 0 VND, Ghi nợ: 2950000 VND, Phương thức: cash	partial	2025-08-06 09:39:19.718783	2025-08-06 09:39:19.718783	percentage	0.00	0.00	0.00	normal	\N	\N
+760	INV2508060007	2025-08-06 12:50:43.070254	\N	833	Thắng bida (test)	1	1760000.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 1260000 VND, Phương thức: cash	partial	2025-08-06 12:50:43.070254	2025-08-06 12:50:43.070254	amount	70000.00	10.00	160000.00	normal	\N	\N
+763	INV2508100010	2025-08-10 02:08:19.340138	\N	937	ANH TUẤN - VỊT - TÍN NGHĨA	1	1220000.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 720000 VND, Phương thức: card	partial	2025-08-10 02:08:19.340138	2025-08-10 02:08:19.340138	percentage	0.00	0.00	0.00	normal	\N	\N
+766	PAY1755245144	2025-08-15 08:05:43.962274	\N	833	Thắng bida (test)	1	10000000.00	10000000.00	Thu tiền nợ - Thanh toán công nợ	debt_payment	2025-08-15 08:05:43.962274	2025-08-15 08:05:43.962274	percentage	0.00	0.00	0.00	normal	\N	\N
+769	INV2508160013	2025-08-16 05:34:15.268621	\N	833	Thắng bida (test)	1	1995000.00	500000.00	Thanh toán partial: 500000 VND, Ghi nợ: 1495000 VND, Phương thức: cash	partial	2025-08-16 05:34:15.268621	2025-08-16 05:34:15.268621	amount	50000.00	5.00	95000.00	normal	\N	\N
+772	PAY1756038463	2025-08-24 12:27:42.557076	\N	835	CHỊ TRINH - VĨNH AN	1	6000000.00	6000000.00	Thu tiền nợ - gí nợ trên Vĩnh Cửu	debt_payment	2025-08-24 12:27:42.557076	2025-08-24 12:27:42.557076	percentage	0.00	0.00	0.00	normal	\N	\N
+775	INV2509030017	2025-09-03 06:19:33.52699	\N	1065	A HOÀNG HIẾU VỊT	1	185000.00	50000.00	Thanh toán partial: 50000 VND, Ghi nợ: 135000 VND, Phương thức: cash	partial	2025-09-03 06:19:33.52699	2025-09-03 06:19:33.52699	percentage	0.00	0.00	0.00	normal	\N	\N
 \.
 
 
@@ -8132,7 +8770,7 @@ COPY public.products (product_id, product_code, product_name, category_id, base_
 1628	SP000180	#ECOLI,BẠI HUYẾT RINGPU (250ml)	28	6	\N	Hàng hóa	\N	\N	\N	\N	\N	250000.00	175000.00	250000.00	84.00	0.00	79.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.373	2025-08-19 06:19:17.136
 1631	SP000177	#RỤT MỎ RINGPU (250ml)	34	6	\N	Hàng hóa	\N	\N	\N	\N	\N	180000.00	108905.67	180000.00	172.00	0.00	173.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:52.474	2025-08-19 06:19:18.103
 1737	SP000067	AGR AVITOXIN (1lit)	27	6	\N	Hàng hóa	\N	\N	\N	\N	\N	450000.00	295123.75	450000.00	1.00	0.00	2.00	0.00	500.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.539	2025-08-19 06:19:50.918
-1755	SP000049	#AGR POX (1000DS)	28	6	\N	Hàng hóa	\N	\N	\N	\N	\N	220000.00	162000.00	220000.00	5054.00	0.00	66.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.78	2025-08-19 06:19:56.424
+1755	SP000049	#AGR POX (1000DS)	28	6	\N	Hàng hóa	\N	\N	\N	\N	\N	220000.00	162000.00	220000.00	5053.00	0.00	66.00	0.00	500.00	t	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 06:48:53.78	2025-08-19 06:19:56.424
 1787	SP000738	AN-DINE ( lít)	33	1	\N	Hàng hóa	\N	\N	\N	\N	\N	180000.00	135000.00	180000.00	-1.00	0.00	-1.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:18.851	2025-08-19 06:16:29.138
 1789	SP000736	MARTYLAN (MARPHAVET)	31	1	\N	Hàng hóa	\N	\N	\N	\N	\N	150000.00	100000.00	150000.00	0.00	0.00	0.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:19.287	2025-08-19 06:16:29.752
 1818	SP000706	LUBE GEL	26	1	\N	Hàng hóa	\N	\N	\N	\N	\N	40000.00	20000.00	40000.00	0.00	0.00	0.00	0.00	50000000.00	f	f	\N	f	t	f	1.0000	\N	\N	t	2025-07-29 12:57:23.889	2025-08-19 06:16:38.559
@@ -8612,7 +9250,7 @@ SELECT pg_catalog.setval('public.customers_customer_id_seq', 1231, true);
 -- Name: debt_transactions_transaction_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.debt_transactions_transaction_id_seq', 29, true);
+SELECT pg_catalog.setval('public.debt_transactions_transaction_id_seq', 30, true);
 
 
 --
@@ -8633,21 +9271,21 @@ SELECT pg_catalog.setval('public.inbound_order_code_seq', 2, true);
 -- Name: invoice_code_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.invoice_code_seq', 17, true);
+SELECT pg_catalog.setval('public.invoice_code_seq', 18, true);
 
 
 --
 -- Name: invoice_details_detail_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.invoice_details_detail_id_seq', 2897, true);
+SELECT pg_catalog.setval('public.invoice_details_detail_id_seq', 2898, true);
 
 
 --
 -- Name: invoices_invoice_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.invoices_invoice_id_seq', 775, true);
+SELECT pg_catalog.setval('public.invoices_invoice_id_seq', 776, true);
 
 
 --
@@ -9421,6 +10059,20 @@ CREATE INDEX idx_invoices_invoice_date ON public.invoices USING btree (invoice_d
 --
 
 CREATE INDEX idx_invoices_status ON public.invoices USING btree (status);
+
+
+--
+-- Name: idx_invoices_temp_delivery_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoices_temp_delivery_date ON public.invoices USING btree (expected_delivery_date, invoice_type) WHERE ((invoice_type)::text = 'temp_order'::text);
+
+
+--
+-- Name: idx_invoices_temp_management; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoices_temp_management ON public.invoices USING btree (invoice_type, expected_delivery_date, status);
 
 
 --
